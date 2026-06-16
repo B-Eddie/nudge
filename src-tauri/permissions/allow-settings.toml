@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-settings"
+description = "Enables settings load/save and open/close commands."
+commands.allow = ["get_settings", "get_monitor_options", "get_app_category_options", "save_settings", "open_settings", "close_settings"]

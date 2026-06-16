@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-set-click-through"
+description = "Enables the set_click_through command."
+commands.allow = ["set_click_through"]

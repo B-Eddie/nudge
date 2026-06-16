@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-frontmost-app"
+description = "Enables querying the frontmost macOS application."
+commands.allow = ["get_frontmost_app"]

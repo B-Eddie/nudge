@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-activity"
+description = "Allows activity load/save commands."
+commands.allow = ["get_activity", "save_activity"]

@@ -1,0 +1,303 @@
+.settings-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: none;
+}
+
+.settings-panel {
+  font-family:
+    "PPMondwest-Regular",
+    "Pixelify Sans",
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    Liberation Mono,
+    Courier New,
+    monospace;
+  width: 100%;
+  max-width: 360px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(28, 28, 30, 0.92);
+  color: #f5f5f7;
+  overflow: hidden;
+  animation: settings-panel-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  font-size: 1.1rem;
+}
+
+@keyframes settings-panel-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.settings-header h2 {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.settings-close {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f5f5f7;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.settings-close:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 18px 22px;
+  max-height: min(70vh, 480px);
+  overflow-y: auto;
+  font-size: 1.1rem;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.settings-section-title {
+  margin: 0;
+  font-size: 1.08rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.settings-app-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background-color: rgba(0, 0, 0, 0.25);
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 1.05rem;
+}
+
+.settings-app-search input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 0;
+  border: none;
+  background: transparent;
+  color: #f5f5f7;
+  font: inherit;
+  font-size: 1rem;
+}
+
+.settings-app-search input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.settings-app-search input:focus {
+  outline: none;
+}
+
+.settings-app-search:focus-within {
+  border-color: rgba(99, 102, 241, 0.8);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+}
+
+.settings-app-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 220px;
+  overflow-y: auto;
+  font-size: 1rem;
+}
+
+.settings-app-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-app-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 1rem;
+  color: #f5f5f7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings-app-category {
+  flex-shrink: 0;
+  max-width: 180px;
+  padding: 8px 32px 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background-color: rgba(0, 0, 0, 0.25);
+  color: #f5f5f7;
+  font: inherit;
+  font-size: 1rem;
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 12 12'%3E%3Cpath fill='%23a1a1aa' d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 14px;
+}
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.settings-field input,
+.settings-field select {
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background-color: rgba(0, 0, 0, 0.25);
+  color: #f5f5f7;
+  font: inherit;
+  font-size: 1.06rem;
+}
+
+.settings-field select {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 170px;
+  padding-right: 36px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 12 12'%3E%3Cpath fill='%23a1a1aa' d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 14px;
+}
+
+.settings-field input:focus,
+.settings-field select:focus {
+  outline: none;
+  border-color: rgba(99, 102, 241, 0.8);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+}
+
+.settings-shortcut {
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background-color: rgba(0, 0, 0, 0.25);
+  color: #f5f5f7;
+  font: inherit;
+  font-size: 1.06rem;
+  text-align: left;
+  cursor: pointer;
+  letter-spacing: 0.08em;
+}
+
+.settings-shortcut:focus {
+  outline: none;
+  border-color: rgba(99, 102, 241, 0.8);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+}
+
+.settings-shortcut.recording {
+  border-color: rgba(103, 162, 83, 0.9);
+  box-shadow: 0 0 0 3px rgba(103, 162, 83, 0.25);
+  color: rgba(255, 255, 255, 0.7);
+  animation: settings-shortcut-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes settings-shortcut-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px rgba(103, 162, 83, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(103, 162, 83, 0.12);
+  }
+}
+
+.settings-hint {
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0;
+}
+
+.settings-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 22px 20px;
+}
+
+/* buttons */
+
+.settings-btn {
+  padding: 11px 19px;
+  border-radius: 8px;
+  border: none;
+  font: inherit;
+  font-size: 1.08rem;
+  cursor: pointer;
+}
+
+.settings-btn.secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f5f5f7;
+}
+
+.settings-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.settings-btn.primary {
+  background: #67a253;
+  color: white;
+}
+
+.settings-btn.primary:hover:not(:disabled) {
+  background: #5558e8;
+}
+
+.settings-btn.primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

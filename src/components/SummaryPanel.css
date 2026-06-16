@@ -1,0 +1,341 @@
+.summary-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: none;
+}
+
+.summary-panel {
+  font-family: "PPMondwest-Regular", "Pixelify Sans", ui-monospace,
+    SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New,
+    monospace;
+  width: 100%;
+  max-width: 360px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(28, 28, 30, 0.92);
+  color: #f5f5f7;
+  overflow: hidden;
+  animation: summary-panel-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  font-size: 1.1rem;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+@keyframes summary-panel-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.summary-header h2 {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.summary-close {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f5f5f7;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.summary-close:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* today / week tabs */
+
+.summary-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 12px 22px 0;
+}
+
+.summary-tab {
+  font-family: inherit;
+  font-size: 0.95rem;
+  padding: 5px 14px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+}
+
+.summary-tab:hover {
+  color: #f5f5f7;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.summary-tab.active {
+  background: rgba(162, 204, 58, 0.15);
+  border-color: rgba(162, 204, 58, 0.5);
+  color: #a2cc3a;
+}
+
+.summary-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 18px 22px 22px;
+  max-height: min(70vh, 480px);
+  overflow-y: auto;
+}
+
+/* hero stat cards */
+
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.summary-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 12px 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+  text-align: center;
+}
+
+.summary-card-value {
+  font-family: "PPNeueBit-Bold", "Pixelify Sans", monospace;
+  font-size: 1.7rem;
+  line-height: 1;
+  color: #a2cc3a;
+}
+
+.summary-card-label {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* sections */
+
+.summary-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.summary-section-title {
+  margin: 0;
+  font-size: 1.08rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.summary-hint {
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0;
+}
+
+/* energy meter */
+
+.energy-meter {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.energy-cells {
+  display: flex;
+  gap: 4px;
+}
+
+.energy-cell {
+  width: 22px;
+  height: 22px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.energy-meter.high .energy-cell.filled {
+  background: #a2cc3a;
+  border-color: #a2cc3a;
+  box-shadow: 0 0 6px rgba(162, 204, 58, 0.5);
+}
+
+.energy-meter.mid .energy-cell.filled {
+  background: #e0af68;
+  border-color: #e0af68;
+  box-shadow: 0 0 6px rgba(224, 175, 104, 0.5);
+}
+
+.energy-meter.low .energy-cell.filled {
+  background: #f7768e;
+  border-color: #f7768e;
+  box-shadow: 0 0 6px rgba(247, 118, 142, 0.5);
+}
+
+.energy-meter.recharging .energy-cell.filled {
+  animation: energy-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes energy-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.energy-label {
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* category breakdown */
+
+.summary-category-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.summary-category {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.summary-category-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.summary-category-name {
+  font-size: 1rem;
+  color: #f5f5f7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.summary-category-time {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.pixel-bar {
+  display: flex;
+  gap: 3px;
+}
+
+.pixel-cell {
+  flex: 1;
+  height: 12px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* week view: per-day bars */
+
+.week-day-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.week-day {
+  display: grid;
+  grid-template-columns: 44px 1fr 52px;
+  align-items: center;
+  gap: 10px;
+}
+
+.week-day-label {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.week-day.today .week-day-label {
+  color: #a2cc3a;
+}
+
+.week-day-time {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: right;
+}
+
+.pixel-cell.week-filled {
+  background: #7aa2f7;
+}
+
+.week-day.today .pixel-cell.week-filled {
+  background: #a2cc3a;
+}
+
+/* terminal-style log */
+
+.summary-log {
+  list-style: none;
+  margin: 0;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.summary-log li::before {
+  content: "> ";
+  color: #a2cc3a;
+}
+
+.summary-log li.summary-log-warn {
+  color: #f7768e;
+}
+
+.summary-log li.summary-log-warn::before {
+  content: "! ";
+  color: #f7768e;
+}

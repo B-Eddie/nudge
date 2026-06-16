@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-input-monitor"
+description = "Enables querying seconds since the last user input event."
+commands.allow = ["get_seconds_since_last_input"]

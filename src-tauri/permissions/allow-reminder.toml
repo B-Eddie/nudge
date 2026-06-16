@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-reminder"
+description = "Allows resetting the reminder/energy-drain timer."
+commands.allow = ["reset_reminder_timer"]
