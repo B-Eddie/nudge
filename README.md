@@ -49,3 +49,10 @@ npm run tauri dev
 # or build a release bundle
 npm run tauri build
 ```
+
+TO ADD:
+- weird thing on back (setting backdrop)
+- change color of stat hover based on background
+- adding notes for it to tell you on next timeevent
+- onboarding
+- no text select on settings popup
