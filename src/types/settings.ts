@@ -10,9 +10,13 @@ export interface Settings {
   monitor_index: number;
   reminder_interval_mins: number; // default 30 mins - in mins
   position: string;
-  // Global shortcut that hides nudge and pauses tracking, e.g. "Cmd+Shift+KeyP"
+  // Global shortcut that hides the character, e.g. "Cmd+Shift+KeyP"
   pause_shortcut: string;
   app_categories: Record<string, AppCategoryEntry>;
+  onboarding_complete?: boolean;
+  pending_notes?: string[];
+  /** Minutes without input before an automatic break (default 5). */
+  auto_idle_break_mins?: number;
 }
 
 export interface MonitorOption {

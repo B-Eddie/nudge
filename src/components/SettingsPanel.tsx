@@ -24,6 +24,8 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   const [monitorOptions, setMonitorOptions] = useState<MonitorOption[]>([]);
   const [categoryOptions, setCategoryOptions] = useState<CategoryOption[]>([]);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [appSearch, setAppSearch] = useState("");
   const [recordingShortcut, setRecordingShortcut] = useState(false);
   const [pendingShortcut, setPendingShortcut] = useState<string | null>(null);
@@ -66,15 +68,26 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
   // set setting options
   useEffect(() => {
+    let cancelled = false;
+    setLoadError(false);
     void Promise.all([
       invoke<Settings>("get_settings"),
       fetchMonitorOptions(),
       fetchAppCategoryOptions(),
-    ]).then(([settings, monitors, categories]) => {
-      setDraft(settings);
-      setMonitorOptions(monitors);
-      setCategoryOptions(categories);
-    });
+    ])
+      .then(([settings, monitors, categories]) => {
+        if (cancelled) return;
+        setDraft(settings);
+        setMonitorOptions(monitors);
+        setCategoryOptions(categories);
+      })
+      .catch((err) => {
+        console.error("Failed to load settings:", err);
+        if (!cancelled) setLoadError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const sortedApps = useMemo(() => {
@@ -128,10 +141,14 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   const handleSave = useCallback(async () => {
     if (!draft) return;
     setSaving(true); // change button states
+    setSaveError(null);
 
     try {
       await invoke("save_settings", { settings: draft });
       onClose();
+    } catch (err) {
+      console.error("Failed to save settings:", err);
+      setSaveError("Couldn't save settings. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -141,7 +158,44 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     if (e.target === e.currentTarget) onClose();
   };
 
-  if (!draft) return null;
+  // Render the panel chrome immediately so opening settings never shows a
+  // blank window while the draft loads.
+  if (!draft) {
+    return (
+      <div
+        className="settings-backdrop interactive"
+        onClick={handleBackdropClick}
+        role="presentation"
+      >
+        <div
+          className="settings-panel"
+          role="dialog"
+          aria-labelledby="settings-title"
+        >
+          <header className="settings-header">
+            <h2 id="settings-title">Settings</h2>
+            <button
+              type="button"
+              className="settings-close"
+              onClick={onClose}
+              aria-label="Close settings"
+            >
+              <LuX size={15} />
+            </button>
+          </header>
+          <div className="settings-body">
+            {loadError ? (
+              <p className="settings-status error">
+                Couldn't load your settings. Close this panel and try again.
+              </p>
+            ) : (
+              <p className="settings-status">Loading settings…</p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -219,7 +273,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
           </label>
 
           <div className="settings-field">
-            <span>Pause tracking shortcut</span>
+            <span>Hide character shortcut</span>
             <button
               type="button"
               className={`settings-shortcut ${recordingShortcut ? "recording" : ""}`}
@@ -230,7 +284,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                 }
               }}
               onBlur={stopRecordingShortcut}
-              aria-label="Pause tracking shortcut"
+              aria-label="Hide character shortcut"
             >
               {recordingShortcut
                 ? pendingShortcut
@@ -241,7 +295,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             <p className="settings-hint">
               {recordingShortcut
                 ? "Hold your new combo, then press Esc to keep it."
-                : "Hides nudge and makes it click-through, but keeps tracking your activity; press it again to come back. Click the box, hold a combo, then press Esc to rebind."}
+                : "Hides only the character; tracking and reminders keep running. Press it again to show the character. Click the box, hold a combo, then press Esc to rebind."}
             </p>
           </div>
 
@@ -294,6 +348,11 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
         </div>
 
         <footer className="settings-footer">
+          {saveError && (
+            <p className="settings-error" role="alert">
+              {saveError}
+            </p>
+          )}
           <button
             type="button"
             className="settings-btn secondary"

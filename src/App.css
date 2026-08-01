@@ -14,6 +14,69 @@
   font-style: normal;
 }
 
+/* Shared pixel theme. Every panel pulls from these tokens so the whole app
+   reads as one consistent surface instead of per-file color drift. */
+:root {
+  --font-body:
+    "PPMondwest-Regular",
+    "Pixelify Sans",
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    "Courier New",
+    monospace;
+  --font-display:
+    "PPNeueBit-Bold",
+    "Pixelify Sans",
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    "Courier New",
+    monospace;
+
+  --panel-bg: rgba(28, 28, 30, 0.94);
+  --panel-border: rgba(255, 255, 255, 0.12);
+  --panel-radius: 14px;
+  --surface: rgba(0, 0, 0, 0.25);
+  --surface-raised: rgba(255, 255, 255, 0.08);
+  --surface-raised-hover: rgba(255, 255, 255, 0.14);
+  --divider: rgba(255, 255, 255, 0.08);
+
+  --text: #f5f5f7;
+  --text-strong: rgba(255, 255, 255, 0.85);
+  --text-dim: rgba(255, 255, 255, 0.65);
+  --text-muted: rgba(255, 255, 255, 0.5);
+  --text-faint: rgba(255, 255, 255, 0.4);
+
+  --accent: #a2cc3a;
+  --accent-strong: #67a253;
+  --accent-strong-hover: #79b563;
+  --danger: #f7768e;
+  --warn: #e0af68;
+  --info: #7aa2f7;
+
+  --focus-border: rgba(162, 204, 58, 0.8);
+  --focus-ring: 0 0 0 3px rgba(162, 204, 58, 0.22);
+}
+
+/* Single shared entrance animation for every panel */
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
 html,
 body,
 #root {
@@ -24,22 +87,16 @@ body,
   background: transparent !important;
   background-color: transparent !important;
   pointer-events: none;
-  font-family:
-    "PPMondwest-Bold",
-    "Pixelify Sans",
-    ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    Monaco,
-    Consolas,
-    Liberation Mono,
-    Courier New,
-    monospace;
+  font-family: var(--font-body);
 }
 
 .interactive,
 .interactive * {
   pointer-events: auto;
+}
+
+html.overlay-suppressed main.container {
+  display: none !important;
 }
 
 main {
@@ -48,16 +105,11 @@ main {
 }
 
 main.hidden {
-  visibility: hidden;
+  display: none;
 }
 
-#messages {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: 100%;
-  margin-bottom: -0.5em;
-  font-size: 0.5em;
+.messages {
+  position: relative;
   width: max-content;
   min-width: 10vw;
   max-width: 40vw;
@@ -65,34 +117,63 @@ main.hidden {
   display: block;
   white-space: pre-line;
   word-break: break-word;
-  transition:
-    width 0.2s cubic-bezier(0.37, 1.81, 0.63, -0.3),
-    min-width 0.2s,
-    max-width 0.2s;
-
   border-radius: 10px;
   padding: 0.325em 0.7em;
   box-sizing: border-box;
 }
 
-#messages .messages-text {
+.messages--pinned {
+  padding-top: 1.4em;
+  padding-right: 1.6em;
+}
+
+.messages-close {
+  position: absolute;
+  top: 0.3em;
+  right: 0.35em;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25em;
+  height: 1.25em;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #fff;
+  mix-blend-mode: difference;
+  cursor: pointer;
+  opacity: 0.85;
+}
+
+.messages-close:hover {
+  opacity: 1;
+}
+
+.messages-close:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 2px;
+}
+
+.messages .messages-text {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   display: block;
   color: #fff;
   mix-blend-mode: difference;
 }
 
-#messages::before {
+.messages::before {
   content: "";
   position: absolute;
   inset: 0;
   z-index: 0;
   border-radius: 10px;
-  box-shadow: inset 0 0 12px -4px rgba(255, 255, 255, 0.7);
+  box-shadow: inset 0 0 12px -4px rgba(255, 255, 255, 0);
 }
 
-#messages::after {
+.messages::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -102,14 +183,42 @@ main.hidden {
   -webkit-backdrop-filter: blur(12px);
 }
 
+#messages {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 100%;
+  margin-bottom: -0.5em;
+  font-size: 0.5em;
+  z-index: 10;
+  pointer-events: auto;
+  transition:
+    width 0.2s cubic-bezier(0.37, 1.81, 0.63, -0.3),
+    min-width 0.2s,
+    max-width 0.2s;
+}
+
 #characterMain {
+  display: block;
+  flex-shrink: 0;
+  width: 100%;
+  /* `pixelated` keeps hard pixel edges when upscaling on Retina/high-DPI
+     displays; `crisp-edges` stays as a fallback for engines without it. */
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
   filter: drop-shadow(0 0 1px #fff);
 }
 
-.character {
-  position: absolute;
-  width: 40vw;
-  overflow: visible;
+/* Keep filter paint contained so hover text can blend with the desktop */
+.character-figure {
+  flex-shrink: 0;
+  width: 100%;
+  isolation: isolate;
+}
+
+.character img {
+  display: block;
+  width: 100%;
 }
 
 /* different styles for which corner the window is on */
@@ -131,62 +240,115 @@ main.hidden {
 }
 
 .character {
+  position: absolute;
   display: flex;
   flex-direction: row;
-  overflow: visible;
-  width: 40vw;
   align-items: center;
+  width: 40vw;
+  overflow: visible;
 }
 
-.character img {
-  display: block;
-  flex-shrink: 0;
-  width: 100%;
-  image-rendering: crisp-edges;
-}
-
-/* outlikne when character hovered */
+/* outline when character hovered */
 .character.hovered #characterMain {
   filter: drop-shadow(2px 0 0 #fff) drop-shadow(-2px 0 0 #fff)
     drop-shadow(0 2px 0 #fff) drop-shadow(0 -2px 0 #fff);
+  transition: none;
 }
 
 #hoverInfo {
-  font-family:
-    "PPMondwest-Regular",
-    "Pixelify Sans",
-    ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    Monaco,
-    Consolas,
-    Liberation Mono,
-    Courier New,
-    monospace;
   position: absolute;
-  font-size: 5vw;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2em;
+  font-size: 10vw;
+  line-height: 1;
 }
+
+#hoverInfo .hoverInfo-stat {
+  position: relative;
+  margin: 0;
+  padding: 0;
+}
+
+/* WebKit won't blend against the desktop through a transparent window without
+   this invisible sampler — blur is sub-pixel so there's no frosted panel. */
+#hoverInfo .hoverInfo-stat::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  backdrop-filter: blur(0.001px);
+  -webkit-backdrop-filter: blur(0.001px);
+}
+
+#hoverInfo .hoverInfo-text {
+  position: relative;
+  z-index: 1;
+  display: block;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1em;
+  font-weight: bold;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: #fff;
+  mix-blend-mode: difference;
+}
+
+#hoverInfo .energy-bars {
+  display: flex;
+  flex-direction: row;
+  gap: 0.08em;
+}
+
+#hoverInfo .energy-bar {
+  width: 0.8em;
+  height: 0.8em;
+  border-radius: 0.06em;
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  box-sizing: border-box;
+}
+
+#hoverInfo .energy-bar.filled {
+  background: var(--accent);
+}
+
+#hoverInfo .energy-bar.empty {
+  background: var(--danger);
+}
+
 .character.hovered #hoverInfo {
   display: block !important;
 }
-/* popup when character hovered */
+/* popup when character hovered — offset past the character outline */
 .character.pos-bl.hovered #hoverInfo,
 .character.pos-tl.hovered #hoverInfo {
-  left: 40vw;
+  left: calc(40vw + 6px);
 }
 .character.pos-br.hovered #hoverInfo,
 .character.pos-tr.hovered #hoverInfo {
-  right: 40vw;
+  right: calc(40vw + 6px);
 }
 
 /* wedge fans towards using angle from tsx */
-.radial-menu {
+.radial-menu-wrap {
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
   overflow: visible;
   z-index: 1;
+}
+
+.radial-menu-wrap--closed {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.radial-menu {
+  display: block;
+  overflow: visible;
 }
 
 .menu-slice {
@@ -197,8 +359,9 @@ main.hidden {
   transition: fill 0.12s ease;
 }
 
-.slice-group:hover .menu-slice {
-  fill: #a2cc3a;
+.slice-group:hover .menu-slice,
+.slice-group.active .menu-slice {
+  fill: var(--accent);
 }
 
 /* icons aren't selectable */

@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-pending-notes"
+description = "Enables queued reminder note commands."
+commands.allow = [
+  "get_pending_notes",
+  "add_pending_note",
+  "remove_pending_note",
+  "pop_pending_note",
+]

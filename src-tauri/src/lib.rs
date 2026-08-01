@@ -5,21 +5,26 @@ use std::time::Duration;
 use tauri::{Emitter, Manager};
 mod activity;
 mod app_categories;
+mod auto_break;
 mod settings;
 pub use activity::{get_activity, persist_activity, save_activity, ActivityStore};
 pub use app_categories::get_app_category_options;
 pub use settings::{
     get_settings, get_monitor_options, save_settings, close_settings, open_settings,
-    move_to_settings_monitor, register_pause_shortcut, AppState, MonitorOption, Settings,
+    move_to_settings_monitor, register_pause_shortcut, pop_pending_note, add_pending_note,
+    get_pending_notes, remove_pending_note,
+    AppState, MonitorOption, Settings,
 };
 
 
 #[cfg(target_os = "macos")]
-use cocoa::appkit::{NSEvent, NSColor, NSWindow, NSWindowCollectionBehavior, NSWindowStyleMask};
+use cocoa::appkit::{NSEvent, NSColor, NSWindow};
 #[cfg(target_os = "macos")]
-use cocoa::base::{id, nil, NO, YES};
+use cocoa::base::{id, nil, BOOL, NO, YES};
 #[cfg(target_os = "macos")]
-use cocoa::foundation::NSPoint;
+use cocoa::foundation::{NSPoint, NSString};
+#[cfg(target_os = "macos")]
+use objc::runtime::Class;
 #[cfg(target_os = "macos")]
 use objc::{class, msg_send, sel, sel_impl};
 
@@ -55,6 +60,158 @@ fn set_click_through(app: tauri::AppHandle, pass_through: bool) -> Result<(), St
         })
         .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+/// Nudge AppKit/WebKit to repaint after overlay UI changes. Transparent panels can
+/// leave stale IOSurface layers on some Mac GPUs if the window is not invalidated.
+#[tauri::command]
+fn invalidate_overlay_display(app: tauri::AppHandle) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let window = app
+            .get_webview_window("main")
+            .ok_or_else(|| "main window not found".to_string())?;
+        let w = window.clone();
+        window
+            .run_on_main_thread(move || invalidate_overlay_window(&w))
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
+
+#[cfg(target_os = "macos")]
+static OVERLAY_PANEL_READY: AtomicBool = AtomicBool::new(false);
+
+#[cfg(target_os = "macos")]
+unsafe fn configure_view_transparency(view: id) {
+    if view == nil {
+        return;
+    }
+
+    if let Some(wk_class) = Class::get("WKWebView") {
+        let is_wk: BOOL = msg_send![view, isKindOfClass: wk_class];
+        if is_wk == YES {
+            let no: id = msg_send![class!(NSNumber), numberWithBool: NO];
+            let key = NSString::alloc(nil).init_str("drawsBackground");
+            let _: () = msg_send![view, setValue: no forKey: key];
+        }
+    }
+
+    let subviews: id = msg_send![view, subviews];
+    let count: usize = msg_send![subviews, count];
+    for i in 0..count {
+        let sub: id = msg_send![subviews, objectAtIndex: i];
+        configure_view_transparency(sub);
+    }
+}
+
+#[cfg(target_os = "macos")]
+unsafe fn configure_transparent_layers(window: &tauri::WebviewWindow) {
+    let Ok(ns_window_ptr) = window.ns_window() else {
+        return;
+    };
+    let ns_window = ns_window_ptr as id;
+    let clear = NSColor::clearColor(nil);
+    let _: () = msg_send![ns_window, setOpaque: NO];
+    let _: () = msg_send![ns_window, setBackgroundColor: clear];
+    let _: () = msg_send![ns_window, setHasShadow: NO];
+
+    let content_view: id = msg_send![ns_window, contentView];
+    configure_view_transparency(content_view);
+}
+
+#[cfg(target_os = "macos")]
+fn invalidate_overlay_window(window: &tauri::WebviewWindow) {
+    unsafe {
+        let Ok(ns_window_ptr) = window.ns_window() else {
+            return;
+        };
+        let ns_window = ns_window_ptr as id;
+        let content_view: id = msg_send![ns_window, contentView];
+        invalidate_view_display(content_view);
+        let _: () = msg_send![ns_window, displayIfNeeded];
+    }
+}
+
+#[cfg(target_os = "macos")]
+unsafe fn invalidate_view_display(view: id) {
+    if view == nil {
+        return;
+    }
+
+    let _: () = msg_send![view, setNeedsDisplay: YES];
+    let _: () = msg_send![view, displayIfNeeded];
+
+    let subviews: id = msg_send![view, subviews];
+    let count: usize = msg_send![subviews, count];
+    for i in 0..count {
+        let sub: id = msg_send![subviews, objectAtIndex: i];
+        invalidate_view_display(sub);
+    }
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn configure_macos_overlay_window(window: &tauri::WebviewWindow, app: &tauri::AppHandle) {
+    use tauri_nspanel::{
+        cocoa::appkit::NSWindowCollectionBehavior, ManagerExt, WebviewWindowExt,
+    };
+
+    const NS_NONACTIVATING_PANEL_MASK: i32 = 1 << 7;
+    const NS_STATUS_WINDOW_LEVEL: i32 = 25;
+
+    let panel = if OVERLAY_PANEL_READY.load(AtomicOrdering::SeqCst) {
+        match app.get_webview_panel("main") {
+            Ok(panel) => panel,
+            Err(e) => {
+                eprintln!("overlay panel not found: {e:?}");
+                return;
+            }
+        }
+    } else {
+        match window.to_panel() {
+            Ok(panel) => {
+                OVERLAY_PANEL_READY.store(true, AtomicOrdering::SeqCst);
+                panel
+            }
+            Err(e) => {
+                eprintln!("failed to convert overlay to NSPanel: {e}");
+                return;
+            }
+        }
+    };
+
+    panel.set_style_mask(NS_NONACTIVATING_PANEL_MASK);
+    panel.set_floating_panel(true);
+    panel.set_becomes_key_only_if_needed(true);
+    panel.set_level(NS_STATUS_WINDOW_LEVEL);
+    panel.set_hides_on_deactivate(false);
+    panel.set_collection_behaviour(
+        NSWindowCollectionBehavior::NSWindowCollectionBehaviorFullScreenAuxiliary
+            | NSWindowCollectionBehavior::NSWindowCollectionBehaviorCanJoinAllSpaces,
+    );
+    panel.order_front_regardless();
+    unsafe {
+        configure_transparent_layers(window);
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn ensure_overlay_on_active_space(window: &tauri::WebviewWindow) {
+    let app = window.app_handle();
+    let Ok(ns_window_ptr) = window.ns_window() else {
+        return;
+    };
+
+    unsafe {
+        let ns_window = ns_window_ptr as id;
+        let on_active_space: BOOL = msg_send![ns_window, isOnActiveSpace];
+        if on_active_space == NO {
+            configure_macos_overlay_window(window, &app);
+        }
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -104,13 +261,139 @@ fn emit_cursor_position(window: &tauri::WebviewWindow) {
 #[cfg(target_os = "macos")]
 fn start_cursor_monitor(window: tauri::WebviewWindow) {
     std::thread::spawn(move || {
+        let mut ticks: u64 = 0;
         loop {
             std::thread::sleep(Duration::from_millis(16));
+            ticks += 1;
             let w = window.clone();
             let w2 = w.clone();
-            let _ = w.run_on_main_thread(move || emit_cursor_position(&w2));
+            let _ = w.run_on_main_thread(move || {
+                emit_cursor_position(&w2);
+                if ticks % 60 == 0 {
+                    ensure_overlay_on_active_space(&w2);
+                }
+            });
         }
     });
+}
+
+#[cfg(target_os = "macos")]
+fn start_space_monitor(window: tauri::WebviewWindow) {
+    use objc::declare::ClassDecl;
+    use objc::runtime::{Class, Object};
+    use std::sync::OnceLock;
+
+    static OVERLAY_WINDOW: OnceLock<tauri::WebviewWindow> = OnceLock::new();
+    let _ = OVERLAY_WINDOW.set(window);
+
+    extern "C" fn workspace_changed(_this: &Object, _cmd: objc::runtime::Sel, _note: id) {
+        let _ = _this;
+        let _ = _note;
+        if let Some(window) = OVERLAY_WINDOW.get() {
+            let w = window.clone();
+            let w2 = w.clone();
+            let app = w.app_handle().clone();
+            let _ = w.run_on_main_thread(move || configure_macos_overlay_window(&w2, &app));
+        }
+    }
+
+    unsafe {
+        static OBSERVER_CLASS: OnceLock<&'static Class> = OnceLock::new();
+        let observer_class = OBSERVER_CLASS.get_or_init(|| {
+            if let Some(existing) = Class::get("NudgeSpaceObserver") {
+                return existing;
+            }
+            let superclass = class!(NSObject);
+            let mut decl = ClassDecl::new("NudgeSpaceObserver", superclass).unwrap();
+            decl.add_method(
+                sel!(workspaceChanged:),
+                workspace_changed as extern "C" fn(&Object, objc::runtime::Sel, id),
+            );
+            decl.register()
+        });
+
+        let observer: id = msg_send![*observer_class, new];
+        let workspace: id = msg_send![class!(NSWorkspace), sharedWorkspace];
+        let notification_center: id = msg_send![workspace, notificationCenter];
+        let notifications = [
+            "NSWorkspaceActiveSpaceDidChangeNotification",
+            "NSWorkspaceDidActivateApplicationNotification",
+        ];
+        for name in notifications {
+            let notification_name = NSString::alloc(nil).init_str(name);
+            let _: () = msg_send![
+                notification_center,
+                addObserver:observer
+                selector:sel!(workspaceChanged:)
+                name:notification_name
+                object:nil
+            ];
+        }
+        let _: () = msg_send![observer, retain];
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn start_power_monitor(window: tauri::WebviewWindow) {
+    use objc::declare::ClassDecl;
+    use objc::runtime::{Class, Object};
+    use std::sync::OnceLock;
+
+    static OVERLAY_WINDOW: OnceLock<tauri::WebviewWindow> = OnceLock::new();
+    let _ = OVERLAY_WINDOW.set(window);
+
+    extern "C" fn system_will_sleep(_this: &Object, _cmd: objc::runtime::Sel, _note: id) {
+        let _ = (_this, _note);
+        if let Some(window) = OVERLAY_WINDOW.get() {
+            let _ = window.emit("system-will-sleep", ());
+        }
+    }
+
+    extern "C" fn system_did_wake(_this: &Object, _cmd: objc::runtime::Sel, _note: id) {
+        let _ = (_this, _note);
+        if let Some(window) = OVERLAY_WINDOW.get() {
+            let _ = window.emit("system-did-wake", ());
+        }
+    }
+
+    unsafe {
+        static OBSERVER_CLASS: OnceLock<&'static Class> = OnceLock::new();
+        let observer_class = OBSERVER_CLASS.get_or_init(|| {
+            if let Some(existing) = Class::get("NudgePowerObserver") {
+                return existing;
+            }
+            let superclass = class!(NSObject);
+            let mut decl = ClassDecl::new("NudgePowerObserver", superclass).unwrap();
+            decl.add_method(
+                sel!(systemWillSleep:),
+                system_will_sleep as extern "C" fn(&Object, objc::runtime::Sel, id),
+            );
+            decl.add_method(
+                sel!(systemDidWake:),
+                system_did_wake as extern "C" fn(&Object, objc::runtime::Sel, id),
+            );
+            decl.register()
+        });
+
+        let observer: id = msg_send![*observer_class, new];
+        let workspace: id = msg_send![class!(NSWorkspace), sharedWorkspace];
+        let notification_center: id = msg_send![workspace, notificationCenter];
+        let notifications = [
+            ("NSWorkspaceWillSleepNotification", sel!(systemWillSleep:)),
+            ("NSWorkspaceDidWakeNotification", sel!(systemDidWake:)),
+        ];
+        for (name, selector) in notifications {
+            let notification_name = NSString::alloc(nil).init_str(name);
+            let _: () = msg_send![
+                notification_center,
+                addObserver:observer
+                selector:selector
+                name:notification_name
+                object:nil
+            ];
+        }
+        let _: () = msg_send![observer, retain];
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -243,9 +526,44 @@ fn get_frontmost_app(app: tauri::AppHandle) -> Result<Option<FrontmostApp>, Stri
     }
 }
 
+#[derive(Clone, serde::Serialize)]
+struct AutoBreakStatus {
+    idle_seconds: f64,
+    idle_threshold_seconds: u64,
+    should_auto_break: bool,
+    defer_auto_break: bool,
+    defer_reason: Option<String>,
+}
+
+#[tauri::command]
+fn get_auto_break_status(app: tauri::AppHandle) -> Result<AutoBreakStatus, String> {
+    let idle_seconds = get_seconds_since_last_input();
+    let settings = Settings::load(&app)?;
+    let front = get_frontmost_app(app.clone())?;
+    let bundle_id = front.as_ref().and_then(|info| info.bundle_id.as_deref());
+    let category = front.as_ref().map(|info| info.category.as_str());
+    let status = auto_break::evaluate_auto_break(
+        &app,
+        idle_seconds,
+        &settings,
+        bundle_id,
+        category,
+    );
+    Ok(AutoBreakStatus {
+        idle_seconds: status.idle_seconds,
+        idle_threshold_seconds: status.idle_threshold_seconds,
+        should_auto_break: status.should_auto_break,
+        defer_auto_break: status.defer_auto_break,
+        defer_reason: status.defer_reason,
+    })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    #[cfg(target_os = "macos")]
+    let builder = builder.plugin(tauri_nspanel::init());
+    builder
         .plugin(tauri_plugin_positioner::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
@@ -268,9 +586,15 @@ pub fn run() {
             get_frontmost_app,
             get_app_category_options,
             get_seconds_since_last_input,
+            get_auto_break_status,
             get_activity,
             save_activity,
             reset_reminder_timer,
+            pop_pending_note,
+            add_pending_note,
+            get_pending_notes,
+            remove_pending_note,
+            invalidate_overlay_display,
         ])
         .setup(|app| {
             app.manage(ActivityStore::load(app.handle()));
@@ -299,22 +623,9 @@ pub fn run() {
             }
 
             #[cfg(target_os = "macos")]
-            unsafe {
-                let ns_window = window.ns_window().unwrap() as id;
-
-                let mut current_mask = ns_window.styleMask();
-                current_mask.remove(NSWindowStyleMask::NSResizableWindowMask);
-                ns_window.setStyleMask_(current_mask);
-                ns_window.setMovable_(NO);
-                ns_window.setBackgroundColor_(NSColor::clearColor(nil));
-
-                ns_window.setCollectionBehavior_(
-                    NSWindowCollectionBehavior::NSWindowCollectionBehaviorCanJoinAllSpaces
-                        | NSWindowCollectionBehavior::NSWindowCollectionBehaviorStationary,
-                );
-
+            {
+                let _ = window.set_visible_on_all_workspaces(true);
                 set_ignores_mouse_events(&window, true);
-                start_cursor_monitor(window.clone());
             }
 
             #[cfg(not(target_os = "macos"))]
@@ -370,7 +681,7 @@ pub fn run() {
                         }
                     }
 
-                    if seconds_passed >= target_interval_secs {
+                    if target_interval_secs > 0 && seconds_passed >= target_interval_secs {
                         let _ = app_handle.emit("show-reminder", ());
                         reminder_elapsed.store(0, Ordering::SeqCst);
                     }
@@ -382,6 +693,16 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app_handle, event| {
+            if let tauri::RunEvent::Ready = event {
+                #[cfg(target_os = "macos")]
+                if let Some(window) = app_handle.get_webview_window("main") {
+                    let _ = app_handle.set_activation_policy(tauri::ActivationPolicy::Accessory);
+                    configure_macos_overlay_window(&window, app_handle);
+                    start_cursor_monitor(window.clone());
+                    start_space_monitor(window.clone());
+                    start_power_monitor(window);
+                }
+            }
             if let tauri::RunEvent::ExitRequested { .. } = event {
                 if let Err(e) = persist_activity(app_handle) {
                     eprintln!("Failed to save activity on exit: {e}");

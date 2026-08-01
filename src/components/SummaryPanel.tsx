@@ -315,7 +315,7 @@ export function SummaryPanel({
           <div className="summary-body">
             {categories.entries.length !== 0 ? (
               <>
-                <h3 style={{ padding: 0, margin: 0, color: "lightgray" }}>
+                <h3 className="summary-persona">
                   {(() => {
                     const [topCategory] = categories.entries[0] || [];
                     // titles based on top category
@@ -337,36 +337,11 @@ export function SummaryPanel({
                     }
                   })()}
                 </h3>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5em",
-                    margin: 0,
-                  }}
-                >
-                  <span
-                    style={{
-                      background: "#444",
-                      color: "#fff",
-                      borderRadius: "1em",
-                      padding: "0.15em 0.75em",
-                      fontWeight: "bold",
-                      fontSize: "1em",
-                      letterSpacing: "0.01em",
-                      boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
-                    }}
-                  >
+                <div className="summary-persona-row">
+                  <span className="summary-persona-chip">
                     {categories.entries[0] && categories.entries[0][0]}
                   </span>
-                  <span
-                    style={{
-                      fontSize: "0.9em",
-                      color: "var(--text-tertiary, #aaa)",
-                    }}
-                  >
-                    top category
-                  </span>
+                  <span className="summary-persona-caption">top category</span>
                 </div>
               </>
             ) : null}
@@ -451,7 +426,8 @@ export function SummaryPanel({
                 {stats.breaksInterrupted > 0 && (
                   <li className="summary-log-warn">
                     {stats.breaksInterrupted}{" "}
-                    {stats.breaksInterrupted === 1 ? "break" : "breaks"} cut short. stay off the keyboard next time!
+                    {stats.breaksInterrupted === 1 ? "break" : "breaks"} cut
+                    short. stay off the keyboard next time!
                   </li>
                 )}
               </ul>
@@ -547,7 +523,8 @@ export function SummaryPanel({
                 {week.breaksInterrupted > 0 && (
                   <li className="summary-log-warn">
                     {week.breaksInterrupted}{" "}
-                    {week.breaksInterrupted === 1 ? "break" : "breaks"} cut short this week
+                    {week.breaksInterrupted === 1 ? "break" : "breaks"} cut
+                    short this week
                   </li>
                 )}
               </ul>

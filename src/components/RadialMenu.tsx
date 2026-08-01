@@ -1,5 +1,5 @@
 import type { IconType } from "react-icons";
-import { FaPause, FaChartSimple } from "react-icons/fa6";
+import { FaPause, FaChartSimple, FaNoteSticky } from "react-icons/fa6";
 import { FaPlay } from "react-icons/fa";
 import { IoMdSettings } from "react-icons/io";
 
@@ -7,29 +7,28 @@ interface RadialAction {
   action: string;
   Icon: IconType;
   label: string;
+  isNote?: boolean;
 }
 
-// Accept the "break" prop. 0 = show break, otherwise show endbreak
 interface RadialMenuProps {
   position: string;
   break: number;
+  open: boolean;
 }
 
-// Starting angle (degrees, screen coords: 0 = right, 90 = down) so the menu always fans toward the edges
 const QUADRANT_START: Record<string, number> = {
-  bl: -90, // up-right
-  tl: 0, //   down-right
-  tr: 90, //  down-left
-  br: 180, // up-left
+  bl: -90,
+  tl: 0,
+  tr: 90,
+  br: 180,
 };
 
-// Radius values for spacings
 const INNER_R = 70;
 const OUTER_R = 116;
 const ICON_R = (INNER_R + OUTER_R) / 2;
 const PAD = 6;
 const VIEW = OUTER_R + PAD;
-const ICON_SIZE = 24;
+const ICON_SIZE = 22;
 
 function polar(r: number, deg: number): { x: number; y: number } {
   const a = (deg * Math.PI) / 180;
@@ -50,52 +49,63 @@ function sectorPath(a0: number, a1: number): string {
   ].join(" ");
 }
 
-export function RadialMenu({ position, break: breakState }: RadialMenuProps) {
-  // use js to add options
+export function RadialMenu({
+  position,
+  break: breakState,
+  open,
+}: RadialMenuProps) {
   const ACTIONS: RadialAction[] = [
     breakState === 0
       ? { action: "break", Icon: FaPause, label: "Take a break" }
       : { action: "endbreak", Icon: FaPlay, label: "End break" },
     { action: "summary", Icon: FaChartSimple, label: "Activity summary" },
     { action: "settings", Icon: IoMdSettings, label: "Settings" },
+    { action: "note", Icon: FaNoteSticky, label: "Reminder note", isNote: true },
   ];
 
   const start = QUADRANT_START[position] ?? QUADRANT_START.bl;
   const step = 90 / ACTIONS.length;
 
   return (
-    <svg
-      className="radial-menu"
-      width={VIEW * 2}
-      height={VIEW * 2}
-      viewBox={`${-VIEW} ${-VIEW} ${VIEW * 2} ${VIEW * 2}`}
+    <div
+      className={`radial-menu-wrap${open ? "" : " radial-menu-wrap--closed"}`}
+      aria-hidden={!open}
     >
-      {ACTIONS.map(({ action, Icon, label }, i) => {
-        const a0 = start + i * step;
-        const a1 = start + (i + 1) * step;
-        const mid = (a0 + a1) / 2;
-        const c = polar(ICON_R, mid);
-        return (
-          <g
-            key={action}
-            className="slice-group"
-            data-action={action}
-            role="button"
-            aria-label={label}
-          >
-            <path className="menu-slice" d={sectorPath(a0, a1)} />
+      <svg
+        className="radial-menu"
+        width={VIEW * 2}
+        height={VIEW * 2}
+        viewBox={`${-VIEW} ${-VIEW} ${VIEW * 2} ${VIEW * 2}`}
+      >
+        {ACTIONS.map(({ action, Icon, label, isNote }, i) => {
+          const a0 = start + i * step;
+          const a1 = start + (i + 1) * step;
+          const mid = (a0 + a1) / 2;
+          const c = polar(ICON_R, mid);
+          return (
             <g
-              className="group-icon"
-              transform={`translate(${(c.x - ICON_SIZE / 2).toFixed(2)}, ${(
-                c.y -
-                ICON_SIZE / 2
-              ).toFixed(2)})`}
+              key={action}
+              className="slice-group"
+              {...(isNote
+                ? { "data-note-trigger": true }
+                : { "data-action": action })}
+              role="button"
+              aria-label={label}
             >
-              <Icon size={ICON_SIZE} color="#fff" />
+              <path className="menu-slice" d={sectorPath(a0, a1)} />
+              <g
+                className="group-icon"
+                transform={`translate(${(c.x - ICON_SIZE / 2).toFixed(2)}, ${(
+                  c.y -
+                  ICON_SIZE / 2
+                ).toFixed(2)})`}
+              >
+                <Icon size={ICON_SIZE} color="#fff" />
+              </g>
             </g>
-          </g>
-        );
-      })}
-    </svg>
+          );
+        })}
+      </svg>
+    </div>
   );
 }

@@ -26,6 +26,8 @@ export function useCharacterInteraction(
   // When true, window captures clicks (e.g. settings/summary panel is open)
   captureClicks: boolean,
   onAction: (action: string) => void,
+  onNoteTrigger?: () => void,
+  characterHidden = false,
 ): CharacterInteraction {
   const [hovered, setHovered] = useState(false);
   const [barOpen, setBarOpen] = useState(false);
@@ -34,12 +36,19 @@ export function useCharacterInteraction(
   barOpenRef.current = barOpen;
   const onActionRef = useRef(onAction);
   onActionRef.current = onAction;
+  const onNoteTriggerRef = useRef(onNoteTrigger);
+  onNoteTriggerRef.current = onNoteTrigger;
+  const characterHiddenRef = useRef(characterHidden);
+  characterHiddenRef.current = characterHidden;
 
   const closeBar = useCallback(() => setBarOpen(false), []);
 
   useEffect(() => {
-    if (captureClicks) setBarOpen(false);
-  }, [captureClicks]);
+    if (captureClicks || characterHidden) {
+      setBarOpen(false);
+      setHovered(false);
+    }
+  }, [captureClicks, characterHidden]);
 
   // make it pass through
   useEffect(() => {
@@ -59,7 +68,11 @@ export function useCharacterInteraction(
 
     const handle = (x: number, y: number, inside: boolean, pressed: boolean) => {
       const el = inside ? document.elementFromPoint(x, y) : null;
-      const overCharacter = el?.closest("[data-character]") != null;
+      const overMessages = el?.closest("#messages") != null;
+      const overCharacter =
+        !characterHiddenRef.current &&
+        el?.closest("[data-character]") != null &&
+        !overMessages;
       const overInteractive = el?.closest(".interactive") != null;
       const open = barOpenRef.current;
 
@@ -68,6 +81,11 @@ export function useCharacterInteraction(
       applyPassThrough(!(overInteractive || open));
 
       if (pressed && !prevPressed) {
+        if (el?.closest("[data-note-trigger]")) {
+          onNoteTriggerRef.current?.();
+          prevPressed = pressed;
+          return;
+        }
         const action = el
           ?.closest<HTMLElement>("[data-action]")
           ?.dataset.action;

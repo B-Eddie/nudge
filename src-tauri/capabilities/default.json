@@ -11,8 +11,10 @@
     "allow-settings",
     "allow-activity",
     "allow-reminder",
+    "allow-pending-notes",
     "allow-frontmost-app",
     "allow-input-monitor",
+    "allow-invalidate-overlay",
     "core:window:allow-set-size",
     "core:window:allow-set-position",
     "core:window:allow-set-focus"

@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-invalidate-overlay"
+description = "Enables invalidating the transparent overlay window after UI changes."
+commands.allow = ["invalidate_overlay_display"]

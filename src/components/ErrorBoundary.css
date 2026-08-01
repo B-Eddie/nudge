@@ -1,0 +1,68 @@
+.crash-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.crash-panel {
+  font-family: var(--font-body);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 340px;
+  padding: 20px 22px;
+  border-radius: var(--panel-radius);
+  border: 1px solid var(--panel-border);
+  background: var(--panel-bg);
+  color: var(--text);
+  animation: panel-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.crash-title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.crash-message {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.45;
+  color: var(--text-dim);
+}
+
+.crash-detail {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-border);
+  background: var(--surface);
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: var(--danger);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.crash-reload {
+  align-self: flex-end;
+  padding: 11px 19px;
+  border-radius: 8px;
+  border: none;
+  background: var(--accent-strong);
+  color: #fff;
+  font: inherit;
+  font-size: 1.08rem;
+  cursor: pointer;
+}
+
+.crash-reload:hover {
+  background: var(--accent-strong-hover);
+}

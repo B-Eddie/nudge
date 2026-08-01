@@ -37,6 +37,18 @@ pub struct Settings {
     pub pause_shortcut: String,
     #[serde(default)]
     pub app_categories: HashMap<String, AppCategoryEntry>,
+    #[serde(default)]
+    pub onboarding_complete: bool,
+    /// User-written lines the character speaks at the next reminder (time event).
+    #[serde(default)]
+    pub pending_notes: Vec<String>,
+    /// Minutes without keyboard/mouse input before an automatic break starts.
+    #[serde(default = "default_auto_idle_break_mins")]
+    pub auto_idle_break_mins: u32,
+}
+
+fn default_auto_idle_break_mins() -> u32 {
+    5
 }
 
 impl Default for Settings {
@@ -47,6 +59,9 @@ impl Default for Settings {
             position: "bottom_left".to_string(),
             pause_shortcut: default_pause_shortcut(),
             app_categories: HashMap::new(),
+            onboarding_complete: false,
+            pending_notes: Vec::new(),
+            auto_idle_break_mins: default_auto_idle_break_mins(),
         }
     }
 }
@@ -80,7 +95,12 @@ impl Settings {
             return Ok(Self::default());
         }
         let data = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
-        serde_json::from_str(&data).map_err(|e| e.to_string())
+        let mut settings: Settings = serde_json::from_str(&data).map_err(|e| e.to_string())?;
+        // Existing installs without this field already completed setup implicitly.
+        if !data.contains("onboarding_complete") {
+            settings.onboarding_complete = true;
+        }
+        Ok(settings)
     }
 
     pub fn load_synced(app: &AppHandle) -> Result<Self, String> {
@@ -223,7 +243,7 @@ pub fn get_settings(app: AppHandle) -> Result<Settings, String> {
     Settings::load_synced_and_save(&app)
 }
 
-/// Registers the pause-tracking global shortcut. Pressing it emits to the frontend
+/// Registers the hide-character global shortcut. Pressing it emits to the frontend
 pub fn register_pause_shortcut(app: &AppHandle, shortcut: &str) -> Result<(), String> {
     app.global_shortcut()
         .register(shortcut)
@@ -316,9 +336,54 @@ pub fn close_settings(app: AppHandle, state: State<AppState>) -> Result<(), Stri
     )?;
 
     #[cfg(target_os = "macos")]
+    super::configure_macos_overlay_window(&window, &app);
+    #[cfg(target_os = "macos")]
     super::set_ignores_mouse_events(&window, true);
     #[cfg(not(target_os = "macos"))]
     let _ = window.set_ignore_cursor_events(true);
 
     Ok(())
+}
+
+/// Appends a pending reminder note.
+#[tauri::command]
+pub fn add_pending_note(app: AppHandle, note: String) -> Result<(), String> {
+    let text = note.trim();
+    if text.is_empty() {
+        return Ok(());
+    }
+    let mut settings = Settings::load(&app)?;
+    settings.pending_notes.push(text.to_string());
+    settings.save(&app)?;
+    Ok(())
+}
+
+/// Queued reminder notes (oldest first).
+#[tauri::command]
+pub fn get_pending_notes(app: AppHandle) -> Result<Vec<String>, String> {
+    Ok(Settings::load(&app)?.pending_notes)
+}
+
+/// Removes a queued note by index.
+#[tauri::command]
+pub fn remove_pending_note(app: AppHandle, index: usize) -> Result<(), String> {
+    let mut settings = Settings::load(&app)?;
+    if index >= settings.pending_notes.len() {
+        return Err(format!("note index {} out of range", index));
+    }
+    settings.pending_notes.remove(index);
+    settings.save(&app)?;
+    Ok(())
+}
+
+/// Returns and removes the oldest pending note, if any.
+#[tauri::command]
+pub fn pop_pending_note(app: AppHandle) -> Result<Option<String>, String> {
+    let mut settings = Settings::load(&app)?;
+    if settings.pending_notes.is_empty() {
+        return Ok(None);
+    }
+    let note = settings.pending_notes.remove(0);
+    settings.save(&app)?;
+    Ok(Some(note))
 }

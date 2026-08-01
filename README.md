@@ -3,7 +3,7 @@
 </p>
 
 # Nudge
-Productivity desktop companion that reminds user to take breaks
+A friendly desktop companion that helps you stay balanced while you work
 
 ## The problem
 It's easy to lock in at your computer for hours without noticing how quickly time passes. Timers and notifications are easy to ignore since they're repetative and easy to dismiss.
