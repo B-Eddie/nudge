@@ -40,10 +40,10 @@
     "Courier New",
     monospace;
 
-  --panel-bg: rgba(28, 28, 30, 0.94);
-  --panel-border: rgba(255, 255, 255, 0.12);
-  --panel-radius: 14px;
-  --surface: rgba(0, 0, 0, 0.25);
+  --panel-bg: rgba(28, 28, 30, 0.88);
+  --panel-border: rgba(255, 255, 255, 0.14);
+  --panel-radius: 16px;
+  --surface: rgba(0, 0, 0, 0.28);
   --surface-raised: rgba(255, 255, 255, 0.08);
   --surface-raised-hover: rgba(255, 255, 255, 0.14);
   --divider: rgba(255, 255, 255, 0.08);
@@ -112,19 +112,25 @@ main.hidden {
   position: relative;
   width: max-content;
   min-width: 10vw;
-  max-width: 40vw;
+  max-width: 48vw;
   text-align: center;
   display: block;
   white-space: pre-line;
   word-break: break-word;
-  border-radius: 10px;
-  padding: 0.325em 0.7em;
+  border-radius: 12px;
+  padding: 0.4em 0.75em;
   box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(22, 22, 24, 0.42);
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .messages--pinned {
-  padding-top: 1.4em;
-  padding-right: 1.6em;
+  padding-top: 1.45em;
+  padding-right: 1.65em;
+  border-color: rgba(162, 204, 58, 0.35);
 }
 
 .messages-close {
@@ -140,19 +146,19 @@ main.hidden {
   padding: 0;
   border: none;
   border-radius: 4px;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.08);
   color: #fff;
-  mix-blend-mode: difference;
   cursor: pointer;
   opacity: 0.85;
 }
 
 .messages-close:hover {
   opacity: 1;
+  background: rgba(255, 255, 255, 0.16);
 }
 
 .messages-close:focus-visible {
-  outline: 1px solid currentColor;
+  outline: 1px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -160,17 +166,8 @@ main.hidden {
   position: relative;
   z-index: 2;
   display: block;
-  color: #fff;
-  mix-blend-mode: difference;
-}
-
-.messages::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  border-radius: 10px;
-  box-shadow: inset 0 0 12px -4px rgba(255, 255, 255, 0);
+  color: #f5f5f7;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
 .messages::after {
@@ -178,9 +175,9 @@ main.hidden {
   position: absolute;
   inset: 0;
   z-index: -1;
-  border-radius: 10px;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  border-radius: 12px;
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
 }
 
 #messages {
@@ -188,8 +185,8 @@ main.hidden {
   left: 50%;
   transform: translateX(-50%);
   bottom: 100%;
-  margin-bottom: -0.5em;
-  font-size: 0.5em;
+  margin-bottom: 0.15em;
+  font-size: 0.48em;
   z-index: 10;
   pointer-events: auto;
   transition:
@@ -248,87 +245,142 @@ main.hidden {
   overflow: visible;
 }
 
-/* outline when character hovered */
+/* Soft outline when hovered — reads as a system selection, not a hard pixel box */
 .character.hovered #characterMain {
-  filter: drop-shadow(2px 0 0 #fff) drop-shadow(-2px 0 0 #fff)
-    drop-shadow(0 2px 0 #fff) drop-shadow(0 -2px 0 #fff);
+  filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.9))
+    drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
   transition: none;
 }
 
-#hoverInfo {
+/* macOS-style glass status chip next to the pet */
+.hover-chip {
   position: absolute;
+  z-index: 8;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.2em;
-  font-size: 10vw;
-  line-height: 1;
+  gap: 0.28em;
+  min-width: 7.5em;
+  max-width: 11em;
+  padding: 0.55em 0.7em 0.6em;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(22, 22, 24, 0.48);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  font-size: 4.6vw;
+  line-height: 1.15;
+  color: #f5f5f7;
+  opacity: 0;
+  transform: translateY(4px) scale(0.96);
+  pointer-events: none;
+  visibility: hidden;
+  transition:
+    opacity 0.16s ease,
+    transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0.16s;
+  backdrop-filter: blur(18px) saturate(1.25);
+  -webkit-backdrop-filter: blur(18px) saturate(1.25);
 }
 
-#hoverInfo .hoverInfo-stat {
-  position: relative;
-  margin: 0;
-  padding: 0;
+.hover-chip--visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  visibility: visible;
 }
 
-/* WebKit won't blend against the desktop through a transparent window without
-   this invisible sampler — blur is sub-pixel so there's no frosted panel. */
-#hoverInfo .hoverInfo-stat::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  backdrop-filter: blur(0.001px);
-  -webkit-backdrop-filter: blur(0.001px);
+.hover-chip-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.28em;
+  min-width: 0;
+  max-width: 100%;
 }
 
-#hoverInfo .hoverInfo-text {
-  position: relative;
-  z-index: 1;
-  display: block;
-  margin: 0;
+.hover-chip-time {
   font-family: var(--font-display);
-  font-size: 1em;
+  font-size: 1.35em;
   font-weight: bold;
-  line-height: 1;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   color: #fff;
-  mix-blend-mode: difference;
+  flex-shrink: 0;
 }
 
-#hoverInfo .energy-bars {
+.hover-chip-sep {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.95em;
+}
+
+.hover-chip-category {
+  font-size: 0.92em;
+  color: rgba(255, 255, 255, 0.78);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hover-chip-app,
+.hover-chip-stretch {
+  margin: 0;
+  max-width: 100%;
+  font-size: 0.78em;
+  color: rgba(255, 255, 255, 0.48);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hover-chip-stretch {
+  color: rgba(224, 175, 104, 0.9);
+}
+
+.hover-chip .energy-bars {
   display: flex;
   flex-direction: row;
-  gap: 0.08em;
+  gap: 0.18em;
+  margin-top: 0.1em;
 }
 
-#hoverInfo .energy-bar {
-  width: 0.8em;
-  height: 0.8em;
-  border-radius: 0.06em;
-  border: 1px solid rgba(0, 0, 0, 0.35);
+.hover-chip .energy-bar {
+  width: 0.72em;
+  height: 0.72em;
+  border-radius: 0.12em;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   box-sizing: border-box;
 }
 
-#hoverInfo .energy-bar.filled {
+.hover-chip .energy-bar.filled {
   background: var(--accent);
+  border-color: rgba(162, 204, 58, 0.7);
+  box-shadow: 0 0 6px rgba(162, 204, 58, 0.35);
 }
 
-#hoverInfo .energy-bar.empty {
-  background: var(--danger);
+.hover-chip .energy-bar.empty {
+  background: rgba(247, 118, 142, 0.35);
+  border-color: rgba(247, 118, 142, 0.45);
 }
 
-.character.hovered #hoverInfo {
-  display: block !important;
+/* Sit the chip beside the character, nudged toward the open side of the screen */
+.character.pos-bl .hover-chip,
+.character.pos-tl .hover-chip {
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%) translateY(4px) scale(0.96);
 }
-/* popup when character hovered — offset past the character outline */
-.character.pos-bl.hovered #hoverInfo,
-.character.pos-tl.hovered #hoverInfo {
-  left: calc(40vw + 6px);
+.character.pos-bl .hover-chip--visible,
+.character.pos-tl .hover-chip--visible {
+  transform: translateY(-50%) scale(1);
 }
-.character.pos-br.hovered #hoverInfo,
-.character.pos-tr.hovered #hoverInfo {
-  right: calc(40vw + 6px);
+.character.pos-br .hover-chip,
+.character.pos-tr .hover-chip {
+  right: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%) translateY(4px) scale(0.96);
+}
+.character.pos-br .hover-chip--visible,
+.character.pos-tr .hover-chip--visible {
+  transform: translateY(-50%) scale(1);
 }
 
 /* wedge fans towards using angle from tsx */
@@ -352,16 +404,19 @@ main.hidden {
 }
 
 .menu-slice {
-  fill: rgba(24, 24, 24, 0.95);
-  stroke: #0b0b0b;
-  stroke-width: 3;
+  fill: rgba(28, 28, 30, 0.82);
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-width: 2;
   cursor: pointer;
-  transition: fill 0.12s ease;
+  transition:
+    fill 0.14s ease,
+    stroke 0.14s ease;
 }
 
 .slice-group:hover .menu-slice,
 .slice-group.active .menu-slice {
-  fill: var(--accent);
+  fill: rgba(162, 204, 58, 0.92);
+  stroke: rgba(255, 255, 255, 0.28);
 }
 
 /* icons aren't selectable */

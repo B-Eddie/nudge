@@ -53,6 +53,11 @@ function characterSetFromCategory(categoryLabel: string | undefined): string {
       return "music";
     case "social networking":
       return "social";
+    // Leisure categories share the social set when available, else idle.
+    case "games":
+    case "entertainment":
+    case "video":
+      return "social";
     default:
       return "idle";
   }

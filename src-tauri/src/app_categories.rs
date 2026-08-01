@@ -13,39 +13,26 @@ pub const APP_CATEGORIES: &[(&str, &str)] = &[
     ("public.app-category.social-networking", "Social Networking"),
     ("public.app-category.entertainment", "Entertainment"),
     ("public.app-category.video", "Video"),
-    // ("public.app-category.games", "Games"),
-    // ("public.app-category.business", "Business"),
-    // ("public.app-category.education", "Education"),
-    // ("public.app-category.finance", "Finance"),
-    // ("public.app-category.graphics-design", "Graphics & Design"),
-    // ("public.app-category.healthcare-fitness", "Healthcare & Fitness"),
-    // ("public.app-category.lifestyle", "Lifestyle"),
-    // ("public.app-category.medical", "Medical"),
-    // ("public.app-category.news", "News"),
-    // ("public.app-category.photography", "Photography"),
-    // ("public.app-category.reference", "Reference"),
-    // ("public.app-category.sports", "Sports"),
-    // ("public.app-category.travel", "Travel"),
-    // ("public.app-category.utilities", "Utilities"),
-    // ("public.app-category.weather", "Weather"),
-    // ("public.app-category.action-games", "Games"),
-    // ("public.app-category.adventure-games", "Games"),
-    // ("public.app-category.arcade-games", "Games"),
-    // ("public.app-category.casino-games", "Games"),
-    // ("public.app-category.dice-games", "Games"),
-    // ("public.app-category.educational-games", "Games"),
-    // ("public.app-category.family-games", "Games"),
-    // ("public.app-category.kids-games", "Games"),
-    // ("public.app-category.music-games", "Games"),
-    // ("public.app-category.puzzle-games", "Games"),
-    // ("public.app-category.racing-games", "Games"),
-    // ("public.app-category.role-playing-games", "Games"),
-    // ("public.app-category.simulation-games", "Games"),
-    // ("public.app-category.sports-games", "Games"),
-    // ("public.app-category.strategy-games", "Games"),
-    // ("public.app-category.trivia-games", "Games"),
-    // ("public.app-category.word-games", "Games"),
-    
+    ("public.app-category.games", "Games"),
+    ("public.app-category.action-games", "Games"),
+    ("public.app-category.adventure-games", "Games"),
+    ("public.app-category.arcade-games", "Games"),
+    ("public.app-category.board-games", "Games"),
+    ("public.app-category.card-games", "Games"),
+    ("public.app-category.casino-games", "Games"),
+    ("public.app-category.dice-games", "Games"),
+    ("public.app-category.educational-games", "Games"),
+    ("public.app-category.family-games", "Games"),
+    ("public.app-category.kids-games", "Games"),
+    ("public.app-category.music-games", "Games"),
+    ("public.app-category.puzzle-games", "Games"),
+    ("public.app-category.racing-games", "Games"),
+    ("public.app-category.role-playing-games", "Games"),
+    ("public.app-category.simulation-games", "Games"),
+    ("public.app-category.sports-games", "Games"),
+    ("public.app-category.strategy-games", "Games"),
+    ("public.app-category.trivia-games", "Games"),
+    ("public.app-category.word-games", "Games"),
 ];
 
 pub fn is_valid_apple_category(value: &str) -> bool {
@@ -88,28 +75,36 @@ pub struct DiscoveredApp {
 
 #[tauri::command]
 pub fn get_app_category_options() -> Vec<CategoryOption> {
+    // Dedupe by display label so game subtypes don't flood the Settings dropdown
+    // with a dozen identical "Games" rows. Canonical id is the first one listed.
     let mut options = vec![CategoryOption {
         value: UNKNOWN_CATEGORY.to_string(),
         label: "Unknown".to_string(),
     }];
-    options.extend(
-        APP_CATEGORIES
-            .iter()
-            .map(|(value, label)| CategoryOption {
+    let mut seen_labels = std::collections::HashSet::new();
+    seen_labels.insert("Unknown");
+    for (value, label) in APP_CATEGORIES {
+        if seen_labels.insert(label) {
+            options.push(CategoryOption {
                 value: (*value).to_string(),
                 label: (*label).to_string(),
-            }),
-    );
+            });
+        }
+    }
     options
 }
 
 fn normalize_plist_category(raw: &str) -> String {
     let trimmed = raw.trim();
     if trimmed.is_empty() || !is_valid_apple_category(trimmed) {
-        UNKNOWN_CATEGORY.to_string()
-    } else {
-        trimmed.to_string()
+        return UNKNOWN_CATEGORY.to_string();
     }
+    // Collapse every game subtype onto the canonical Games id so Settings
+    // shows one selectable value instead of a dozen identical "Games" rows.
+    if category_label(trimmed) == "Games" {
+        return "public.app-category.games".to_string();
+    }
+    trimmed.to_string()
 }
 
 fn category_from_info_plist(bundle_path: &Path) -> String {

@@ -69,6 +69,8 @@ const CATEGORY_COLORS: Record<string, string> = {
   Productivity: "#a2cc3a",
   "Social Networking": "#f7768e",
   Games: "#bb9af7",
+  Entertainment: "#e0af68",
+  Video: "#ff9e64",
   Music: "#7dcfff",
   Unknown: "#9aa0a6",
 };

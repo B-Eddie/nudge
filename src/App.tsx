@@ -22,9 +22,16 @@ import type { Settings } from "./types/settings";
 import { RadialMenu } from "./components/RadialMenu";
 import { ReminderNotePanel } from "./components/ReminderNotePanel";
 import { pickPhrase } from "./types/phrases";
+import {
+  mergeCategoryOveruseMins,
+  pickOverusePhrase,
+  type CategoryOveruseMins,
+} from "./types/categoryOveruse";
 import { LuX } from "react-icons/lu";
 
 const OVERLAY_SUPPRESS_CLASS = "overlay-suppressed";
+/** Re-nudge if the user stays on an overused category this long after the first warning. */
+const OVERUSE_REPEAT_MS = 15 * 60 * 1000;
 
 interface FrontmostApp {
   name: string;
@@ -116,6 +123,11 @@ function App() {
   const [history, setHistory] = useState<DayRecord[]>([]);
   const [characterHidden, setCharacterHidden] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
+  // Continuous seconds on the current frontmost category (resets on switch/break)
+  const [categoryStretchSeconds, setCategoryStretchSeconds] = useState(0);
+  const [categoryLimits, setCategoryLimits] = useState<CategoryOveruseMins>(
+    () => mergeCategoryOveruseMins(undefined),
+  );
   const panelOpen = settingsOpen || summaryOpen || onboardingOpen || noteOpen;
   const overlayHidden = panelOpen || overlaySuppressed;
   const characterSrc = useCharacterFrame(
@@ -143,6 +155,16 @@ function App() {
   onBreakRef.current = breakTime !== 0;
   const panelOpenRef = useRef(panelOpen);
   panelOpenRef.current = panelOpen;
+
+  const categoryStretchRef = useRef({ category: "", seconds: 0 });
+  const categoryLimitsRef = useRef<CategoryOveruseMins>(
+    mergeCategoryOveruseMins(undefined),
+  );
+  const overuseFiredForStretchRef = useRef(false);
+  const lastOveruseFireAtRef = useRef(0);
+  const fireOveruseNudgeRef = useRef<
+    (category: string, stretchSeconds: number) => void
+  >(() => {});
 
   const activityRef = useRef<ActivityState>({
     timePassed,
@@ -305,6 +327,9 @@ function App() {
     void (async () => {
       const settings = await invoke<Settings>("get_settings");
       reminderIntervalRef.current = settings.reminder_interval_mins;
+      const limits = mergeCategoryOveruseMins(settings.category_overuse_mins);
+      categoryLimitsRef.current = limits;
+      setCategoryLimits(limits);
       switch (settings.position) {
         case "bottom_left":
           setPosition("bl");
@@ -395,6 +420,9 @@ function App() {
           setStats(emptySessionStats());
           setTimePassed(0);
           setTimeEvents(1);
+          categoryStretchRef.current = { category: "", seconds: 0 };
+          setCategoryStretchSeconds(0);
+          overuseFiredForStretchRef.current = false;
           return;
         }
 
@@ -432,6 +460,45 @@ function App() {
             ),
           };
         });
+
+        // Continuous time on the current app category — used for overuse nudges
+        // (e.g. an hour straight of gaming).
+        if (onBreakRef.current) {
+          if (categoryStretchRef.current.seconds !== 0) {
+            categoryStretchRef.current = { category: "", seconds: 0 };
+            setCategoryStretchSeconds(0);
+            overuseFiredForStretchRef.current = false;
+          }
+          return;
+        }
+
+        const cat = labelRef.current ?? "Unknown";
+        if (cat !== categoryStretchRef.current.category) {
+          categoryStretchRef.current = { category: cat, seconds: 1 };
+          overuseFiredForStretchRef.current = false;
+        } else {
+          categoryStretchRef.current.seconds += 1;
+        }
+        setCategoryStretchSeconds(categoryStretchRef.current.seconds);
+
+        const limitMins = categoryLimitsRef.current[cat] ?? 0;
+        if (
+          limitMins > 0 &&
+          categoryStretchRef.current.seconds >= limitMins * 60 &&
+          !characterHiddenRef.current &&
+          !panelOpenRef.current &&
+          Date.now() >= suppressReminderUntilRef.current
+        ) {
+          const shouldFire =
+            !overuseFiredForStretchRef.current ||
+            Date.now() - lastOveruseFireAtRef.current >= OVERUSE_REPEAT_MS;
+          if (shouldFire) {
+            fireOveruseNudgeRef.current(
+              cat,
+              categoryStretchRef.current.seconds,
+            );
+          }
+        }
       });
       if (cancelled) {
         stop();
@@ -490,6 +557,39 @@ function App() {
     [clearReminderRestoreTimeout, setTransientMessage],
   );
 
+  const fireOveruseNudge = useCallback(
+    (category: string, stretchSeconds: number) => {
+      if (onBreakRef.current || characterHiddenRef.current) return;
+
+      overuseFiredForStretchRef.current = true;
+      lastOveruseFireAtRef.current = Date.now();
+
+      const phrase = pickOverusePhrase(category, stretchSeconds);
+      // Pin so the user has to acknowledge — this is the assertive "get off that" nudge.
+      setReminderNotePinned(true);
+      setMessage(phrase);
+
+      clearReminderRestoreTimeout();
+      setTimeEvents(() => {
+        reminderAnimUntilRef.current = Date.now() + 5000;
+        reminderRestoreTimeoutRef.current = setTimeout(() => {
+          reminderRestoreTimeoutRef.current = undefined;
+          if (onBreakRef.current) return;
+          if (Date.now() < suppressReminderUntilRef.current) return;
+          setTimeEvents(
+            tierFromWorkSeconds(
+              activityRef.current.timePassed,
+              reminderIntervalRef.current,
+            ),
+          );
+        }, 5000);
+        return 0;
+      });
+    },
+    [clearReminderRestoreTimeout],
+  );
+  fireOveruseNudgeRef.current = fireOveruseNudge;
+
   const startBreak = useCallback(
     (options?: { auto?: boolean; sleep?: boolean }) => {
       if (breakTimeRef.current !== 0) return;
@@ -508,6 +608,9 @@ function App() {
       breakTimeRef.current = now;
       breakNeededRef.current = restMinutes;
       breakStartTierRef.current = startTier;
+      categoryStretchRef.current = { category: "", seconds: 0 };
+      setCategoryStretchSeconds(0);
+      overuseFiredForStretchRef.current = false;
       setBreakTime(now);
       setbreakNeeded(restMinutes);
       setBreakStartTier(startTier);
@@ -928,16 +1031,43 @@ function App() {
             </p>
           )}
 
-          {!barOpen && !overlayHidden && (
-            <div id="hoverInfo" style={{ display: "none" }}>
-              <p className="hoverInfo-stat">
-                <span className="hoverInfo-text">
+          {!barOpen && !overlayHidden && !characterHidden && (
+            <div
+              id="hoverInfo"
+              className={`hover-chip${hovered ? " hover-chip--visible" : ""}`}
+              aria-hidden={!hovered}
+            >
+              <div className="hover-chip-row">
+                <span className="hover-chip-time">
                   {onBreak
                     ? "zzz"
                     : formatDuration(stats.currentStretchSeconds)}
                 </span>
-              </p>
-              <div className="energy-bars">
+                <span className="hover-chip-sep" aria-hidden>
+                  ·
+                </span>
+                <span className="hover-chip-category">
+                  {onBreak ? "resting" : (label ?? "idle")}
+                </span>
+              </div>
+              {frontmostApp?.name && !onBreak && (
+                <p className="hover-chip-app" title={frontmostApp.name}>
+                  {frontmostApp.name}
+                </p>
+              )}
+              {!onBreak &&
+                categoryStretchSeconds >= 60 &&
+                label &&
+                (categoryLimits[label] ?? 0) > 0 && (
+                  <p className="hover-chip-stretch">
+                    {formatDuration(categoryStretchSeconds)} on {label}
+                  </p>
+                )}
+              <div
+                className="energy-bars"
+                role="img"
+                aria-label={`Energy ${energy} of ${ENERGY_CELLS}`}
+              >
                 {Array.from({ length: ENERGY_CELLS }).map((_, i) => (
                   <div
                     key={i}

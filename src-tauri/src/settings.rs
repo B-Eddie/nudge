@@ -11,6 +11,19 @@ use crate::app_categories::{
     discover_running_apps, merge_discovered_apps, AppCategoryEntry, UNKNOWN_CATEGORY,
 };
 
+fn default_category_overuse_mins() -> HashMap<String, u32> {
+    HashMap::from([
+        ("Games".to_string(), 60),
+        ("Social Networking".to_string(), 30),
+        ("Entertainment".to_string(), 45),
+        ("Video".to_string(), 45),
+        ("Music".to_string(), 0),
+        ("Developer Tools".to_string(), 0),
+        ("Productivity".to_string(), 0),
+        ("Unknown".to_string(), 0),
+    ])
+}
+
 // ensure these values are consistent everywhere
 pub const OVERLAY_WIDTH: f64 = 300.0;
 pub const OVERLAY_HEIGHT: f64 = 300.0;
@@ -45,6 +58,10 @@ pub struct Settings {
     /// Minutes without keyboard/mouse input before an automatic break starts.
     #[serde(default = "default_auto_idle_break_mins")]
     pub auto_idle_break_mins: u32,
+    /// Continuous minutes on a category before the pet nudges you off it.
+    /// A value of `0` disables overuse nudges for that category label.
+    #[serde(default = "default_category_overuse_mins")]
+    pub category_overuse_mins: HashMap<String, u32>,
 }
 
 fn default_auto_idle_break_mins() -> u32 {
@@ -62,6 +79,7 @@ impl Default for Settings {
             onboarding_complete: false,
             pending_notes: Vec::new(),
             auto_idle_break_mins: default_auto_idle_break_mins(),
+            category_overuse_mins: default_category_overuse_mins(),
         }
     }
 }

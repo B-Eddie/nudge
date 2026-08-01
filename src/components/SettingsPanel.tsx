@@ -12,6 +12,11 @@ import {
   POSITION_OPTIONS,
   shortcutFromKeyboardEvent,
 } from "../types/settings";
+import {
+  DEFAULT_CATEGORY_OVERUSE_MINS,
+  OVERUSE_SETTING_CATEGORIES,
+  mergeCategoryOveruseMins,
+} from "../types/categoryOveruse";
 import "./SettingsPanel.css";
 import { LuSearch, LuX } from "react-icons/lu";
 
@@ -77,7 +82,12 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     ])
       .then(([settings, monitors, categories]) => {
         if (cancelled) return;
-        setDraft(settings);
+        setDraft({
+          ...settings,
+          category_overuse_mins: mergeCategoryOveruseMins(
+            settings.category_overuse_mins,
+          ),
+        });
         setMonitorOptions(monitors);
         setCategoryOptions(categories);
       })
@@ -300,10 +310,56 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
           </div>
 
           <section className="settings-section">
+            <h3 className="settings-section-title">Category overuse nudges</h3>
+            <p className="settings-hint">
+              If you stay on one of these categories this many minutes straight,
+              your pet will push you to switch. Set to 0 to disable.
+            </p>
+            <ul className="settings-overuse-list">
+              {OVERUSE_SETTING_CATEGORIES.map((category) => {
+                const value =
+                  draft.category_overuse_mins?.[category] ??
+                  DEFAULT_CATEGORY_OVERUSE_MINS[category] ??
+                  0;
+                return (
+                  <li key={category} className="settings-overuse-row">
+                    <label className="settings-overuse-label">
+                      <span>{category}</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={600}
+                        value={value}
+                        onChange={(e) => {
+                          const mins = Math.max(
+                            0,
+                            Math.min(600, parseInt(e.target.value, 10) || 0),
+                          );
+                          setDraft({
+                            ...draft,
+                            category_overuse_mins: {
+                              ...mergeCategoryOveruseMins(
+                                draft.category_overuse_mins,
+                              ),
+                              [category]: mins,
+                            },
+                          });
+                        }}
+                        aria-label={`${category} overuse limit in minutes`}
+                      />
+                      <span className="settings-overuse-unit">min</span>
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+
+          <section className="settings-section">
             <h3 className="settings-section-title">App categories</h3>
             <p className="settings-hint">
               Categories are read from each app&apos;s Info.plist when nudge
-              starts.
+              starts. Mark games as Games so overuse nudges can catch them.
             </p>
             {sortedApps.length > 0 && (
               <label className="settings-app-search">

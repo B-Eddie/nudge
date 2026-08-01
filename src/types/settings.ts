@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { CategoryOveruseMins } from "./categoryOveruse";
 
 export interface AppCategoryEntry {
   name: string;
@@ -17,6 +18,8 @@ export interface Settings {
   pending_notes?: string[];
   /** Minutes without input before an automatic break (default 5). */
   auto_idle_break_mins?: number;
+  /** Continuous minutes on a category before an overuse nudge (0 = off). */
+  category_overuse_mins?: CategoryOveruseMins;
 }
 
 export interface MonitorOption {

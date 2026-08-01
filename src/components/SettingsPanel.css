@@ -18,6 +18,11 @@
   overflow: hidden;
   animation: panel-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
   font-size: 1.1rem;
+  box-shadow:
+    0 18px 48px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(22px) saturate(1.2);
+  -webkit-backdrop-filter: blur(22px) saturate(1.2);
 }
 
 .settings-header {
@@ -97,6 +102,51 @@
   font-size: 1.08rem;
   font-weight: 600;
   color: var(--text-strong);
+}
+
+.settings-overuse-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings-overuse-row {
+  margin: 0;
+}
+
+.settings-overuse-label {
+  display: grid;
+  grid-template-columns: 1fr 72px auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.settings-overuse-label input {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-border);
+  background-color: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 1rem;
+  text-align: right;
+}
+
+.settings-overuse-label input:focus {
+  outline: none;
+  border-color: var(--focus-border);
+  box-shadow: var(--focus-ring);
+}
+
+.settings-overuse-unit {
+  font-size: 0.9rem;
+  color: var(--text-faint);
 }
 
 .settings-app-search {
