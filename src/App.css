@@ -338,7 +338,8 @@ main.hidden {
   top: 50%;
   transform: translate(-50%, -50%);
   overflow: visible;
-  z-index: 1;
+  /* Above #messages so wedges stay clickable over the speech bubble. */
+  z-index: 20;
 }
 
 .radial-menu-wrap--closed {

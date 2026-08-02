@@ -21,7 +21,13 @@ import { usePauseTrackingShortcut } from "./hooks/usePauseTrackingShortcut";
 import type { Settings } from "./types/settings";
 import { RadialMenu } from "./components/RadialMenu";
 import { ReminderNotePanel } from "./components/ReminderNotePanel";
-import { pickPhrase } from "./types/phrases";
+import {
+  pickPhrase,
+  pickDistractionNudge,
+  isDistractingCategory,
+  DISTRACTION_LIMIT_SECS,
+  DISTRACTION_NUDGE_REPEAT_SECS,
+} from "./types/phrases";
 import { LuX } from "react-icons/lu";
 
 const OVERLAY_SUPPRESS_CLASS = "overlay-suppressed";
@@ -161,6 +167,11 @@ function App() {
   const closeBarRef = useRef<() => void>(() => {});
   const reminderIntervalRef = useRef(30);
   const reminderAnimUntilRef = useRef(0);
+  // Continuous seconds on the current frontmost category (resets on category change / break).
+  const categoryStretchRef = useRef(0);
+  const categoryStretchLabelRef = useRef<string | null>(null);
+  // Category-stretch seconds at which we last fired a distraction nudge.
+  const lastDistractionNudgeAtRef = useRef(0);
 
   const [activityHydrated, setActivityHydrated] = useState(false);
 
@@ -181,12 +192,38 @@ function App() {
     setMessage(text);
   }, []);
 
+  const setTransientMessageRef = useRef(setTransientMessage);
+  setTransientMessageRef.current = setTransientMessage;
+
   const clearReminderRestoreTimeout = useCallback(() => {
     if (reminderRestoreTimeoutRef.current !== undefined) {
       clearTimeout(reminderRestoreTimeoutRef.current);
       reminderRestoreTimeoutRef.current = undefined;
     }
   }, []);
+
+  // Megaphone animation for timed reminders and distraction nudges.
+  const playReminderAnim = useCallback(() => {
+    clearReminderRestoreTimeout();
+    setTimeEvents(() => {
+      reminderAnimUntilRef.current = Date.now() + 5000;
+      reminderRestoreTimeoutRef.current = setTimeout(() => {
+        reminderRestoreTimeoutRef.current = undefined;
+        if (onBreakRef.current) return;
+        if (Date.now() < suppressReminderUntilRef.current) return;
+        setTimeEvents(
+          tierFromWorkSeconds(
+            activityRef.current.timePassed,
+            reminderIntervalRef.current,
+          ),
+        );
+      }, 5000);
+      return 0;
+    });
+  }, [clearReminderRestoreTimeout]);
+
+  const playReminderAnimRef = useRef(playReminderAnim);
+  playReminderAnimRef.current = playReminderAnim;
 
   // Don't leave a pending reminder-restore timeout behind on unmount.
   useEffect(
@@ -395,6 +432,9 @@ function App() {
           setStats(emptySessionStats());
           setTimePassed(0);
           setTimeEvents(1);
+          categoryStretchRef.current = 0;
+          categoryStretchLabelRef.current = null;
+          lastDistractionNudgeAtRef.current = 0;
           return;
         }
 
@@ -413,6 +453,40 @@ function App() {
           }
           return next;
         });
+
+        if (!onBreakRef.current) {
+          const key = labelRef.current ?? "Unknown";
+          // Reset continuous-category stretch when the frontmost category changes.
+          if (categoryStretchLabelRef.current !== key) {
+            categoryStretchLabelRef.current = key;
+            categoryStretchRef.current = 0;
+            lastDistractionNudgeAtRef.current = 0;
+          }
+          categoryStretchRef.current += 1;
+          const categoryStretch = categoryStretchRef.current;
+
+          if (
+            isDistractingCategory(key) &&
+            !characterHiddenRef.current &&
+            !panelOpenRef.current
+          ) {
+            const firstNudge =
+              lastDistractionNudgeAtRef.current === 0 &&
+              categoryStretch >= DISTRACTION_LIMIT_SECS;
+            const repeatNudge =
+              lastDistractionNudgeAtRef.current > 0 &&
+              categoryStretch - lastDistractionNudgeAtRef.current >=
+                DISTRACTION_NUDGE_REPEAT_SECS;
+            if (firstNudge || repeatNudge) {
+              lastDistractionNudgeAtRef.current = categoryStretch;
+              setTransientMessageRef.current(
+                pickDistractionNudge(key, categoryStretch),
+              );
+              playReminderAnimRef.current();
+            }
+          }
+        }
+
         setStats((prev) => {
           if (onBreakRef.current) {
             return { ...prev, restSeconds: prev.restSeconds + 1 };
@@ -529,6 +603,9 @@ function App() {
       }));
       setTimePassed(0);
       setTimeEvents(-startTier);
+      categoryStretchRef.current = 0;
+      categoryStretchLabelRef.current = null;
+      lastDistractionNudgeAtRef.current = 0;
       void invoke("reset_reminder_timer").catch(console.error);
     },
     [clearReminderRestoreTimeout, setTransientMessage],
@@ -739,22 +816,7 @@ function App() {
             `You've been on for ${Math.round(elapsed / 60)} minute${Math.round(elapsed / 60) === 1 ? "" : "s"}!`,
           );
         });
-      clearReminderRestoreTimeout();
-      setTimeEvents(() => {
-        reminderAnimUntilRef.current = Date.now() + 5000;
-        reminderRestoreTimeoutRef.current = setTimeout(() => {
-          reminderRestoreTimeoutRef.current = undefined;
-          if (onBreakRef.current) return;
-          if (Date.now() < suppressReminderUntilRef.current) return;
-          setTimeEvents(
-            tierFromWorkSeconds(
-              activityRef.current.timePassed,
-              reminderIntervalRef.current,
-            ),
-          );
-        }, 5000);
-        return 0;
-      });
+      playReminderAnimRef.current();
     }).then((fn) => {
       if (cancelled) {
         fn();
@@ -769,8 +831,6 @@ function App() {
     };
   }, []);
 
-  const setTransientMessageRef = useRef(setTransientMessage);
-  setTransientMessageRef.current = setTransientMessage;
   const clearOverlayMessageRef = useRef(clearOverlayMessage);
   clearOverlayMessageRef.current = clearOverlayMessage;
 
@@ -787,7 +847,11 @@ function App() {
     // get appropriate phrase based on current state and update the message.
     const tier = Math.min(5, Math.max(1, timeEvents));
     const category = label ?? "Unknown";
-    const phrase = pickPhrase(tier, category, timePassed);
+    const stretch = categoryStretchRef.current;
+    const phrase =
+      isDistractingCategory(category) && stretch >= DISTRACTION_LIMIT_SECS
+        ? pickDistractionNudge(category, stretch)
+        : pickPhrase(tier, category, timePassed);
     setTransientMessageRef.current(phrase);
   };
 

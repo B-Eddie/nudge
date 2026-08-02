@@ -53,6 +53,10 @@ function characterSetFromCategory(categoryLabel: string | undefined): string {
       return "music";
     case "social networking":
       return "social";
+    case "games":
+    case "entertainment":
+    case "video":
+      return "idle";
     default:
       return "idle";
   }

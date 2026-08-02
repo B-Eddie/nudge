@@ -7,6 +7,24 @@ export type Category =
   | "Music"
   | "Unknown";
 
+/** Categories where long continuous sessions should trigger "get off" nudges. */
+export const DISTRACTING_CATEGORIES = new Set([
+  "Games",
+  "Social Networking",
+  "Entertainment",
+  "Video",
+]);
+
+/** Continuous seconds on a distracting category before the first nudge. */
+export const DISTRACTION_LIMIT_SECS = 60 * 60;
+
+/** Re-nudge while still stuck on the same distracting category. */
+export const DISTRACTION_NUDGE_REPEAT_SECS = 15 * 60;
+
+export function isDistractingCategory(category: string): boolean {
+  return DISTRACTING_CATEGORIES.has(category);
+}
+
 type Tier = 1 | 2 | 3 | 4 | 5;
 
 type PhraseTable = {
@@ -247,12 +265,70 @@ const phraseTemplates: PhraseTable = {
   },
 };
 
+function formatStretchLabel(seconds: number): string {
+  const mins = Math.max(1, Math.round(seconds / 60));
+  if (mins >= 60) {
+    const hours = Math.floor(mins / 60);
+    const rem = mins % 60;
+    if (rem === 0) return `${hours} hour${hours === 1 ? "" : "s"}`;
+    return `${hours}h ${rem}m`;
+  }
+  return `${mins} minute${mins === 1 ? "" : "s"}`;
+}
+
+const distractionNudges: Record<string, ((secs: number) => string)[]> = {
+  Games: [
+    (s) => `you've been gaming for ${formatStretchLabel(s)} — time to log off`,
+    (s) => `${formatStretchLabel(s)} of games is enough. touch grass`,
+    () => "one more game is how we got here. close it",
+    () => "your rank can wait. get off the game",
+  ],
+  "Social Networking": [
+    (s) => `${formatStretchLabel(s)} of scrolling — put the feed down`,
+    () => "the timeline will still be there. leave the app",
+    (s) => `you've doomscrolled for ${formatStretchLabel(s)}. enough`,
+    () => "close the social app. seriously",
+  ],
+  Entertainment: [
+    (s) => `${formatStretchLabel(s)} of entertainment — wrap it up`,
+    () => "binge mode detected. take a break from this",
+    () => "entertainment time's up. switch to something else",
+  ],
+  Video: [
+    (s) => `${formatStretchLabel(s)} of video — hit pause and step away`,
+    () => "the next episode can wait. get off this",
+    () => "autoplay is not a personality. close the video",
+  ],
+};
+
+const defaultDistractionNudges: ((secs: number) => string)[] = [
+  (s) => `you've been on this for ${formatStretchLabel(s)} — time to switch apps`,
+  () => "long enough on this rabbit hole. move on",
+  () => "hey — get off this app for a bit",
+];
+
+/** Stronger "get off this category" line after a long continuous stretch. */
+export function pickDistractionNudge(
+  category: string,
+  secondsOnCategory: number,
+): string {
+  const pool =
+    distractionNudges[category] ?? defaultDistractionNudges;
+  const phraseFn = pool[Math.floor(Math.random() * pool.length)];
+  return phraseFn(secondsOnCategory);
+}
+
+/** Map detected labels that share phrase tables onto a phrase Category. */
+function phraseCategory(category: string): Category {
+  if (category === "Entertainment" || category === "Video") return "Games";
+  if (category in phraseTemplates[1]) return category as Category;
+  return "Unknown";
+}
+
 // picks random phrase
 export function pickPhrase(tier: number, category: string, timePassed: number): string {
   const t = Math.min(5, Math.max(1, Math.round(tier))) as Tier;
-  const c = (category in phraseTemplates[t]
-    ? (category as Category)
-    : "Unknown") as Category;
+  const c = phraseCategory(category);
   const arr = phraseTemplates[t][c];
   if (!arr.length) return "";
   const phraseFn = arr[Math.floor(Math.random() * arr.length)];

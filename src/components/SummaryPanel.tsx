@@ -69,6 +69,8 @@ const CATEGORY_COLORS: Record<string, string> = {
   Productivity: "#a2cc3a",
   "Social Networking": "#f7768e",
   Games: "#bb9af7",
+  Entertainment: "#ff9e64",
+  Video: "#e0af68",
   Music: "#7dcfff",
   Unknown: "#9aa0a6",
 };
@@ -328,6 +330,10 @@ export function SummaryPanel({
                         return "Chronically Online";
                       case "Games":
                         return "Hardstuck addict";
+                      case "Entertainment":
+                        return "Binge Mode";
+                      case "Video":
+                        return "Autoplay Victim";
                       case "Music":
                         return "DJ of procrastination";
                       case "Unknown":
