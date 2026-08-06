@@ -372,8 +372,8 @@
 }
 
 .settings-btn.primary {
-  background: var(--accent-strong);
-  color: white;
+  background: var(--accent);
+  color: #0d0d0f;
 }
 
 .settings-btn.primary:hover:not(:disabled) {
