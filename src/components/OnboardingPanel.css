@@ -37,7 +37,7 @@
 .onboarding-progress {
   margin: 4px 0 0;
   font-size: 0.9rem;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
 }
 
 .onboarding-body {
