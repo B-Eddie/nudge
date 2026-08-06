@@ -315,7 +315,7 @@ main.hidden {
 }
 
 #hoverInfo .energy-bar.empty {
-  background: var(--danger);
+  background: rgba(255, 255, 255, 0.16);
 }
 
 .character.hovered #hoverInfo {
