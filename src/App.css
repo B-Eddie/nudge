@@ -260,7 +260,12 @@ main.hidden {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.2em;
+  gap: 0.25em;
+  padding: 0.45em 0.7em;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 0.5em;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
   font-size: 10vw;
   line-height: 1;
 }
@@ -269,17 +274,6 @@ main.hidden {
   position: relative;
   margin: 0;
   padding: 0;
-}
-
-/* WebKit won't blend against the desktop through a transparent window without
-   this invisible sampler — blur is sub-pixel so there's no frosted panel. */
-#hoverInfo .hoverInfo-stat::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  backdrop-filter: blur(0.001px);
-  -webkit-backdrop-filter: blur(0.001px);
 }
 
 #hoverInfo .hoverInfo-text {
@@ -292,8 +286,7 @@ main.hidden {
   font-weight: bold;
   line-height: 1;
   letter-spacing: 0.04em;
-  color: #fff;
-  mix-blend-mode: difference;
+  color: var(--text);
 }
 
 #hoverInfo .energy-bars {
@@ -315,7 +308,7 @@ main.hidden {
 }
 
 #hoverInfo .energy-bar.empty {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .character.hovered #hoverInfo {
