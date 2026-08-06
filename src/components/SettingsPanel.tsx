@@ -299,6 +299,19 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             </p>
           </div>
 
+          <label className="settings-field settings-toggle">
+            <span>Launch at login</span>
+            <input
+              type="checkbox"
+              checked={draft.launch_at_login ?? false}
+              onChange={(e) =>
+                setDraft({ ...draft, launch_at_login: e.target.checked })
+              }
+              aria-label="Launch at login"
+            />
+            <span className="settings-toggle-slider" />
+          </label>
+
           <section className="settings-section">
             <h3 className="settings-section-title">App categories</h3>
             <p className="settings-hint">

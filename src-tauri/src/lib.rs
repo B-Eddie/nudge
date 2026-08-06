@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use tauri::{Emitter, Manager};
+use tauri_plugin_autostart::MacosLauncher;
 mod activity;
 mod app_categories;
 mod auto_break;
@@ -575,6 +576,10 @@ pub fn run() {
                 })
                 .build(),
         )
+        .plugin(tauri_plugin_autostart::init(
+            MacosLauncher::LaunchAgent,
+            Some(vec!["--autostarted"]),
+        ))
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
             set_click_through,
@@ -601,6 +606,16 @@ pub fn run() {
 
             let window = app.get_webview_window("main").unwrap();
             let settings = Settings::load_synced_and_save(app.handle()).unwrap_or_default();
+
+            // Sync autostart state with saved setting
+            if let Some(autostart) = app.try_state::<tauri_plugin_autostart::AutoLaunchManager>() {
+                if settings.launch_at_login {
+                    let _ = autostart.enable();
+                } else {
+                    let _ = autostart.disable();
+                }
+            }
+
             let position = settings.window_position();
 
             if let Err(e) = register_pause_shortcut(app.handle(), &settings.pause_shortcut) {

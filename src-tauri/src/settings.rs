@@ -45,6 +45,9 @@ pub struct Settings {
     /// Minutes without keyboard/mouse input before an automatic break starts.
     #[serde(default = "default_auto_idle_break_mins")]
     pub auto_idle_break_mins: u32,
+    /// Whether to automatically launch nudge when the user logs in.
+    #[serde(default)]
+    pub launch_at_login: bool,
 }
 
 fn default_auto_idle_break_mins() -> u32 {
@@ -62,6 +65,7 @@ impl Default for Settings {
             onboarding_complete: false,
             pending_notes: Vec::new(),
             auto_idle_break_mins: default_auto_idle_break_mins(),
+            launch_at_login: false,
         }
     }
 }
@@ -264,6 +268,16 @@ pub fn save_settings(
     }
 
     settings.save(&app)?;
+
+    // Apply autostart setting
+    if let Some(autostart) = app.try_state::<tauri_plugin_autostart::AutoLaunchManager>() {
+        if settings.launch_at_login {
+            let _ = autostart.enable();
+        } else {
+            let _ = autostart.disable();
+        }
+    }
+
     if *state.settings_open.lock().unwrap() {
         return Ok(());
     }
