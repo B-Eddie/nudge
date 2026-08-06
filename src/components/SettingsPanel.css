@@ -181,6 +181,12 @@
   background-size: 14px;
 }
 
+.settings-app-category:focus {
+  outline: none;
+  border-color: var(--focus-border);
+  box-shadow: var(--focus-ring);
+}
+
 .settings-field {
   display: flex;
   flex-direction: column;
