@@ -123,7 +123,7 @@
 }
 
 .settings-app-search input::placeholder {
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-muted);
 }
 
 .settings-app-search input:focus {
