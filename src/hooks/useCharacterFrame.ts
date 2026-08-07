@@ -67,6 +67,15 @@ function resolveFrames(bundle: number, category: string): string[] {
   return byCategory[category] ?? byCategory["idle"] ?? [];
 }
 
+// The art ships 4 tiredness bundles for 5 energy tiers (tier 1 = full
+// energy, tier 5 = 1/5 energy). Tier number equals bundle number, so the
+// tiers outnumber the bundles by one. Map tier -> bundle by shifting down
+// one: the fresh bundle covers tiers 1-2, and the most-tired bundle is only
+// reached at tier 5 (1/5 energy) instead of never being shown.
+function bundleFromTier(tier: number): number {
+  return Math.max(1, Math.abs(tier) - 1);
+}
+
 function alternateBundleId(
   timeEvents: number,
   messageVisible: boolean,
@@ -109,14 +118,14 @@ export function useCharacterFrame(
   }, [bundle, alternates.length, timeEvents, messageVisible]);
 
   const category = characterSetFromCategory(categoryLabel);
-  const tierBundle = timeEvents;
-  const frames = resolveFrames(tierBundle, category);
+  const bundleNumber = bundleFromTier(timeEvents);
+  const frames = resolveFrames(bundleNumber, category);
 
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
     setIndex(0);
-  }, [category, tierBundle]);
+  }, [category, bundleNumber]);
 
   useEffect(() => {
     if (bundle || frames.length <= 1) return;
@@ -129,7 +138,7 @@ export function useCharacterFrame(
       setIndex((prev) => (prev + 1) % frames.length);
     }, interval);
     return () => clearInterval(id);
-  }, [bundle, frames.length, category, tierBundle]);
+  }, [bundle, frames.length, category, bundleNumber]);
 
   if (bundle) {
     return alternates[altIndex] ?? alternates[0];
