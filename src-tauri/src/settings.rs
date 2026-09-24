@@ -212,7 +212,6 @@ pub struct MonitorOption {
     pub label: String,
 }
 
-#[cfg(target_os = "macos")]
 fn monitor_label(_app: &AppHandle, monitor: &tauri::Monitor, index: usize) -> String {
     if let Some(name) = monitor.name() {
         if !name.starts_with("Monitor #") {
@@ -303,10 +302,7 @@ pub fn open_settings(app: AppHandle, state: State<AppState>) -> Result<(), Strin
 
     *state.settings_open.lock().unwrap() = true;
 
-    #[cfg(target_os = "macos")]
-    super::set_ignores_mouse_events(&window, false);
-    #[cfg(not(target_os = "macos"))]
-    let _ = window.set_ignore_cursor_events(false);
+    crate::platform::set_ignores_mouse_events(&window, false);
 
     window
         .set_size(LogicalSize::new(SETTINGS_WIDTH, SETTINGS_HEIGHT))
@@ -349,12 +345,8 @@ pub fn close_settings(app: AppHandle, state: State<AppState>) -> Result<(), Stri
         OVERLAY_HEIGHT,
     )?;
 
-    #[cfg(target_os = "macos")]
-    super::configure_macos_overlay_window(&window, &app);
-    #[cfg(target_os = "macos")]
-    super::set_ignores_mouse_events(&window, true);
-    #[cfg(not(target_os = "macos"))]
-    let _ = window.set_ignore_cursor_events(true);
+    crate::platform::configure_overlay_window(&window, &app);
+    crate::platform::set_ignores_mouse_events(&window, true);
 
     Ok(())
 }

@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, polish]
+    branches: [main, polish, linux-port]
   pull_request:
     branches: [main]
 
@@ -38,6 +38,30 @@ jobs:
 
       # Validates the Rust backend (incl. macOS-only deps) compiles.
       # Full .app/.dmg bundling is exercised by the release workflow.
+      - name: Cargo check
+        working-directory: src-tauri
+        run: cargo check --locked
+
+  rust-linux:
+    name: Rust check (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
+            libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf libxdo-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # Validates the Rust backend (incl. the Linux platform module) compiles.
+      # Full .deb/.AppImage bundling is exercised by the release workflow.
       - name: Cargo check
         working-directory: src-tauri
         run: cargo check --locked

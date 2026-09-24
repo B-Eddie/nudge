@@ -33,6 +33,7 @@ pub const APP_CATEGORIES: &[(&str, &str)] = &[
     ("public.app-category.word-games", "Games"),
 ];
 
+#[cfg(target_os = "macos")]
 pub fn is_valid_apple_category(value: &str) -> bool {
     APP_CATEGORIES
         .iter()
@@ -88,6 +89,7 @@ pub fn get_app_category_options() -> Vec<CategoryOption> {
     options
 }
 
+#[cfg(target_os = "macos")]
 fn normalize_plist_category(raw: &str) -> String {
     let trimmed = raw.trim();
     if trimmed.is_empty() || !is_valid_apple_category(trimmed) {
@@ -97,6 +99,7 @@ fn normalize_plist_category(raw: &str) -> String {
     }
 }
 
+#[cfg(target_os = "macos")]
 fn category_from_info_plist(bundle_path: &Path) -> String {
     let plist_path = bundle_path.join("Contents/Info.plist");
     let Ok(plist_value) = plist::Value::from_file(&plist_path) else {
@@ -158,7 +161,114 @@ pub fn discover_running_apps() -> Vec<DiscoveredApp> {
     })
 }
 
-#[cfg(not(target_os = "macos"))]
+/// Map freedesktop `Categories=` values to the app's category ids.
+#[cfg(target_os = "linux")]
+fn category_from_desktop_categories(categories: &str) -> String {
+    for cat in categories.split(';').map(str::trim) {
+        let mapped = match cat {
+            "Development" => Some("public.app-category.developer-tools"),
+            "Audio" => Some("public.app-category.music"),
+            "Video" => Some("public.app-category.video"),
+            "Game" => Some("public.app-category.games"),
+            _ => None,
+        };
+        if let Some(id) = mapped {
+            return id.to_string();
+        }
+    }
+    UNKNOWN_CATEGORY.to_string()
+}
+
+#[cfg(target_os = "linux")]
+fn discover_desktop_entry(path: &Path) -> Option<DiscoveredApp> {
+    let content = std::fs::read_to_string(path).ok()?;
+    let mut in_entry = false;
+    let mut name: Option<String> = None;
+    let mut wm_class: Option<String> = None;
+    let mut categories = String::new();
+
+    for line in content.lines() {
+        let line = line.trim();
+        if line.starts_with('[') {
+            in_entry = line == "[Desktop Entry]";
+            continue;
+        }
+        if !in_entry || line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+        match key.trim() {
+            "Name" if name.is_none() => name = Some(value.trim().to_string()),
+            "StartupWMClass" if wm_class.is_none() => {
+                wm_class = Some(value.trim().to_string())
+            }
+            "Categories" => categories = value.trim().to_string(),
+            "NoDisplay" | "Hidden" if value.trim().eq_ignore_ascii_case("true") => {
+                return None
+            }
+            _ => {}
+        }
+    }
+
+    let name = name.filter(|n| !n.is_empty())?;
+    // The identifier must match what platform::frontmost_app() reports, which
+    // is the lowercased WM_CLASS — hence StartupWMClass when present.
+    let bundle_id = wm_class
+        .map(|c| c.to_lowercase())
+        .filter(|c| !c.is_empty())
+        .or_else(|| {
+            path.file_stem()
+                .and_then(|s| s.to_str())
+                .map(|s| s.to_lowercase())
+        })?;
+
+    Some(DiscoveredApp {
+        bundle_id,
+        name,
+        category: category_from_desktop_categories(&categories),
+    })
+}
+
+/// Linux has no NSWorkspace equivalent, so discover *installed* apps from
+/// `.desktop` files instead. The merge logic in settings only fills in missing
+/// entries, so this is a strict improvement over an empty list.
+#[cfg(target_os = "linux")]
+pub fn discover_running_apps() -> Vec<DiscoveredApp> {
+    use std::collections::HashSet;
+    use std::path::PathBuf;
+
+    let mut apps = Vec::new();
+    let mut seen = HashSet::new();
+
+    let mut dirs = vec![PathBuf::from("/usr/share/applications")];
+    if let Ok(home) = std::env::var("HOME") {
+        dirs.push(PathBuf::from(home).join(".local/share/applications"));
+    }
+
+    for dir in dirs {
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) != Some("desktop") {
+                continue;
+            }
+            if let Some(app) = discover_desktop_entry(&path) {
+                if seen.insert(app.bundle_id.clone()) {
+                    apps.push(app);
+                }
+            }
+        }
+    }
+
+    apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    apps
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
 pub fn discover_running_apps() -> Vec<DiscoveredApp> {
     Vec::new()
 }

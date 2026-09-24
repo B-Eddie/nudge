@@ -10,7 +10,19 @@
 
 <p align="center">
   <a href="https://github.com/b-eddie/nudge/releases/latest">Download for macOS</a>
+  ·
+  <a href="https://github.com/b-eddie/nudge/releases/latest">Download for Linux</a>
 </p>
+
+---
+
+## Platform support
+
+| Platform | Status | Notes |
+|----------|--------|-------|
+| macOS    | ✅ Full support | The reference platform. Focused-app detection, idle tracking, auto-break on idle/sleep, NSPanel overlay. |
+| Linux    | ✅ Supported (X11) | `.deb` / `.AppImage` in Releases. Focused-app via WM_CLASS, idle via MIT-SCREEN-SAVER, sleep/wake via logind. On Wayland without XWayland, focused-app/idle detection degrades gracefully. |
+| Windows  | 🔜 Planned | The Rust backend is already structured for it (`src-tauri/src/platform/windows.rs`); not built yet. |
 
 ---
 
@@ -35,9 +47,13 @@ It's easy to lose hours at your computer without noticing. Timers and notificati
 
 ## Install
 
-Download the latest `.dmg` from the [Releases page](https://github.com/b-eddie/nudge/releases/latest), open it, and drag Nudge into Applications.
+**macOS:** download the latest `.dmg` from the [Releases page](https://github.com/b-eddie/nudge/releases/latest), open it, and drag Nudge into Applications.
 
-> **Note:** macOS only. On first launch, right-click the app and choose Open if Gatekeeper flags it.
+> **Note:** On first launch, right-click the app and choose Open if Gatekeeper flags it.
+
+**Linux (X11):** download the `.deb` or `.AppImage` from the [Releases page](https://github.com/b-eddie/nudge/releases/latest).
+
+> **Note:** the Linux port targets X11. On Wayland, focused-app and idle detection gracefully degrade (the character still works; auto-break on idle won't trigger).
 
 ## Privacy
 
@@ -45,7 +61,19 @@ Nudge observes which app is focused and whether you're actively using the keyboa
 
 ## Development
 
-Requirements: macOS, [Node.js](https://nodejs.org/) 20+, [Rust](https://rustup.rs/), and the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/).
+Requirements: [Node.js](https://nodejs.org/) 20+, [Rust](https://rustup.rs/), and the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/).
+
+**macOS:** the Tauri prerequisites above are enough.
+
+**Linux (Debian/Ubuntu):**
+
+```bash
+sudo apt-get update
+sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
+  libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf libxdo-dev
+```
+
+Then:
 
 ```bash
 git clone https://github.com/b-eddie/nudge.git
@@ -65,7 +93,9 @@ Useful checks:
 npm run build        # typecheck + production frontend build
 ```
 
-CI runs the frontend build on Linux and `cargo check` on macOS for every push/PR. Pushing a tag like `v1.0.0` triggers the release workflow, which builds the signed `.dmg` and publishes it to GitHub Releases.
+The Rust backend is organized per platform in `src-tauri/src/platform/` (`macos.rs`, `linux.rs`, `windows.rs`), selected at compile time — see the module docs there before adding OS-specific code.
+
+CI runs the frontend build on Linux and `cargo check` on macOS *and* Linux for every push/PR. Pushing a tag like `v1.0.0` triggers the release workflow, which builds the macOS `.dmg` and the Linux `.deb`/`.AppImage`, and publishes them to GitHub Releases.
 
 ## Releasing a new version
 
