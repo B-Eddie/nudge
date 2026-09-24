@@ -1,25 +1,25 @@
 <!doctype html>
-<html lang="en" class="scroll-smooth">
+<html lang="en" class="scroll-smooth" data-theme="panda">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>nudge — Your Desktop Productivity Companion</title>
+    <title>nudge — Your Desktop Companion for Healthier Focus</title>
     <meta
       name="description"
       content="nudge is a tiny pixel-art companion that lives on your desktop, tracks your focus, and nudges you to take breaks before you burn out."
     />
-    <meta property="og:title" content="nudge — Your Desktop Productivity Companion" />
+    <meta property="og:title" content="nudge — Your Desktop Companion for Healthier Focus" />
     <meta
       property="og:description"
-      content="A tiny pixel-art pet that tracks your focus and nudges you to take breaks. Free and open source for macOS."
+      content="A tiny pixel-art companion that tracks your focus and nudges you to take breaks. Free and open source for macOS and Linux."
     />
-    <meta property="og:image" content="assets/app-icon.png" />
+    <meta property="og:image" content="assets/companions/mochi-hero.png" />
     <link rel="icon" type="image/png" href="assets/app-icon.png" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&family=Space+Grotesk:wght@400;500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Pixelify+Sans:wght@400..700&display=swap"
       rel="stylesheet"
     />
 
@@ -29,19 +29,22 @@
         theme: {
           extend: {
             colors: {
-              ink: "#0d0d0f",
-              panel: "#1c1c1e",
-              line: "rgba(255,255,255,0.12)",
-              divider: "rgba(255,255,255,0.08)",
-              accent: "#a2cc3a",
-              accentdark: "#67a253",
-              danger: "#f7768e",
-              warn: "#e0af68",
-              info: "#7aa2f7",
+              paper: "#F7F1E2",
+              paperdeep: "#EEE3CB",
+              card: "#FFFDF4",
+              ink: "#2E2A20",
+              inksoft: "#6F6450",
+              line: "#E0D2AC",
+              accent: "#5F8F4E",
+              accentdeep: "#3E6B33",
+              accentsoft: "#E2EDD2",
+              clay: "#C0563F",
+              amber: "#D9A441",
+              pond: "#4E8FA3",
             },
             fontFamily: {
               pixel: ['"Pixelify Sans"', "monospace"],
-              body: ['"Space Grotesk"', "system-ui", "sans-serif"],
+              body: ['"Nunito"', "ui-rounded", "system-ui", "sans-serif"],
             },
           },
         },
@@ -49,21 +52,80 @@
     </script>
 
     <style>
+      /* ---- per-character theme tokens (mirrors the app's token swap) ---- */
+      :root {
+        --accent: #5f8f4e;
+        --accent-deep: #3e6b33;
+        --accent-soft: #e2edd2;
+        --accent-glow: rgba(95, 143, 78, 0.35);
+      }
+      [data-theme="maple"] {
+        --accent: #c4703b;
+        --accent-deep: #96502a;
+        --accent-soft: #f6e4cc;
+        --accent-glow: rgba(196, 112, 59, 0.35);
+      }
+      [data-theme="puddle"] {
+        --accent: #3e9b8f;
+        --accent-deep: #2b6e64;
+        --accent-soft: #d9eee8;
+        --accent-glow: rgba(62, 155, 143, 0.35);
+      }
+      .theme-text {
+        color: var(--accent-deep);
+      }
+      .theme-bg {
+        background-color: var(--accent-deep);
+      }
+      .theme-soft {
+        background-color: var(--accent-soft);
+      }
+      .theme-border {
+        border-color: var(--accent-deep) !important;
+      }
+      .theme-glow {
+        box-shadow: 0 0 60px -18px var(--accent-glow);
+      }
+      .theme-btn-primary {
+        background-color: var(--accent-deep);
+        box-shadow: 0 8px 24px var(--accent-glow);
+      }
+      .theme-btn-primary:hover {
+        background-color: var(--accent);
+      }
+
       .pixelated {
         image-rendering: crisp-edges;
         image-rendering: pixelated;
       }
 
-      /* subtle pixel-grid backdrop */
-      .grid-bg {
-        background-image:
-          linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-        background-size: 28px 28px;
+      /* warm bamboo-dot backdrop */
+      .grove-bg {
+        background-image: radial-gradient(rgba(93, 74, 44, 0.1) 1.5px, transparent 1.5px);
+        background-size: 26px 26px;
       }
 
-      .glow {
-        box-shadow: 0 0 60px -18px rgba(162, 204, 58, 0.45);
+      /* paper grain, one texture, one place */
+      .grain {
+        position: relative;
+      }
+      .grain::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        pointer-events: none;
+        opacity: 0.05;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>");
+      }
+
+      /* sticker cards — the one playful material */
+      .sticker {
+        transform: rotate(var(--tilt, 0deg));
+        transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease;
+      }
+      .sticker:hover {
+        transform: rotate(0deg) translateY(-4px);
       }
 
       .pet-bob {
@@ -86,7 +148,7 @@
         height: 1em;
         margin-left: 2px;
         vertical-align: text-bottom;
-        background: #a2cc3a;
+        background: var(--accent-deep);
         animation: caret-blink 1s steps(1) infinite;
       }
       @keyframes caret-blink {
@@ -105,9 +167,10 @@
         transform: translateX(-50%);
         background: repeating-linear-gradient(
           to bottom,
-          rgba(162, 204, 58, 0.5) 0 6px,
+          var(--accent) 0 6px,
           transparent 6px 12px
         );
+        opacity: 0.5;
       }
       .step-last::before {
         display: none;
@@ -124,7 +187,7 @@
           transform: translateY(-50%);
           background: repeating-linear-gradient(
             to right,
-            rgba(162, 204, 58, 0.5) 0 6px,
+            var(--accent) 0 6px,
             transparent 6px 12px
           );
         }
@@ -132,30 +195,35 @@
     </style>
   </head>
 
-  <body class="bg-ink text-zinc-100 font-body antialiased">
+  <body class="bg-paper font-body text-ink antialiased">
     <!-- ===== NAV ===== -->
-    <header class="sticky top-0 z-50 border-b border-divider bg-ink/80 backdrop-blur-md">
+    <header class="sticky top-0 z-50 border-b-2 border-line bg-paper/90 backdrop-blur-md">
       <nav class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         <a href="#" class="flex items-center gap-3">
-          <img src="assets/app-icon.png" alt="nudge app icon" class="h-8 w-8 rounded-lg" />
-          <span class="font-pixel text-2xl leading-none text-accent">nudge</span>
+          <img src="assets/app-icon.png" alt="nudge app icon" class="h-8 w-8 rounded-lg border-2 border-line" />
+          <span class="theme-text font-pixel text-2xl leading-none">nudge</span>
         </a>
         <div class="flex items-center gap-3">
           <a
+            href="#companions"
+            class="hidden text-sm font-semibold text-inksoft transition hover:text-ink sm:block"
+            >Companions</a
+          >
+          <a
             href="#features"
-            class="hidden text-sm text-zinc-400 transition hover:text-zinc-100 sm:block"
+            class="hidden text-sm font-semibold text-inksoft transition hover:text-ink sm:block"
             >Features</a
           >
           <a
             href="#how-it-works"
-            class="hidden text-sm text-zinc-400 transition hover:text-zinc-100 sm:block"
+            class="hidden text-sm font-semibold text-inksoft transition hover:text-ink sm:block"
             >How it works</a
           >
           <a
             href="https://github.com/B-Eddie/nudge"
             target="_blank"
             rel="noopener"
-            class="rounded-lg border border-line px-4 py-2 text-sm font-medium text-zinc-200 transition hover:border-accent hover:text-accent"
+            class="rounded-full border-2 border-line bg-card px-4 py-2 text-sm font-bold text-ink transition hover:border-accentdeep hover:text-accentdeep"
             >GitHub</a
           >
         </div>
@@ -163,37 +231,33 @@
     </header>
 
     <!-- ===== HERO ===== -->
-    <section class="grid-bg relative overflow-hidden">
-      <div
-        class="pointer-events-none absolute inset-x-0 top-0 h-[480px] bg-[radial-gradient(ellipse_at_top,rgba(162,204,58,0.14),transparent_65%)]"
-      ></div>
-
+    <section class="grove-bg relative overflow-hidden">
       <div
         class="relative mx-auto grid max-w-6xl items-center gap-14 px-6 pb-24 pt-20 lg:grid-cols-2 lg:pt-28"
       >
         <!-- copy -->
         <div class="text-center lg:text-left">
           <p
-            class="mb-5 inline-flex items-center gap-2 rounded-full border border-line bg-panel/70 px-4 py-1.5 text-xs uppercase tracking-widest text-accent"
+            class="theme-soft theme-text mb-5 inline-flex items-center gap-2 rounded-full border-2 border-line px-4 py-1.5 text-xs font-bold uppercase tracking-widest"
           >
-            <span class="inline-block h-2 w-2 bg-accent"></span>
-            Free &amp; open source · macOS
+            <span class="theme-bg inline-block h-2 w-2 rounded-full"></span>
+            Free &amp; open source · macOS &amp; Linux
           </p>
           <h1 class="font-pixel text-5xl leading-[1.05] sm:text-6xl lg:text-7xl">
             Your Desktop<br />
-            <span class="text-accent">Productivity</span> Companion
+            <span class="theme-text">Companion</span> for Healthier Focus
           </h1>
-          <p class="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-zinc-400 lg:mx-0">
-            nudge is a tiny pixel pet that lives in the corner of your screen. It
-            tracks how you spend your time, loses energy as you grind, and nudges
-            you to take real breaks — before you burn out.
+          <p class="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-inksoft lg:mx-0">
+            nudge is a tiny pixel companion that lives in the corner of your
+            screen. It tracks how you spend your time, loses energy the longer
+            you work, and nudges you to take real breaks — before you burn out.
           </p>
           <div class="mt-9 flex flex-wrap items-center justify-center gap-4 lg:justify-start">
             <a
               href="https://github.com/B-Eddie/nudge/releases"
               target="_blank"
               rel="noopener"
-              class="glow inline-flex items-center gap-2 rounded-xl bg-accent px-7 py-3.5 font-semibold text-ink transition hover:bg-accentdark hover:text-white"
+              class="theme-btn-primary theme-glow inline-flex items-center gap-2 rounded-full px-7 py-3.5 font-bold text-paper transition hover:-translate-y-0.5"
             >
               <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M12 3v10.6l-3.3-3.3-1.4 1.4L12 16.4l4.7-4.7-1.4-1.4L12 13.6V3h0z" />
@@ -205,7 +269,7 @@
               href="https://github.com/B-Eddie/nudge"
               target="_blank"
               rel="noopener"
-              class="inline-flex items-center gap-2 rounded-xl border border-line bg-panel/60 px-7 py-3.5 font-semibold text-zinc-200 transition hover:border-accent hover:text-accent"
+              class="inline-flex items-center gap-2 rounded-full border-2 border-line bg-card px-7 py-3.5 font-bold text-ink transition hover:border-accentdeep hover:text-accentdeep"
             >
               <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path
@@ -215,51 +279,48 @@
               View Source
             </a>
           </div>
-          <p class="mt-5 text-sm text-zinc-500">
+          <p class="mt-5 text-sm font-semibold text-inksoft">
             Built with Tauri + React · ~10&nbsp;MB app, near-zero idle CPU
           </p>
         </div>
 
         <!-- interactive app preview -->
         <div class="relative mx-auto w-full max-w-lg">
-          <div class="overflow-hidden rounded-2xl border border-line bg-panel/90 shadow-2xl">
+          <div class="grain overflow-hidden rounded-[20px] border-2 border-line bg-card shadow-[0_12px_32px_rgba(93,74,44,0.18)]">
             <!-- fake macOS titlebar -->
-            <div class="flex items-center gap-2 border-b border-divider px-4 py-3">
+            <div class="flex items-center gap-2 border-b border-line px-4 py-3">
               <span class="h-3 w-3 rounded-full bg-[#ff5f57]"></span>
               <span class="h-3 w-3 rounded-full bg-[#febc2e]"></span>
               <span class="h-3 w-3 rounded-full bg-[#28c840]"></span>
-              <span class="ml-3 text-xs text-zinc-500">your desktop</span>
-              <span id="preview-clock" class="ml-auto font-pixel text-xs text-zinc-500"></span>
+              <span class="ml-3 font-pixel text-xs text-inksoft">your desktop</span>
+              <span id="preview-clock" class="ml-auto font-pixel text-xs text-inksoft"></span>
             </div>
 
             <!-- fake desktop -->
             <div
-              class="grid-bg relative h-80 bg-gradient-to-b from-[#15151a] to-[#101014]"
-              aria-label="Live preview of the nudge desktop pet"
+              class="grove-bg relative h-80 bg-paperdeep/60"
+              aria-label="Live preview of the nudge desktop companion"
             >
               <!-- speech bubble -->
               <div class="absolute bottom-40 left-6 max-w-[240px]">
                 <div
-                  class="rounded-lg border border-line bg-ink/90 px-3 py-2 font-pixel text-sm leading-snug text-zinc-100"
+                  class="rounded-2xl rounded-bl-md border-2 border-line bg-card px-4 py-2.5 font-pixel text-sm leading-snug text-ink shadow-[0_4px_12px_rgba(93,74,44,0.15)]"
                 >
                   <span id="preview-bubble" class="bubble-caret"></span>
                 </div>
-                <div
-                  class="ml-6 h-3 w-3 -translate-y-1.5 rotate-45 border-b border-r border-line bg-ink/90"
-                ></div>
               </div>
 
-              <!-- the pet -->
+              <!-- the companion -->
               <div class="absolute bottom-6 left-6 flex items-end gap-4">
                 <img
                   id="preview-pet"
                   src="assets/pet-idle-1.png"
-                  alt="nudge pixel pet"
-                  class="pixelated pet-bob h-28 w-auto drop-shadow-[0_0_1px_#fff]"
+                  alt="nudge pixel companion"
+                  class="pixelated pet-bob h-28 w-auto drop-shadow-[0_2px_3px_rgba(93,74,44,0.35)]"
                 />
                 <!-- energy bars -->
                 <div class="mb-2">
-                  <p class="mb-1 font-pixel text-[11px] uppercase tracking-widest text-zinc-500">
+                  <p class="mb-1 font-pixel text-[11px] uppercase tracking-widest text-inksoft">
                     energy
                   </p>
                   <div id="preview-energy" class="flex gap-1"></div>
@@ -268,88 +329,169 @@
             </div>
 
             <!-- state switcher -->
-            <div class="flex flex-wrap items-center gap-2 border-t border-divider px-4 py-3">
-              <span class="mr-1 text-xs uppercase tracking-widest text-zinc-500">try a state:</span>
+            <div class="flex flex-wrap items-center gap-2 border-t border-line bg-card px-4 py-3">
+              <span class="mr-1 text-xs font-bold uppercase tracking-widest text-inksoft">try a state:</span>
               <button data-state="idle" class="preview-btn">Idle</button>
               <button data-state="work" class="preview-btn">Focused</button>
               <button data-state="nudge" class="preview-btn">Nudge!</button>
               <button data-state="sleep" class="preview-btn">On break</button>
             </div>
           </div>
-          <p class="mt-3 text-center text-xs text-zinc-600">
+          <p class="mt-3 text-center text-xs font-semibold text-inksoft">
             Real in-app sprites — this is exactly how nudge animates on your desktop.
           </p>
         </div>
       </div>
     </section>
 
-    <!-- ===== FEATURES ===== -->
-    <section id="features" class="border-t border-divider bg-[#101013]">
+    <!-- ===== COMPANIONS ===== -->
+    <section id="companions" class="border-t-2 border-line bg-card">
       <div class="mx-auto max-w-6xl px-6 py-24">
-        <p class="text-center font-pixel text-sm uppercase tracking-[0.3em] text-accent">
+        <p class="theme-text text-center font-pixel text-sm uppercase tracking-[0.3em]">
+          meet the companions
+        </p>
+        <h2 class="mt-3 text-center font-pixel text-4xl sm:text-5xl">
+          Pick your grove keeper
+        </h2>
+        <p class="mx-auto mt-4 max-w-2xl text-center text-lg text-inksoft">
+          Three companions, three moods. Your choice reskins the whole app —
+          try it here, it works exactly like the real thing.
+        </p>
+
+        <!-- theme switcher -->
+        <div class="mt-8 flex flex-wrap items-center justify-center gap-3" role="group" aria-label="Preview a companion theme">
+          <button data-theme-btn="panda" class="theme-switcher theme-border rounded-full border-2 border-line bg-paper px-5 py-2 font-bold text-ink transition">Mochi</button>
+          <button data-theme-btn="maple" class="theme-switcher rounded-full border-2 border-line bg-paper px-5 py-2 font-bold text-ink transition">Maple</button>
+          <button data-theme-btn="puddle" class="theme-switcher rounded-full border-2 border-line bg-paper px-5 py-2 font-bold text-ink transition">Puddle</button>
+        </div>
+
+        <div class="mt-12 grid gap-8 md:grid-cols-3">
+          <!-- Mochi -->
+          <div class="sticker grain rounded-[20px] border-2 border-ink bg-paper p-8 text-center shadow-[0_12px_32px_rgba(93,74,44,0.18)]" style="--tilt: -2deg">
+            <img src="assets/companions/mochi-hero.png" alt="Mochi the panda waving" class="mx-auto h-40 w-40 rounded-2xl border-2 border-line object-cover" />
+            <h3 class="mt-5 font-pixel text-3xl">Mochi</h3>
+            <p class="mt-1 text-sm font-bold uppercase tracking-widest text-inksoft">Panda · the default</p>
+            <p class="mt-3 leading-relaxed text-inksoft">The original grove keeper. Steady, soft, always on your side.</p>
+          </div>
+          <!-- Maple -->
+          <div class="sticker grain rounded-[20px] border-2 border-ink bg-paper p-8 text-center shadow-[0_12px_32px_rgba(93,74,44,0.18)]" style="--tilt: 2deg">
+            <img src="assets/companions/maple.png" alt="Maple the red panda" class="mx-auto h-40 w-40 rounded-2xl border-2 border-line object-cover" />
+            <h3 class="mt-5 font-pixel text-3xl">Maple</h3>
+            <p class="mt-1 text-sm font-bold uppercase tracking-widest text-inksoft">Red panda · autumn</p>
+            <p class="mt-3 leading-relaxed text-inksoft">Runs warm and bright. A little dramatic about breaks.</p>
+          </div>
+          <!-- Puddle -->
+          <div class="sticker grain rounded-[20px] border-2 border-ink bg-paper p-8 text-center shadow-[0_12px_32px_rgba(93,74,44,0.18)]" style="--tilt: -2deg">
+            <img src="assets/companions/puddle.png" alt="Puddle the frog" class="mx-auto h-40 w-40 rounded-2xl border-2 border-line object-cover" />
+            <h3 class="mt-5 font-pixel text-3xl">Puddle</h3>
+            <p class="mt-1 text-sm font-bold uppercase tracking-widest text-inksoft">Frog · pond</p>
+            <p class="mt-3 leading-relaxed text-inksoft">Believes deeply in naps. Will not be rushed.</p>
+          </div>
+        </div>
+
+        <!-- Mochi's moods -->
+        <h3 class="mt-20 text-center font-pixel text-3xl">Mochi&apos;s moods</h3>
+        <p class="mx-auto mt-3 max-w-xl text-center text-inksoft">
+          Six new portraits for every moment of your workday — tea breaks,
+          deep focus, gentle nudges, and well-earned celebrations.
+        </p>
+        <div class="mt-10 grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-6">
+          <figure class="text-center">
+            <img src="assets/companions/mochi-focus.png" alt="Mochi focused at a laptop" class="sticker mx-auto h-28 w-28 rounded-2xl border-2 border-line bg-paper object-cover" style="--tilt: -2deg" />
+            <figcaption class="mt-2 text-sm font-bold text-inksoft">Locked in</figcaption>
+          </figure>
+          <figure class="text-center">
+            <img src="assets/companions/mochi-tea.png" alt="Mochi with a cup of tea" class="sticker mx-auto h-28 w-28 rounded-2xl border-2 border-line bg-paper object-cover" style="--tilt: 2deg" />
+            <figcaption class="mt-2 text-sm font-bold text-inksoft">Tea break</figcaption>
+          </figure>
+          <figure class="text-center">
+            <img src="assets/companions/mochi-nudge.png" alt="Mochi giving a gentle nudge" class="sticker mx-auto h-28 w-28 rounded-2xl border-2 border-line bg-paper object-cover" style="--tilt: -2deg" />
+            <figcaption class="mt-2 text-sm font-bold text-inksoft">Gentle nudge</figcaption>
+          </figure>
+          <figure class="text-center">
+            <img src="assets/companions/mochi-stretch.png" alt="Mochi doing a morning stretch" class="sticker mx-auto h-28 w-28 rounded-2xl border-2 border-line bg-paper object-cover" style="--tilt: 2deg" />
+            <figcaption class="mt-2 text-sm font-bold text-inksoft">Morning stretch</figcaption>
+          </figure>
+          <figure class="text-center">
+            <img src="assets/companions/mochi-celebrate.png" alt="Mochi celebrating" class="sticker mx-auto h-28 w-28 rounded-2xl border-2 border-line bg-paper object-cover" style="--tilt: -2deg" />
+            <figcaption class="mt-2 text-sm font-bold text-inksoft">You did it</figcaption>
+          </figure>
+          <figure class="text-center">
+            <img src="assets/companions/mochi-sleep.png" alt="Mochi asleep on a bamboo pillow" class="sticker mx-auto h-28 w-28 rounded-2xl border-2 border-line bg-paper object-cover" style="--tilt: 2deg" />
+            <figcaption class="mt-2 text-sm font-bold text-inksoft">Off to dreamland</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== FEATURES ===== -->
+    <section id="features" class="grove-bg border-t-2 border-line">
+      <div class="mx-auto max-w-6xl px-6 py-24">
+        <p class="theme-text text-center font-pixel text-sm uppercase tracking-[0.3em]">
           why nudge
         </p>
         <h2 class="mt-3 text-center font-pixel text-4xl sm:text-5xl">
           A companion, not another dashboard
         </h2>
-        <p class="mx-auto mt-4 max-w-2xl text-center text-zinc-400">
-          nudge stays out of your way while you work and shows up exactly when you
-          need a push to rest.
+        <p class="mx-auto mt-4 max-w-2xl text-center text-lg text-inksoft">
+          nudge stays out of your way while you work and shows up exactly when
+          you need a push to rest.
         </p>
 
         <div class="mt-16 grid gap-6 md:grid-cols-3">
           <!-- feature 1 -->
           <div
-            class="group rounded-2xl border border-line bg-panel/60 p-8 transition hover:border-accent/60 hover:bg-panel"
+            class="grain group rounded-[20px] border-2 border-line bg-card p-8 transition hover:-translate-y-1 hover:shadow-[0_12px_32px_rgba(93,74,44,0.18)]"
           >
             <div
-              class="mb-6 flex h-14 w-14 items-center justify-center rounded-xl border border-accent/40 bg-accent/10"
+              class="theme-soft mb-6 flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-line"
             >
               <img src="assets/pet-idle-1.png" alt="" class="pixelated h-9 w-auto" aria-hidden="true" />
             </div>
-            <h3 class="font-pixel text-2xl text-zinc-100">Silky pixel animations</h3>
-            <p class="mt-3 leading-relaxed text-zinc-400">
+            <h3 class="font-pixel text-2xl">Silky pixel animations</h3>
+            <p class="mt-3 leading-relaxed text-inksoft">
               Every sprite is predecoded at launch, so state changes — focused,
-              resting, nudging — swap instantly with zero flicker. Your pet reacts
-              to the app you're actually using.
+              resting, nudging — swap instantly with zero flicker. Your companion
+              reacts to the app you&apos;re actually using.
             </p>
           </div>
 
           <!-- feature 2 -->
           <div
-            class="group rounded-2xl border border-line bg-panel/60 p-8 transition hover:border-accent/60 hover:bg-panel"
+            class="grain group rounded-[20px] border-2 border-line bg-card p-8 transition hover:-translate-y-1 hover:shadow-[0_12px_32px_rgba(93,74,44,0.18)]"
           >
             <div
-              class="mb-6 flex h-14 w-14 items-center justify-center rounded-xl border border-info/40 bg-info/10"
+              class="theme-soft mb-6 flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-line"
             >
-              <svg class="h-7 w-7 text-info" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <svg class="theme-text h-7 w-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </div>
-            <h3 class="font-pixel text-2xl text-zinc-100">Featherweight footprint</h3>
-            <p class="mt-3 leading-relaxed text-zinc-400">
-              Built on Tauri with a native Rust core — a ~10&nbsp;MB app that idles
-              at near-zero CPU and a sliver of RAM. It's a pet, not a Chrome tab.
+            <h3 class="font-pixel text-2xl">Featherweight footprint</h3>
+            <p class="mt-3 leading-relaxed text-inksoft">
+              Built on Tauri with a native Rust core — a ~10&nbsp;MB app that
+              idles at near-zero CPU and a sliver of RAM. It&apos;s a companion,
+              not a Chrome tab.
             </p>
           </div>
 
           <!-- feature 3 -->
           <div
-            class="group rounded-2xl border border-line bg-panel/60 p-8 transition hover:border-accent/60 hover:bg-panel"
+            class="grain group rounded-[20px] border-2 border-line bg-card p-8 transition hover:-translate-y-1 hover:shadow-[0_12px_32px_rgba(93,74,44,0.18)]"
           >
             <div
-              class="mb-6 flex h-14 w-14 items-center justify-center rounded-xl border border-warn/40 bg-warn/10"
+              class="theme-soft mb-6 flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-line"
             >
-              <svg class="h-7 w-7 text-warn" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <svg class="theme-text h-7 w-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
             </div>
-            <h3 class="font-pixel text-2xl text-zinc-100">Nudges you control</h3>
-            <p class="mt-3 leading-relaxed text-zinc-400">
-              Set your own work/break rhythm, queue custom reminder notes, and let
-              auto-breaks kick in when you step away or your Mac sleeps. Energy
-              recharges only when you actually rest.
+            <h3 class="font-pixel text-2xl">Nudges you control</h3>
+            <p class="mt-3 leading-relaxed text-inksoft">
+              Set your own work/break rhythm, queue custom reminder notes, and
+              let auto-breaks kick in when you step away or your computer sleeps.
+              Energy recharges only when you actually rest.
             </p>
           </div>
         </div>
@@ -357,9 +499,9 @@
     </section>
 
     <!-- ===== HOW IT WORKS ===== -->
-    <section id="how-it-works" class="border-t border-divider">
+    <section id="how-it-works" class="border-t-2 border-line bg-paper">
       <div class="mx-auto max-w-6xl px-6 py-24">
-        <p class="text-center font-pixel text-sm uppercase tracking-[0.3em] text-accent">
+        <p class="theme-text text-center font-pixel text-sm uppercase tracking-[0.3em]">
           how it works
         </p>
         <h2 class="mt-3 text-center font-pixel text-4xl sm:text-5xl">
@@ -370,51 +512,51 @@
           <!-- step 1 -->
           <div class="step-line relative text-center">
             <div
-              class="mx-auto flex h-14 w-14 items-center justify-center rounded-xl border border-accent bg-accent/10 font-pixel text-2xl text-accent"
+              class="theme-soft theme-text mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-line font-pixel text-2xl"
             >
               1
             </div>
             <div class="mx-auto mt-6 flex h-20 items-center justify-center">
-              <img src="assets/pet-work-1.png" alt="Pet working at a computer" class="pixelated h-16 w-auto" />
+              <img src="assets/pet-work-1.png" alt="Companion working at a computer" class="pixelated h-16 w-auto" />
             </div>
-            <h3 class="mt-4 font-pixel text-2xl">Adopt your pet</h3>
-            <p class="mx-auto mt-3 max-w-xs leading-relaxed text-zinc-400">
+            <h3 class="mt-4 font-pixel text-2xl">Adopt your companion</h3>
+            <p class="mx-auto mt-3 max-w-xs leading-relaxed text-inksoft">
               nudge settles into a corner of your screen and quietly tracks what
-              you're focused on — no accounts, all data stays local.
+              you&apos;re focused on — no accounts, all data stays local.
             </p>
           </div>
 
           <!-- step 2 -->
           <div class="step-line relative text-center">
             <div
-              class="mx-auto flex h-14 w-14 items-center justify-center rounded-xl border border-accent bg-accent/10 font-pixel text-2xl text-accent"
+              class="theme-soft theme-text mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-line font-pixel text-2xl"
             >
               2
             </div>
             <div class="mx-auto mt-6 flex h-20 items-center justify-center">
-              <img src="assets/pet-nudge-1.png" alt="Pet holding a megaphone" class="pixelated h-16 w-auto" />
+              <img src="assets/pet-nudge-1.png" alt="Companion holding a megaphone" class="pixelated h-16 w-auto" />
             </div>
             <h3 class="mt-4 font-pixel text-2xl">Get nudged</h3>
-            <p class="mx-auto mt-3 max-w-xs leading-relaxed text-zinc-400">
-              As you grind, its energy drains. On your schedule, it pipes up with
-              a reminder — or one of your own queued notes.
+            <p class="mx-auto mt-3 max-w-xs leading-relaxed text-inksoft">
+              The longer you work, the more its energy drains. On your schedule,
+              it pipes up with a reminder — or one of your own queued notes.
             </p>
           </div>
 
           <!-- step 3 -->
           <div class="step-line step-last relative text-center">
             <div
-              class="mx-auto flex h-14 w-14 items-center justify-center rounded-xl border border-accent bg-accent/10 font-pixel text-2xl text-accent"
+              class="theme-soft theme-text mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-line font-pixel text-2xl"
             >
               3
             </div>
             <div class="mx-auto mt-6 flex h-20 items-center justify-center">
-              <img src="assets/pet-sleep-1.png" alt="Pet sleeping during a break" class="pixelated h-16 w-auto" />
+              <img src="assets/pet-sleep-1.png" alt="Companion sleeping during a break" class="pixelated h-16 w-auto" />
             </div>
             <h3 class="mt-4 font-pixel text-2xl">Rest &amp; recharge</h3>
-            <p class="mx-auto mt-3 max-w-xs leading-relaxed text-zinc-400">
-              Take the break — your pet naps and recharges with you. Check daily
-              and weekly reports to see where your time really went.
+            <p class="mx-auto mt-3 max-w-xs leading-relaxed text-inksoft">
+              Take the break — your companion naps and recharges with you. Check
+              daily and weekly reports to see where your time really went.
             </p>
           </div>
         </div>
@@ -422,37 +564,34 @@
     </section>
 
     <!-- ===== DOWNLOAD CTA ===== -->
-    <section class="grid-bg relative overflow-hidden border-t border-divider">
-      <div
-        class="pointer-events-none absolute inset-x-0 bottom-0 h-72 bg-[radial-gradient(ellipse_at_bottom,rgba(162,204,58,0.14),transparent_65%)]"
-      ></div>
+    <section class="grove-bg relative overflow-hidden border-t-2 border-line">
       <div class="relative mx-auto max-w-3xl px-6 py-24 text-center">
         <img
-          src="assets/pet-idle-2.png"
-          alt="nudge pixel pet waving"
-          class="pixelated pet-bob mx-auto h-24 w-auto"
+          src="assets/companions/mochi-celebrate.png"
+          alt="Mochi celebrating"
+          class="pixelated pet-bob mx-auto h-28 w-28 rounded-3xl border-2 border-line bg-card object-cover"
         />
         <h2 class="mt-8 font-pixel text-4xl sm:text-5xl">
-          Give your desktop a <span class="text-accent">heartbeat</span>
+          Give your desktop a <span class="theme-text">heartbeat</span>
         </h2>
-        <p class="mx-auto mt-4 max-w-xl text-lg text-zinc-400">
-          Free, open source, and kind to your battery. Adopt your nudge in under a
-          minute.
+        <p class="mx-auto mt-4 max-w-xl text-lg text-inksoft">
+          Free, open source, and kind to your battery. Adopt your companion in
+          under a minute.
         </p>
         <div class="mt-9 flex flex-wrap items-center justify-center gap-4">
           <a
             href="https://github.com/B-Eddie/nudge/releases"
             target="_blank"
             rel="noopener"
-            class="glow inline-flex items-center gap-2 rounded-xl bg-accent px-8 py-4 font-semibold text-ink transition hover:bg-accentdark hover:text-white"
+            class="theme-btn-primary theme-glow inline-flex items-center gap-2 rounded-full px-8 py-4 font-bold text-paper transition hover:-translate-y-0.5"
           >
-            Download for macOS
+            Download the App
           </a>
           <a
             href="https://github.com/B-Eddie/nudge"
             target="_blank"
             rel="noopener"
-            class="inline-flex items-center gap-2 rounded-xl border border-line px-8 py-4 font-semibold text-zinc-200 transition hover:border-accent hover:text-accent"
+            class="inline-flex items-center gap-2 rounded-full border-2 border-line bg-card px-8 py-4 font-bold text-ink transition hover:border-accentdeep hover:text-accentdeep"
           >
             Star on GitHub
           </a>
@@ -461,21 +600,21 @@
     </section>
 
     <!-- ===== FOOTER ===== -->
-    <footer class="border-t border-divider">
+    <footer class="border-t-2 border-line bg-paper">
       <div
         class="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-8 sm:flex-row"
       >
         <div class="flex items-center gap-2">
-          <img src="assets/app-icon.png" alt="" class="h-6 w-6 rounded" aria-hidden="true" />
-          <span class="font-pixel text-lg text-zinc-300">nudge</span>
+          <img src="assets/app-icon.png" alt="" class="h-6 w-6 rounded border border-line" aria-hidden="true" />
+          <span class="font-pixel text-lg text-ink">nudge</span>
         </div>
-        <p class="text-sm text-zinc-500">
+        <p class="text-sm font-semibold text-inksoft">
           Made with care (and pixels).
           <a
             href="https://github.com/B-Eddie/nudge"
             target="_blank"
             rel="noopener"
-            class="text-accent hover:underline"
+            class="theme-text hover:underline"
             >github.com/B-Eddie/nudge</a
           >
         </p>
@@ -483,26 +622,40 @@
     </footer>
 
     <script>
+      // ----- companion theme switcher (same token-swap idea as the app) -----
+      const root = document.documentElement;
+      const themeButtons = document.querySelectorAll("[data-theme-btn]");
+      function setTheme(name) {
+        root.dataset.theme = name;
+        themeButtons.forEach((btn) => {
+          const active = btn.dataset.themeBtn === name;
+          btn.classList.toggle("theme-border", active);
+        });
+      }
+      themeButtons.forEach((btn) =>
+        btn.addEventListener("click", () => setTheme(btn.dataset.themeBtn)),
+      );
+
       // ----- interactive preview -----
       const STATES = {
         idle: {
           frames: ["assets/pet-idle-1.png", "assets/pet-idle-2.png"],
-          phrase: "hey! i'm nudge. i'll keep you company while you work.",
+          phrase: "Hey! I'm Mochi. I'll keep you company while you work.",
           energy: 5,
         },
         work: {
           frames: ["assets/pet-work-1.png", "assets/pet-work-2.png"],
-          phrase: "locked in! i'm tracking this focus session for you.",
+          phrase: "Locked in! I'm tracking this focus session for you.",
           energy: 3,
         },
         nudge: {
           frames: ["assets/pet-nudge-1.png", "assets/pet-nudge-2.png"],
-          phrase: "you've been on for 47 minutes! time to stretch.",
+          phrase: "You've been at it for 47 minutes. Time to stretch.",
           energy: 1,
         },
         sleep: {
           frames: ["assets/pet-sleep-1.png", "assets/pet-sleep-2.png"],
-          phrase: "zzz... recharging. back in 5 minutes.",
+          phrase: "Off to dreamland. Back in 5 minutes.",
           energy: 4,
         },
       };
@@ -523,7 +676,7 @@
       // style the state buttons
       buttons.forEach((btn) => {
         btn.className +=
-          " rounded-lg border border-line px-3 py-1.5 font-pixel text-sm text-zinc-300 transition hover:border-accent hover:text-accent";
+          " rounded-full border-2 border-line bg-paper px-3 py-1.5 font-pixel text-sm text-ink transition hover:border-accentdeep hover:text-accentdeep";
       });
 
       let state = "idle";
@@ -535,10 +688,10 @@
         for (let i = 0; i < 5; i++) {
           const cell = document.createElement("span");
           cell.className =
-            "h-3.5 w-3.5 rounded-[2px] border " +
+            "h-3.5 w-3.5 rounded-[6px] border-2 " +
             (i < count
-              ? "border-accent bg-accent shadow-[0_0_6px_rgba(162,204,58,0.6)]"
-              : "border-line bg-black/40");
+              ? "border-accentdeep bg-accent shadow-[0_0_6px_var(--accent-glow)]"
+              : "border-line bg-paperdeep");
           energyEl.appendChild(cell);
         }
       }
@@ -562,9 +715,9 @@
         typePhrase(STATES[state].phrase);
         buttons.forEach((btn) => {
           const active = btn.dataset.state === state;
-          btn.classList.toggle("border-accent", active);
-          btn.classList.toggle("text-accent", active);
-          btn.classList.toggle("bg-accent/10", active);
+          btn.classList.toggle("theme-border", active);
+          btn.classList.toggle("theme-text", active);
+          btn.classList.toggle("theme-soft", active);
         });
       }
 
