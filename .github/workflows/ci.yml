@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main, polish]
+  pull_request:
+    branches: [main]
+
+jobs:
+  frontend:
+    name: Frontend build (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck + production build
+        run: npm run build
+
+  rust:
+    name: Rust check (macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # Validates the Rust backend (incl. macOS-only deps) compiles.
+      # Full .app/.dmg bundling is exercised by the release workflow.
+      - name: Cargo check
+        working-directory: src-tauri
+        run: cargo check --locked

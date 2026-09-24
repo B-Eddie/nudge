@@ -8,6 +8,7 @@
     "opener:default",
     "positioner:default",
     "autostart:default",
+    "updater:default",
     "allow-set-click-through",
     "allow-settings",
     "allow-activity",

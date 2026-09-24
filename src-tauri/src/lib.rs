@@ -580,6 +580,7 @@ pub fn run() {
             MacosLauncher::LaunchAgent,
             Some(vec!["--autostarted"]),
         ))
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
             set_click_through,
