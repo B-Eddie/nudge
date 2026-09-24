@@ -315,7 +315,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
           <section className="settings-section">
             <h3 className="settings-section-title">App categories</h3>
             <p className="settings-hint">
-              Categories are read from each app&apos;s Info.plist when nudge
+              Categories are read from each app&apos;s Info.plist when Nudge
               starts.
             </p>
             {sortedApps.length > 0 && (

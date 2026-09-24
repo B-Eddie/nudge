@@ -146,7 +146,7 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
       <div className="onboarding-panel" role="dialog" aria-labelledby="onboarding-title">
         <header className="onboarding-header">
           <div>
-            <h2 id="onboarding-title">Welcome to nudge</h2>
+            <h2 id="onboarding-title">Welcome to Nudge</h2>
             <p className="onboarding-progress">
               Step {step + 1} of {STEPS.length}
             </p>
@@ -249,7 +249,7 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
           {stepId === "reminder" && (
             <>
               <p className="onboarding-hint">
-                How often should nudge remind you to take a break? Your
+                How often should Nudge remind you to take a break? Your
                 character&apos;s energy drains over time between reminders.
               </p>
               <label className="onboarding-field">

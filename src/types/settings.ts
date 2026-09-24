@@ -17,7 +17,7 @@ export interface Settings {
   pending_notes?: string[];
   /** Minutes without input before an automatic break (default 5). */
   auto_idle_break_mins?: number;
-  /** Whether to automatically launch nudge when the user logs in. */
+  /** Whether to automatically launch Nudge when the user logs in. */
   launch_at_login?: boolean;
 }
 

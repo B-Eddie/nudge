@@ -181,12 +181,6 @@ function App() {
     setReminderNotePinned(false);
   }, []);
 
-  const dismissReminderNote = useCallback(() => {
-    setMessage("");
-    setDisplayedMessage("");
-    setReminderNotePinned(false);
-  }, []);
-
   const setTransientMessage = useCallback((text: string) => {
     setReminderNotePinned(false);
     setMessage(text);
@@ -956,10 +950,6 @@ function App() {
           MozUserSelect: "none",
         }}
       >
-        {/* debugging: */}
-        {/* <p>{timeEvents}</p> */}
-        {/* <p>{timePassed}</p> */}
-        {/* <p className="app-category">{label ?? "—"}</p> */}
         <div
           className={`character interactive pos-${position || "bl"} ${
             hovered ? "hovered" : ""
@@ -982,7 +972,7 @@ function App() {
                 <button
                   type="button"
                   className="messages-close interactive"
-                  onClick={dismissReminderNote}
+                  onClick={clearOverlayMessage}
                   aria-label="Close reminder note"
                 >
                   <LuX size={12} />

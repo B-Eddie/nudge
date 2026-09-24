@@ -45,7 +45,7 @@ pub struct Settings {
     /// Minutes without keyboard/mouse input before an automatic break starts.
     #[serde(default = "default_auto_idle_break_mins")]
     pub auto_idle_break_mins: u32,
-    /// Whether to automatically launch nudge when the user logs in.
+    /// Whether to automatically launch Nudge when the user logs in.
     #[serde(default)]
     pub launch_at_login: bool,
 }
