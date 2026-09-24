@@ -144,7 +144,7 @@ export function ReminderNotePanel({ onClose }: ReminderNotePanelProps) {
               ))}
             </ul>
           ) : (
-            <p className="settings-hint">No notes queued yet.</p>
+            <p className="settings-hint">No notes queued. Your future self says thanks in advance.</p>
           )}
         </div>
       </div>

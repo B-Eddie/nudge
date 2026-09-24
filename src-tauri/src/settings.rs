@@ -48,10 +48,17 @@ pub struct Settings {
     /// Whether to automatically launch Nudge when the user logs in.
     #[serde(default)]
     pub launch_at_login: bool,
+    /// Selected companion character id ("panda" | "maple" | "puddle").
+    #[serde(default = "default_character_id")]
+    pub character_id: String,
 }
 
 fn default_auto_idle_break_mins() -> u32 {
     5
+}
+
+fn default_character_id() -> String {
+    "panda".to_string()
 }
 
 impl Default for Settings {
@@ -66,6 +73,7 @@ impl Default for Settings {
             pending_notes: Vec::new(),
             auto_idle_break_mins: default_auto_idle_break_mins(),
             launch_at_login: false,
+            character_id: default_character_id(),
         }
     }
 }

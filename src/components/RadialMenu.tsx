@@ -14,6 +14,9 @@ interface RadialMenuProps {
   position: string;
   break: number;
   open: boolean;
+  /** Companion portrait shown in the donut hole. */
+  portrait: string;
+  characterName: string;
 }
 
 const QUADRANT_START: Record<string, number> = {
@@ -53,6 +56,8 @@ export function RadialMenu({
   position,
   break: breakState,
   open,
+  portrait,
+  characterName,
 }: RadialMenuProps) {
   const ACTIONS: RadialAction[] = [
     breakState === 0
@@ -77,6 +82,29 @@ export function RadialMenu({
         height={VIEW * 2}
         viewBox={`${-VIEW} ${-VIEW} ${VIEW * 2} ${VIEW * 2}`}
       >
+        <defs>
+          <clipPath id="radial-portrait-clip">
+            <circle r={INNER_R - 6} />
+          </clipPath>
+        </defs>
+        <image
+          href={portrait}
+          x={-(INNER_R - 6)}
+          y={-(INNER_R - 6)}
+          width={(INNER_R - 6) * 2}
+          height={(INNER_R - 6) * 2}
+          preserveAspectRatio="xMidYMid slice"
+          clipPath="url(#radial-portrait-clip)"
+        >
+          <title>{characterName}</title>
+        </image>
+        <circle
+          r={INNER_R - 6}
+          fill="none"
+          stroke="var(--line)"
+          strokeWidth={3}
+          pointerEvents="none"
+        />
         {ACTIONS.map(({ action, Icon, label, isNote }, i) => {
           const a0 = start + i * step;
           const a1 = start + (i + 1) * step;
@@ -100,7 +128,7 @@ export function RadialMenu({
                   ICON_SIZE / 2
                 ).toFixed(2)})`}
               >
-                <Icon size={ICON_SIZE} color="#fff" />
+                <Icon size={ICON_SIZE} color="currentColor" />
               </g>
             </g>
           );

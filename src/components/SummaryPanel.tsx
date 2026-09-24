@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { LuX } from "react-icons/lu";
 import "./SummaryPanel.css";
+import {
+  portraitForEnergy,
+  type CharacterDef,
+} from "../assets/characters/manifest";
 
 // stats from memory for current session
 export interface SessionStats {
@@ -62,6 +66,7 @@ interface SummaryPanelProps {
   energy: number;
   onBreak: boolean;
   onClose: () => void;
+  character: CharacterDef;
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -230,6 +235,7 @@ export function SummaryPanel({
   energy,
   onBreak,
   onClose,
+  character,
 }: SummaryPanelProps) {
   const [tab, setTab] = useState<"today" | "week">("today");
 
@@ -281,6 +287,11 @@ export function SummaryPanel({
         aria-labelledby="summary-title"
       >
         <header className="summary-header">
+          <img
+            className="summary-portrait"
+            src={portraitForEnergy(character, energy)}
+            alt={`${character.name} is at ${energy} of 5 energy`}
+          />
           <h2 id="summary-title">Activity Report</h2>
           <button
             type="button"

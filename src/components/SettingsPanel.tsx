@@ -14,6 +14,11 @@ import {
 } from "../types/settings";
 import "./SettingsPanel.css";
 import { LuSearch, LuX } from "react-icons/lu";
+import CharacterPicker from "./CharacterPicker";
+import {
+  getCharacter,
+  type CharacterId,
+} from "../assets/characters/manifest";
 
 interface SettingsPanelProps {
   onClose: () => void;
@@ -311,6 +316,22 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             />
             <span className="settings-toggle-slider" />
           </label>
+
+          <section className="settings-section">
+            <h3 className="settings-section-title">Companion</h3>
+            <p className="settings-hint">
+              Who sits on your screen — and what the whole grove looks like.
+            </p>
+            <CharacterPicker
+              value={getCharacter(draft.character_id).id}
+              onChange={(id: CharacterId) =>
+                setDraft({ ...draft, character_id: id })
+              }
+            />
+            <p className="settings-hint settings-tagline">
+              {getCharacter(draft.character_id).tagline}
+            </p>
+          </section>
 
           <section className="settings-section">
             <h3 className="settings-section-title">App categories</h3>

@@ -22,6 +22,11 @@ import type { Settings } from "./types/settings";
 import { RadialMenu } from "./components/RadialMenu";
 import { ReminderNotePanel } from "./components/ReminderNotePanel";
 import {
+  getCharacter,
+  DEFAULT_CHARACTER_ID,
+  type CharacterId,
+} from "./assets/characters/manifest";
+import {
   pickPhrase,
   pickDistractionNudge,
   isDistractingCategory,
@@ -108,6 +113,15 @@ function App() {
   const [frontmostApp, setFrontmostApp] = useState<FrontmostApp | null>(null);
   const [timePassed, setTimePassed] = useState<number>(0); // in seconds
   const [message, setMessage] = useState("");
+  const [characterId, setCharacterId] =
+    useState<CharacterId>(DEFAULT_CHARACTER_ID);
+  const character = getCharacter(characterId);
+
+  // Per-character theme: swap the accent triad via [data-character-theme]
+  // (design/DESIGN-SYSTEM.md — token swap, never component swap).
+  useEffect(() => {
+    document.documentElement.setAttribute("data-character-theme", characterId);
+  }, [characterId]);
   const [displayedMessage, setDisplayedMessage] = useState("");
   const [reminderNotePinned, setReminderNotePinned] = useState(false);
   const label = frontmostApp?.category_label;
@@ -336,6 +350,7 @@ function App() {
     void (async () => {
       const settings = await invoke<Settings>("get_settings");
       reminderIntervalRef.current = settings.reminder_interval_mins;
+      setCharacterId(getCharacter(settings.character_id).id);
       switch (settings.position) {
         case "bottom_left":
           setPosition("bl");
@@ -535,11 +550,11 @@ function App() {
       setTimeEvents(finalTier);
 
       if (progress >= 1) {
-        setTransientMessage("You are fully rested!");
+        setTransientMessage("Fully rested. Nice work resting.");
       } else {
         setTransientMessage(
           interrupted
-            ? "Hey, get off your computer! Your break has ended early."
+            ? "That break ended early — the keyboard missed you."
             : "You didn't rest enough.",
         );
       }
@@ -961,6 +976,8 @@ function App() {
               open={barOpen}
               position={position || "bl"}
               break={breakTime}
+              portrait={character.portrait}
+              characterName={character.name}
             />
           )}
           {displayedMessage !== "" && !overlayHidden && !characterHidden && (
@@ -1012,7 +1029,13 @@ function App() {
           )}
         </div>
       </main>
-      {onboardingOpen && <OnboardingPanel onComplete={closeOnboarding} />}
+      {onboardingOpen && (
+        <OnboardingPanel
+          onComplete={closeOnboarding}
+          characterId={characterId}
+          onCharacterChange={setCharacterId}
+        />
+      )}
       {settingsOpen && !onboardingOpen && !noteOpen && (
         <SettingsPanel onClose={closeSettings} />
       )}
@@ -1023,6 +1046,7 @@ function App() {
           energy={energy}
           onBreak={onBreak}
           onClose={closeSummary}
+          character={character}
         />
       )}
       {noteOpen && !settingsOpen && !onboardingOpen && !summaryOpen && (

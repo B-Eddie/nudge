@@ -1,0 +1,82 @@
+.picker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.picker-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 6px 12px;
+  background: var(--card);
+  border: 2px solid var(--ink);
+  border-radius: 18px;
+  transform: rotate(var(--tilt, 0deg));
+  box-shadow: 0 8px 18px rgba(93, 74, 44, 0.16);
+  cursor: pointer;
+  transition: transform 160ms var(--ease-spring), box-shadow 160ms ease,
+    border-color 160ms ease, background 160ms ease;
+  font-family: inherit;
+}
+
+.picker-card:hover {
+  transform: rotate(0deg) translateY(-2px);
+  box-shadow: 0 12px 24px rgba(93, 74, 44, 0.2);
+}
+
+.picker-card.selected {
+  border-color: var(--accent-deep);
+  background: var(--accent-soft);
+  transform: rotate(0deg);
+  box-shadow: 0 0 0 2px var(--accent-deep), 0 12px 24px var(--accent-glow);
+}
+
+.picker-card:focus-visible {
+  outline: 3px solid var(--accent-deep);
+  outline-offset: 2px;
+}
+
+.picker-portrait {
+  width: 72px;
+  height: 72px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 2px solid var(--line);
+  background: var(--paper-deep);
+}
+
+.picker-card.selected .picker-portrait {
+  border-color: var(--accent-deep);
+}
+
+.picker-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  image-rendering: auto;
+  display: block;
+}
+
+.picker-name {
+  font-family: var(--font-display);
+  font-size: 16px;
+  color: var(--ink);
+  margin-top: 4px;
+}
+
+.picker-species {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.picker-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 6px;
+  border: 2px solid var(--ink);
+}

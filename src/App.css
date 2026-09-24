@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Pixelify+Sans:wght@400..700&display=swap");
 
 @font-face {
   font-family: "PPNeueBit-Bold";
@@ -14,20 +14,17 @@
   font-style: normal;
 }
 
-/* Shared pixel theme. Every panel pulls from these tokens so the whole app
-   reads as one consistent surface instead of per-file color drift. */
+/* Bamboo Grove theme. Every panel pulls from these tokens so the whole app
+   reads as one warm paper surface. The accent triad is swapped per character
+   via [data-character-theme] on <html> — token swap, never component swap. */
 :root {
   --font-body:
-    "PPMondwest-Regular",
-    "Pixelify Sans",
-    ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    Monaco,
-    Consolas,
-    "Liberation Mono",
-    "Courier New",
-    monospace;
+    "Nunito",
+    ui-rounded,
+    "SF Pro Rounded",
+    system-ui,
+    -apple-system,
+    sans-serif;
   --font-display:
     "PPNeueBit-Bold",
     "Pixelify Sans",
@@ -36,44 +33,106 @@
     Menlo,
     Monaco,
     Consolas,
-    "Liberation Mono",
-    "Courier New",
     monospace;
 
-  --panel-bg: rgba(28, 28, 30, 0.94);
-  --panel-border: rgba(255, 255, 255, 0.12);
-  --panel-radius: 14px;
-  --surface: rgba(0, 0, 0, 0.25);
-  --surface-raised: rgba(255, 255, 255, 0.08);
-  --surface-raised-hover: rgba(255, 255, 255, 0.14);
-  --divider: rgba(255, 255, 255, 0.08);
+  /* Shared warm surfaces */
+  --paper: #f7f1e2;
+  --paper-deep: #eee3cb;
+  --card: #fffdf4;
+  --ink: #2e2a20;
+  --ink-soft: #6f6450;
+  --line: #e0d2ac;
+  --clay: #c0563f;
+  --amber: #d9a441;
+  --pond: #4e8fa3;
 
-  --text: #f5f5f7;
-  --text-strong: rgba(255, 255, 255, 0.85);
-  --text-dim: rgba(255, 255, 255, 0.65);
-  --text-muted: rgba(255, 255, 255, 0.5);
-  --text-faint: rgba(255, 255, 255, 0.5);
+  /* Accent triad — panda/bamboo (default) */
+  --accent: #5f8f4e;
+  --accent-deep: #3e6b33;
+  --accent-soft: #e2edd2;
+  --accent-glow: rgba(95, 143, 78, 0.35);
 
-  --accent: #a2cc3a;
-  --accent-strong: #67a253;
-  --accent-strong-hover: #79b563;
-  --danger: #f7768e;
-  --warn: #e0af68;
-  --info: #7aa2f7;
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
 
-  --focus-border: rgba(162, 204, 58, 0.8);
-  --focus-ring: 0 0 0 3px rgba(162, 204, 58, 0.22);
+  /* Legacy aliases so existing component CSS inherits the cozy palette */
+  --panel-bg: var(--paper);
+  --panel-border: var(--line);
+  --panel-radius: 20px;
+  --surface: var(--paper-deep);
+  --surface-raised: var(--card);
+  --surface-raised-hover: var(--accent-soft);
+  --divider: var(--line);
+
+  --text: var(--ink);
+  --text-strong: var(--ink);
+  --text-dim: var(--ink-soft);
+  --text-muted: var(--ink-soft);
+  --text-faint: var(--ink-soft);
+
+  --accent-strong: var(--accent-deep);
+  --accent-strong-hover: var(--accent);
+  --danger: var(--clay);
+  --warn: var(--amber);
+  --info: var(--pond);
+
+  --focus-border: var(--accent-deep);
+  --focus-ring: 0 0 0 3px var(--accent-glow);
+}
+
+/* Maple — autumn terracotta/amber */
+[data-character-theme="maple"] {
+  --accent: #c4703b;
+  --accent-deep: #96502a;
+  --accent-soft: #f6e4cc;
+  --accent-glow: rgba(196, 112, 59, 0.35);
+}
+
+/* Puddle — pond teal */
+[data-character-theme="puddle"] {
+  --accent: #3e9b8f;
+  --accent-deep: #2b6e64;
+  --accent-soft: #d9eee8;
+  --accent-glow: rgba(62, 155, 143, 0.35);
+}
+
+/* Paper grain texture — on paper panels only, 4% opacity */
+.settings-panel,
+.summary-panel,
+.onboarding-panel {
+  position: relative;
+}
+.settings-panel::after,
+.summary-panel::after,
+.onboarding-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>");
 }
 
 /* Single shared entrance animation for every panel */
 @keyframes panel-in {
   from {
     opacity: 0;
-    transform: scale(0.96) translateY(8px);
+    transform: scale(0.97) translateY(8px);
   }
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
+  }
+}
+
+/* The pet's idle bob — gentle, constant, alive */
+@keyframes pet-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
   }
 }
 
@@ -90,6 +149,10 @@ body,
   font-family: var(--font-body);
 }
 
+::selection {
+  background: var(--accent-soft);
+}
+
 .interactive,
 .interactive * {
   pointer-events: auto;
@@ -100,7 +163,7 @@ html.overlay-suppressed main.container {
 }
 
 main {
-  color: white;
+  color: var(--ink);
   font-size: 2em;
 }
 
@@ -206,7 +269,7 @@ main.hidden {
      displays; `crisp-edges` stays as a fallback for engines without it. */
   image-rendering: crisp-edges;
   image-rendering: pixelated;
-  filter: drop-shadow(0 0 1px #fff);
+  filter: drop-shadow(0 2px 3px rgba(93, 74, 44, 0.35));
 }
 
 /* Keep filter paint contained so hover text can blend with the desktop */
@@ -214,6 +277,7 @@ main.hidden {
   flex-shrink: 0;
   width: 100%;
   isolation: isolate;
+  animation: pet-bob 2.4s ease-in-out infinite;
 }
 
 .character img {
@@ -250,8 +314,8 @@ main.hidden {
 
 /* outline when character hovered */
 .character.hovered #characterMain {
-  filter: drop-shadow(2px 0 0 #fff) drop-shadow(-2px 0 0 #fff)
-    drop-shadow(0 2px 0 #fff) drop-shadow(0 -2px 0 #fff);
+  filter: drop-shadow(2px 0 0 #fffdf4) drop-shadow(-2px 0 0 #fffdf4)
+    drop-shadow(0 2px 0 #fffdf4) drop-shadow(0 -2px 0 #fffdf4);
   transition: none;
 }
 
@@ -262,10 +326,10 @@ main.hidden {
   align-items: flex-start;
   gap: 0.25em;
   padding: 0.45em 0.7em;
-  background: var(--panel-bg);
-  border: 1px solid var(--panel-border);
+  background: var(--paper);
+  border: 2px solid var(--line);
   border-radius: 0.5em;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 20px rgba(93, 74, 44, 0.25);
   font-size: 10vw;
   line-height: 1;
 }
@@ -286,7 +350,7 @@ main.hidden {
   font-weight: bold;
   line-height: 1;
   letter-spacing: 0.04em;
-  color: var(--text);
+  color: var(--ink);
 }
 
 #hoverInfo .energy-bars {
@@ -299,16 +363,32 @@ main.hidden {
   width: 0.8em;
   height: 0.8em;
   border-radius: 0.06em;
-  border: 1px solid rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--line);
   box-sizing: border-box;
 }
 
 #hoverInfo .energy-bar.filled {
   background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-glow);
 }
 
 #hoverInfo .energy-bar.empty {
-  background: rgba(255, 255, 255, 0.3);
+  background: var(--paper-deep);
+}
+
+/* Recharging pulse while resting */
+#hoverInfo .energy-bar.recharging {
+  animation: recharge 1.2s ease-in-out infinite;
+}
+
+@keyframes recharge {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
 }
 
 .character.hovered #hoverInfo {
@@ -346,16 +426,33 @@ main.hidden {
 }
 
 .menu-slice {
-  fill: rgba(24, 24, 24, 0.95);
-  stroke: #0b0b0b;
+  fill: var(--card);
+  stroke: var(--line);
   stroke-width: 3;
   cursor: pointer;
-  transition: fill 0.12s ease;
+  transition:
+    fill 0.12s ease,
+    transform 0.15s var(--ease-spring);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.slice-group {
+  color: var(--ink);
 }
 
 .slice-group:hover .menu-slice,
 .slice-group.active .menu-slice {
   fill: var(--accent);
+}
+
+.slice-group:hover,
+.slice-group.active {
+  color: var(--paper);
+}
+
+.slice-group:hover .menu-slice {
+  transform: scale(1.04);
 }
 
 /* icons aren't selectable */

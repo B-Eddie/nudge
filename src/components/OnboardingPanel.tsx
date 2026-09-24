@@ -13,13 +13,21 @@ import {
   shortcutFromKeyboardEvent,
 } from "../types/settings";
 import "./OnboardingPanel.css";
+import CharacterPicker from "./CharacterPicker";
+import {
+  getCharacter,
+  type CharacterId,
+} from "../assets/characters/manifest";
 
 interface OnboardingPanelProps {
   onComplete: () => void;
+  characterId: CharacterId;
+  onCharacterChange: (id: CharacterId) => void;
 }
 
 const STEPS = [
   "welcome",
+  "companion",
   "position",
   "shortcut",
   "reminder",
@@ -27,7 +35,11 @@ const STEPS = [
   "done",
 ] as const;
 
-export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
+export function OnboardingPanel({
+  onComplete,
+  characterId,
+  onCharacterChange,
+}: OnboardingPanelProps) {
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<Settings | null>(null);
   const [monitorOptions, setMonitorOptions] = useState<MonitorOption[]>([]);
@@ -161,8 +173,29 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
                 and nudges you to take breaks.
               </p>
               <p className="onboarding-hint">
-                Let&apos;s set up a few basics: position, shortcuts, and app
-                categories. You can change these anytime in Settings.
+                Let&apos;s set up a few basics: your companion, position,
+                shortcuts, and app categories. You can change these anytime in
+                Settings.
+              </p>
+            </>
+          )}
+
+          {stepId === "companion" && (
+            <>
+              <p className="onboarding-lead">Pick your companion.</p>
+              <p className="onboarding-hint">
+                They&apos;ll keep you company — and keep you honest about
+                breaks.
+              </p>
+              <CharacterPicker
+                value={characterId}
+                onChange={(id) => {
+                  setDraft({ ...draft, character_id: id });
+                  onCharacterChange(id);
+                }}
+              />
+              <p className="onboarding-tagline">
+                {getCharacter(characterId).tagline}
               </p>
             </>
           )}

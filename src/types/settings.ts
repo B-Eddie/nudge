@@ -14,6 +14,8 @@ export interface Settings {
   pause_shortcut: string;
   app_categories: Record<string, AppCategoryEntry>;
   onboarding_complete?: boolean;
+  /** Selected companion character id ("panda" | "maple" | "puddle"). Defaults to "panda". */
+  character_id?: string;
   pending_notes?: string[];
   /** Minutes without input before an automatic break (default 5). */
   auto_idle_break_mins?: number;
