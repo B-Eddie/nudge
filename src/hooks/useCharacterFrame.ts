@@ -54,6 +54,7 @@ function characterSetFromCategory(categoryLabel: string | undefined): string {
     case "social networking":
       return "social";
     case "games":
+      return "gaming";
     case "entertainment":
     case "video":
       return "idle";
