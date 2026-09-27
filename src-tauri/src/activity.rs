@@ -129,7 +129,7 @@ fn load_from_path(path: &Path) -> Result<ActivityState, String> {
     }
 }
 
-fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
+pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
     let parent = path.parent().ok_or_else(|| "activity path has no parent".to_string())?;
     std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     let nonce = SystemTime::now().duration_since(UNIX_EPOCH)

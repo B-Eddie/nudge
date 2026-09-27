@@ -504,14 +504,14 @@ fn get_frontmost_app(app: tauri::AppHandle) -> Result<Option<FrontmostApp>, Stri
     {
         let mut front = frontmost_app();
         if let Some(ref info) = front {
-            let mut settings = Settings::load(&app).unwrap_or_default();
+            let mut settings = Settings::load(&app)?;
             if info
                 .bundle_id
                 .as_ref()
                 .is_some_and(|bid| !settings.app_categories.contains_key(bid))
             {
                 settings.sync_app_categories();
-                let _ = settings.save(&app);
+                settings.save(&app)?;
             }
             if let Some(ref mut info) = front {
                 info.category = settings.category_for_bundle(info.bundle_id.as_deref());

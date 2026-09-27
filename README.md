@@ -100,3 +100,11 @@ In Settings > Your data, Pause tracking stops counting app-category time,
 breaks and reminder prompts without quitting. Resume there when ready.
 This preference is stored locally and survives a restart. It is separate
 from the hide-character shortcut, which does not stop tracking.
+
+## Settings recovery
+Settings are written atomically, with the previous valid snapshot kept at
+`settings.json.bak`. If the current settings file is damaged, nudge loads the
+backup rather than silently replacing the user's choices. If neither file can
+be read, settings operations return an error and the existing files are left
+untouched. A new shortcut is not unregistered from the previous binding until
+settings have been saved.

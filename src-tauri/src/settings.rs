@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
@@ -80,6 +80,49 @@ impl Default for Settings {
     }
 }
 
+fn settings_backup(path: &Path) -> PathBuf {
+    path.with_extension("json.bak")
+}
+
+fn read_settings_file(path: &Path) -> Result<Settings, String> {
+    let data = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let mut settings: Settings = serde_json::from_str(&data).map_err(|e| format!("{}: {e}", path.display()))?;
+    // Older installs implicitly completed onboarding before this field existed.
+    if !data.contains("onboarding_complete") {
+        settings.onboarding_complete = true;
+    }
+    Ok(settings)
+}
+
+fn load_settings_path(path: &Path) -> Result<Settings, String> {
+    if !path.exists() {
+        return if settings_backup(path).exists() {
+            read_settings_file(&settings_backup(path))
+        } else {
+            Ok(Settings::default())
+        };
+    }
+    read_settings_file(path).or_else(|primary| {
+        read_settings_file(&settings_backup(path)).map_err(|backup| format!(
+            "Settings could not be read; refusing to replace them. Primary: {primary}; backup: {backup}"
+        ))
+    })
+}
+
+fn save_settings_path(path: &Path, settings: &Settings) -> Result<(), String> {
+    let bytes = serde_json::to_vec_pretty(settings).map_err(|e| e.to_string())?;
+    if path.exists() {
+        let previous = std::fs::read(path).map_err(|e| e.to_string())?;
+        if serde_json::from_slice::<Settings>(&previous).is_ok() {
+            super::activity::write_atomic(&settings_backup(path), &previous)?;
+        } else {
+            // The primary was damaged; don't replace the only valid backup.
+            read_settings_file(&settings_backup(path))?;
+        }
+    }
+    super::activity::write_atomic(path, &bytes)
+}
+
 impl Settings {
     pub fn sync_app_categories(&mut self) {
         let discovered = discover_running_apps();
@@ -104,17 +147,7 @@ impl Settings {
     }
 
     pub fn load(app: &AppHandle) -> Result<Self, String> {
-        let path = Self::path(app)?;
-        if !path.exists() {
-            return Ok(Self::default());
-        }
-        let data = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
-        let mut settings: Settings = serde_json::from_str(&data).map_err(|e| e.to_string())?;
-        // Existing installs without this field already completed setup implicitly.
-        if !data.contains("onboarding_complete") {
-            settings.onboarding_complete = true;
-        }
-        Ok(settings)
+        load_settings_path(&Self::path(app)?)
     }
 
     pub fn load_synced(app: &AppHandle) -> Result<Self, String> {
@@ -130,12 +163,7 @@ impl Settings {
     }
 
     pub fn save(&self, app: &AppHandle) -> Result<(), String> {
-        let path = Self::path(app)?;
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-        }
-        let json = serde_json::to_string_pretty(self).map_err(|e| e.to_string())?;
-        std::fs::write(path, json).map_err(|e| e.to_string())
+        save_settings_path(&Self::path(app)?, self)
     }
 
     pub fn window_position(&self) -> Position {
@@ -276,14 +304,21 @@ pub fn save_settings(
     if !["playful", "gentle", "direct"].contains(&settings.reminder_tone.as_str()) {
         return Err("Unknown reminder tone".into());
     }
-    let previous = Settings::load(&app).unwrap_or_default();
+    let previous = Settings::load(&app)?;
     if previous.pause_shortcut != settings.pause_shortcut {
         // Register the new binding first so an invalid one fails the save.
         register_pause_shortcut(&app, &settings.pause_shortcut)?;
-        let _ = app.global_shortcut().unregister(previous.pause_shortcut.as_str());
     }
 
-    settings.save(&app)?;
+    if let Err(e) = settings.save(&app) {
+        if previous.pause_shortcut != settings.pause_shortcut {
+            let _ = app.global_shortcut().unregister(settings.pause_shortcut.as_str());
+        }
+        return Err(e);
+    }
+    if previous.pause_shortcut != settings.pause_shortcut {
+        let _ = app.global_shortcut().unregister(previous.pause_shortcut.as_str());
+    }
 
     // Apply autostart setting
     if let Some(autostart) = app.try_state::<tauri_plugin_autostart::AutoLaunchManager>() {
@@ -416,4 +451,57 @@ pub fn pop_pending_note(app: AppHandle) -> Result<Option<String>, String> {
     let note = settings.pending_notes.remove(0);
     settings.save(&app)?;
     Ok(Some(note))
+}
+
+#[cfg(test)]
+mod persistence_tests {
+    use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+
+    fn fixture() -> PathBuf {
+        let path = std::env::temp_dir().join(format!(
+            "nudge-settings-test-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        std::fs::create_dir_all(&path).unwrap();
+        path.join("settings.json")
+    }
+
+    #[test]
+    fn keeps_last_good_settings_when_primary_is_damaged() {
+        let path = fixture();
+        let mut first = Settings::default();
+        first.reminder_interval_mins = 25;
+        save_settings_path(&path, &first).unwrap();
+        let mut second = first.clone();
+        second.reminder_interval_mins = 40;
+        save_settings_path(&path, &second).unwrap();
+        std::fs::write(&path, b"{broken").unwrap();
+        assert_eq!(load_settings_path(&path).unwrap().reminder_interval_mins, 25);
+        let mut third = first;
+        third.reminder_interval_mins = 55;
+        save_settings_path(&path, &third).unwrap();
+        assert_eq!(read_settings_file(&settings_backup(&path)).unwrap().reminder_interval_mins, 25);
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn never_replaces_the_only_unreadable_settings_file() {
+        let path = fixture();
+        std::fs::write(&path, b"{broken").unwrap();
+        assert!(load_settings_path(&path).is_err());
+        assert!(save_settings_path(&path, &Settings::default()).is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), b"{broken");
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn previous_settings_without_onboarding_flag_are_migrated() {
+        let path = fixture();
+        let mut json = serde_json::to_value(Settings::default()).unwrap();
+        json.as_object_mut().unwrap().remove("onboarding_complete");
+        std::fs::write(&path, serde_json::to_vec(&json).unwrap()).unwrap();
+        assert!(load_settings_path(&path).unwrap().onboarding_complete);
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
 }
