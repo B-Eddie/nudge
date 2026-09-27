@@ -30,6 +30,8 @@ import {
 import { LuX } from "react-icons/lu";
 import { reminderText, distractionText, type ReminderTone } from "./types/reminderTone";
 
+import { normalizeCharacter, type CharacterId } from "./types/characters";
+
 const OVERLAY_SUPPRESS_CLASS = "overlay-suppressed";
 
 interface FrontmostApp {
@@ -92,6 +94,7 @@ function App() {
   const [reminderNotePinned, setReminderNotePinned] = useState(false);
   const label = frontmostApp?.category_label;
   const [position, setPosition] = useState("");
+  const [character, setCharacter] = useState<CharacterId>("panda");
   const [breakTime, setBreakTime] = useState(0);
   const [breakNeeded, setbreakNeeded] = useState(0);
   // Energy tier (1 = full energy) captured when the current break began
@@ -109,6 +112,7 @@ function App() {
     label,
     timeEvents,
     displayedMessage !== "" && !overlayHidden,
+    character,
   );
 
   // Ensure time-passed is always updated
@@ -331,6 +335,7 @@ function App() {
     void (async () => {
       const settings = await invoke<Settings>("get_settings");
       reminderIntervalRef.current = settings.reminder_interval_mins;
+      setCharacter(normalizeCharacter(settings.character));
       reminderToneRef.current = settings.reminder_tone ?? "playful";
       quietAmbientRef.current = settings.quiet_ambient_phrases ?? false;
       setQuietAmbient(quietAmbientRef.current);
@@ -361,6 +366,7 @@ function App() {
       invoke<Settings>("get_settings"),
     ]).then(([saved, settings]) => {
       reminderIntervalRef.current = settings.reminder_interval_mins;
+      setCharacter(normalizeCharacter(settings.character));
       reminderToneRef.current = settings.reminder_tone ?? "playful";
       quietAmbientRef.current = settings.quiet_ambient_phrases ?? false;
       setQuietAmbient(quietAmbientRef.current);
@@ -1093,7 +1099,7 @@ function App() {
               {/* No `key` here: remounting the <img> on state changes drops the
                   decoded bitmap and paints a blank frame. Updating `src` on a
                   stable element swaps atomically since frames are predecoded. */}
-              <img id="characterMain" src={characterSrc} alt="nudge character" />
+              <img id="characterMain" src={characterSrc} alt={`${character} character`} />
             </div>
           )}
         </div>

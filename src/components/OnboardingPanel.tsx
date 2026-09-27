@@ -13,6 +13,8 @@ import {
   shortcutFromKeyboardEvent,
 } from "../types/settings";
 import "./OnboardingPanel.css";
+import { CharacterPicker } from "./CharacterPicker";
+import { normalizeCharacter } from "../types/characters";
 
 interface OnboardingPanelProps {
   onComplete: () => void;
@@ -20,6 +22,7 @@ interface OnboardingPanelProps {
 
 const STEPS = [
   "welcome",
+  "character",
   "position",
   "shortcut",
   "reminder",
@@ -177,6 +180,16 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
                 stop tracking; quit nudge to stop, or clear your history in Settings.
                 Choose a position, shortcut, and reminder style below.
               </p>
+            </>
+          )}
+
+          {stepId === "character" && (
+            <>
+              <p className="onboarding-hint">Choose who will keep you company. You can switch anytime in Settings.</p>
+              <CharacterPicker
+                value={normalizeCharacter(draft.character)}
+                onChange={(character) => setDraft({ ...draft, character })}
+              />
             </>
           )}
 

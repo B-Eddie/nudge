@@ -13,6 +13,8 @@ import {
   shortcutFromKeyboardEvent,
 } from "../types/settings";
 import "./SettingsPanel.css";
+import { CharacterPicker } from "./CharacterPicker";
+import { normalizeCharacter } from "../types/characters";
 import { LuSearch, LuX } from "react-icons/lu";
 
 interface SettingsPanelProps {
@@ -254,6 +256,7 @@ export function SettingsPanel({ onClose, onClearActivity, trackingPaused, onTogg
         </header>
 
         <div className="settings-body">
+          <CharacterPicker value={normalizeCharacter(draft.character)} onChange={(character) => setDraft({ ...draft, character })} />
           <label className="settings-field">
             <span>Monitor</span>
             <select

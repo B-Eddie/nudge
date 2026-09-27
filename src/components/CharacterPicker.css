@@ -1,0 +1,10 @@
+.character-picker { border: 0; padding: 0; margin: 0; min-width: 0; }
+.character-picker legend { color: var(--text-dim); margin-bottom: 10px; font-size: 1rem; }
+.character-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.character-option { display: flex; align-items: center; flex-direction: column; min-width: 0; gap: 3px; padding: 8px 4px; border: 1px solid var(--panel-border); border-radius: 8px; background: var(--surface); color: var(--text); cursor: pointer; text-align: center; }
+.character-option.selected { border-color: var(--accent); background: rgba(162, 204, 58, .12); }
+.character-option:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.character-option input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.character-option img { width: 64px; height: 64px; image-rendering: pixelated; }
+.character-option span { font-weight: bold; }
+.character-option small { font-size: .82rem; color: var(--text-dim); }

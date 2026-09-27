@@ -6,7 +6,10 @@ export interface AppCategoryEntry {
   user_override?: boolean;
 }
 
+import type { CharacterId } from "./characters";
+
 export interface Settings {
+  character?: CharacterId;
   monitor_index: number;
   reminder_interval_mins: number; // default 30 mins - in mins
   reminder_tone?: "playful" | "gentle" | "direct";

@@ -32,6 +32,8 @@ pub struct AppState {
 pub struct Settings {
     pub monitor_index: i32,
     pub reminder_interval_mins: u32,
+    #[serde(default = "default_character")]
+    pub character: String,
     #[serde(default = "default_reminder_tone")]
     pub reminder_tone: String,
     #[serde(default)]
@@ -54,6 +56,10 @@ pub struct Settings {
     pub launch_at_login: bool,
 }
 
+fn default_character() -> String {
+    "panda".to_string()
+}
+
 fn default_reminder_tone() -> String {
     "playful".to_string()
 }
@@ -67,6 +73,7 @@ impl Default for Settings {
         Settings {
             monitor_index: 0,
             reminder_interval_mins: 30,
+            character: default_character(),
             reminder_tone: default_reminder_tone(),
             quiet_ambient_phrases: false,
             position: "bottom_left".to_string(),
@@ -300,6 +307,9 @@ pub fn save_settings(
 ) -> Result<(), String> {
     if !(1..=240).contains(&settings.reminder_interval_mins) {
         return Err("Reminder interval must be between 1 and 240 minutes".into());
+    }
+    if !["panda", "miso", "puddle", "pip"].contains(&settings.character.as_str()) {
+        return Err("Unknown character".into());
     }
     if !["playful", "gentle", "direct"].contains(&settings.reminder_tone.as_str()) {
         return Err("Unknown reminder tone".into());

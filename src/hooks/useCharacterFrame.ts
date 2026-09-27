@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
+import { normalizeCharacter, type CharacterId } from "../types/characters";
 
 const frameModules = import.meta.glob<string>("../assets/animation/**/*.png", {
+  eager: true,
+  import: "default",
+  query: "?url",
+});
+
+const characterModules = import.meta.glob<string>("../assets/characters/**/*.png", {
   eager: true,
   import: "default",
   query: "?url",
@@ -12,7 +19,7 @@ const frameModules = import.meta.glob<string>("../assets/animation/**/*.png", {
 // when the character changed states.
 const preloadedFrames: HTMLImageElement[] = [];
 if (typeof window !== "undefined") {
-  for (const url of Object.values(frameModules)) {
+  for (const url of [...Object.values(frameModules), ...Object.values(characterModules)]) {
     const img = new Image();
     img.src = url;
     img.decode().catch(() => {
@@ -67,6 +74,13 @@ function resolveFrames(bundle: number, category: string): string[] {
   return byCategory[category] ?? byCategory["idle"] ?? [];
 }
 
+export function characterFrameUrl(character: CharacterId, state: "idle" | "computer" | "nudge" | "sleep", tier = 1, index = 0): string | undefined {
+  if (character === "panda") return undefined;
+  const bundle = Math.min(4, Math.max(1, tier));
+  const category = state === "nudge" || state === "sleep" ? state : `${bundle}/${state}`;
+  return characterModules[`../assets/characters/${character}/${category}/${index % 2 + 1}.png`];
+}
+
 // The art ships 4 tiredness bundles for 5 energy tiers (tier 1 = full
 // energy, tier 5 = 1/5 energy). Tier number equals bundle number, so the
 // tiers outnumber the bundles by one. Map tier -> bundle by shifting down
@@ -92,6 +106,7 @@ export function useCharacterFrame(
   categoryLabel: string | undefined,
   timeEvents: number,
   messageVisible = false,
+  character: CharacterId = "panda",
 ): string | undefined {
   const bundle = alternateBundleId(timeEvents, messageVisible);
 
@@ -107,7 +122,7 @@ export function useCharacterFrame(
 
   useEffect(() => {
     setAltIndex(0);
-  }, [bundle, timeEvents, messageVisible]);
+  }, [bundle, messageVisible, character]);
 
   useEffect(() => {
     if (!bundle || alternates.length < 2) return;
@@ -115,20 +130,21 @@ export function useCharacterFrame(
       setAltIndex((prev) => (prev + 1) % 2);
     }, 500);
     return () => clearInterval(id);
-  }, [bundle, alternates.length, timeEvents, messageVisible]);
+  }, [bundle, alternates.length, character]);
 
   const category = characterSetFromCategory(categoryLabel);
   const bundleNumber = bundleFromTier(timeEvents);
   const frames = resolveFrames(bundleNumber, category);
 
   const [index, setIndex] = useState(0);
+  const selected = normalizeCharacter(character);
 
   useEffect(() => {
     setIndex(0);
-  }, [category, bundleNumber]);
+  }, [category, bundleNumber, selected]);
 
   useEffect(() => {
-    if (bundle || frames.length <= 1) return;
+    if (bundle || (selected === "panda" && frames.length <= 1)) return;
 
     const interval =
       MIN_FRAME_INTERVAL_MS +
@@ -138,8 +154,13 @@ export function useCharacterFrame(
       setIndex((prev) => (prev + 1) % frames.length);
     }, interval);
     return () => clearInterval(id);
-  }, [bundle, frames.length, category, bundleNumber]);
+  }, [bundle, frames.length, category, bundleNumber, selected]);
 
+  if (selected !== "panda") {
+    const state = bundle === "-1" ? "sleep" : bundle === "0" ? "nudge"
+      : characterSetFromCategory(categoryLabel) === "computer" ? "computer" : "idle";
+    return characterFrameUrl(selected, state, bundleNumber, bundle ? altIndex : index);
+  }
   if (bundle) {
     return alternates[altIndex] ?? alternates[0];
   }
