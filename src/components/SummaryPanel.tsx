@@ -25,9 +25,9 @@ export interface DayRecord {
   longestStretchSeconds: number;
 }
 
-export function emptySessionStats(): SessionStats {
+export function emptySessionStats(now = Date.now()): SessionStats {
   return {
-    startedAt: Date.now(),
+    startedAt: now,
     categorySeconds: {},
     breaksTaken: 0,
     breaksInterrupted: 0,
