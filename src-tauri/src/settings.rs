@@ -32,6 +32,10 @@ pub struct AppState {
 pub struct Settings {
     pub monitor_index: i32,
     pub reminder_interval_mins: u32,
+    #[serde(default = "default_reminder_tone")]
+    pub reminder_tone: String,
+    #[serde(default)]
+    pub quiet_ambient_phrases: bool,
     pub position: String,
     #[serde(default = "default_pause_shortcut")]
     pub pause_shortcut: String,
@@ -50,6 +54,10 @@ pub struct Settings {
     pub launch_at_login: bool,
 }
 
+fn default_reminder_tone() -> String {
+    "playful".to_string()
+}
+
 fn default_auto_idle_break_mins() -> u32 {
     5
 }
@@ -59,6 +67,8 @@ impl Default for Settings {
         Settings {
             monitor_index: 0,
             reminder_interval_mins: 30,
+            reminder_tone: default_reminder_tone(),
+            quiet_ambient_phrases: false,
             position: "bottom_left".to_string(),
             pause_shortcut: default_pause_shortcut(),
             app_categories: HashMap::new(),
@@ -260,6 +270,12 @@ pub fn save_settings(
     state: State<AppState>,
     settings: Settings,
 ) -> Result<(), String> {
+    if !(1..=240).contains(&settings.reminder_interval_mins) {
+        return Err("Reminder interval must be between 1 and 240 minutes".into());
+    }
+    if !["playful", "gentle", "direct"].contains(&settings.reminder_tone.as_str()) {
+        return Err("Unknown reminder tone".into());
+    }
     let previous = Settings::load(&app).unwrap_or_default();
     if previous.pause_shortcut != settings.pause_shortcut {
         // Register the new binding first so an invalid one fails the save.

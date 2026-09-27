@@ -71,3 +71,12 @@ release may require a manual Gatekeeper exception; do not disable quarantine
 on software you do not trust.
 
 Licensed under MIT; see [LICENSE](LICENSE).
+
+## Controls and privacy
+During setup, nudge explains the activity it records. Settings let you choose
+reminder cadence (1–240 minutes), playful/gentle/direct reminder text, or turn
+off ambient chatter while retaining timed reminders. The global hide shortcut
+hides the pet but does not stop tracking; quit the app to stop tracking.
+Settings > Your data > Clear activity history deletes both the current activity
+snapshot and its backup, then begins a fresh session. It does not remove
+settings. Review the confirmation carefully; deleted history cannot be restored.

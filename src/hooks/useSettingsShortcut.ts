@@ -18,10 +18,6 @@ export function useSettingsShortcut(
         return;
       }
 
-      if (e.key === "Escape" && settingsOpen) {
-        e.preventDefault();
-        onClose();
-      }
     };
 
     window.addEventListener("keydown", onKeyDown);

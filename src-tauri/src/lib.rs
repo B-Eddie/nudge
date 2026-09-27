@@ -8,7 +8,7 @@ mod activity;
 mod app_categories;
 mod auto_break;
 mod settings;
-pub use activity::{get_activity, persist_activity, save_activity, ActivityStore};
+pub use activity::{clear_activity, get_activity, persist_activity, save_activity, ActivityStore};
 pub use app_categories::get_app_category_options;
 pub use settings::{
     get_settings, get_monitor_options, save_settings, close_settings, open_settings,
@@ -594,6 +594,7 @@ pub fn run() {
             get_auto_break_status,
             get_activity,
             save_activity,
+            clear_activity,
             reset_reminder_timer,
             pop_pending_note,
             add_pending_note,

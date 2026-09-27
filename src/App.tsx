@@ -28,6 +28,7 @@ import {
   DISTRACTION_NUDGE_REPEAT_SECS,
 } from "./types/phrases";
 import { LuX } from "react-icons/lu";
+import { reminderText, distractionText, type ReminderTone } from "./types/reminderTone";
 
 const OVERLAY_SUPPRESS_CLASS = "overlay-suppressed";
 
@@ -145,6 +146,8 @@ function App() {
   };
   const closeBarRef = useRef<() => void>(() => {});
   const reminderIntervalRef = useRef(30);
+  const reminderToneRef = useRef<ReminderTone>("playful");
+  const quietAmbientRef = useRef(false);
   const reminderAnimUntilRef = useRef(0);
   // Continuous seconds on the current frontmost category (resets on category change / break).
   const categoryStretchRef = useRef(0);
@@ -153,7 +156,10 @@ function App() {
   const lastDistractionNudgeAtRef = useRef(0);
 
   const [activityHydrated, setActivityHydrated] = useState(false);
+  const [quietAmbient, setQuietAmbient] = useState(false);
   const [activityError, setActivityError] = useState<string | null>(null);
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const clearingActivityRef = useRef(false);
 
   const clearOverlayMessage = useCallback(() => {
     setMessage("");
@@ -322,6 +328,9 @@ function App() {
     void (async () => {
       const settings = await invoke<Settings>("get_settings");
       reminderIntervalRef.current = settings.reminder_interval_mins;
+      reminderToneRef.current = settings.reminder_tone ?? "playful";
+      quietAmbientRef.current = settings.quiet_ambient_phrases ?? false;
+      setQuietAmbient(quietAmbientRef.current);
       switch (settings.position) {
         case "bottom_left":
           setPosition("bl");
@@ -349,6 +358,9 @@ function App() {
       invoke<Settings>("get_settings"),
     ]).then(([saved, settings]) => {
       reminderIntervalRef.current = settings.reminder_interval_mins;
+      reminderToneRef.current = settings.reminder_tone ?? "playful";
+      quietAmbientRef.current = settings.quiet_ambient_phrases ?? false;
+      setQuietAmbient(quietAmbientRef.current);
       const restored = resumeAfterRestart(rollOverActivity(saved, Date.now()));
       let savedStats = restored.stats;
       let savedHistory = restored.history;
@@ -382,12 +394,16 @@ function App() {
   useEffect(() => {
     if (!activityHydrated) return;
     const id = setInterval(() => {
-      void invoke("save_activity", { activity: activityRef.current })
-        .then(() => setActivityError(null))
-        .catch((err) => {
-          console.error("Failed to save activity:", err);
-          setActivityError("Activity could not be saved. Check available disk space; your last saved snapshot remains on disk.");
-        });
+      if (clearingActivityRef.current) return;
+      const activity = activityRef.current;
+      saveQueueRef.current = saveQueueRef.current.then(async () => {
+        if (clearingActivityRef.current) return;
+        await invoke("save_activity", { activity });
+        setActivityError(null);
+      }).catch((err) => {
+        console.error("Failed to save activity:", err);
+        setActivityError("Activity could not be saved. Check available disk space; your last saved snapshot remains on disk.");
+      });
     }, 5000);
     return () => clearInterval(id);
   }, [activityHydrated]);
@@ -400,6 +416,7 @@ function App() {
     if (!activityHydrated) return;
     (async () => {
       const stop = await listen("time-passed", () => {
+        if (clearingActivityRef.current) return;
         // crossed midnight: archive today into history and start a new day.
         // Reset timePassed and timeEvents alongside stats so the energy tier
         // and reminder bubble reflect the fresh day rather than yesterday.
@@ -445,6 +462,7 @@ function App() {
           const categoryStretch = categoryStretchRef.current;
 
           if (
+            !quietAmbientRef.current &&
             isDistractingCategory(key) &&
             !characterHiddenRef.current &&
             !panelOpenRef.current
@@ -459,7 +477,7 @@ function App() {
             if (firstNudge || repeatNudge) {
               lastDistractionNudgeAtRef.current = categoryStretch;
               setTransientMessageRef.current(
-                pickDistractionNudge(key, categoryStretch),
+                distractionText(reminderToneRef.current, pickDistractionNudge(key, categoryStretch)),
               );
               playReminderAnimRef.current();
             }
@@ -617,6 +635,33 @@ function App() {
       startBreak,
     ],
   );
+
+  const clearActivityHistory = useCallback(async () => {
+    clearingActivityRef.current = true;
+    try {
+      await saveQueueRef.current;
+      const fresh = await invoke<ActivityState>("clear_activity");
+      activityRef.current = fresh;
+      setStats(fresh.stats);
+      setHistory([]);
+      setTimePassed(0);
+      setTimeEvents(1);
+      setActivityError(null);
+      setActivityHydrated(true);
+      void invoke("reset_reminder_timer").catch(console.error);
+      categoryStretchRef.current = 0;
+      categoryStretchLabelRef.current = null;
+      lastDistractionNudgeAtRef.current = 0;
+      // A break already running has volatile state; end it without another save.
+      if (breakTimeRef.current !== 0) {
+        breakTimeRef.current = 0;
+        setBreakTime(0);
+        setbreakNeeded(0);
+      }
+    } finally {
+      clearingActivityRef.current = false;
+    }
+  }, []);
 
   // Auto-break when idle (skipped while audio/video is playing).
   useEffect(() => {
@@ -777,6 +822,7 @@ function App() {
       if (characterHiddenRef.current) return;
       if (Date.now() < suppressReminderUntilRef.current) return;
       const elapsed = activityRef.current.timePassed;
+      if (clearingActivityRef.current) return;
       void invoke<string | null>("pop_pending_note")
         .then((note) => {
           const text = note?.trim();
@@ -785,16 +831,12 @@ function App() {
             setMessage(text);
           } else {
             setReminderNotePinned(false);
-            setMessage(
-              `You've been on for ${Math.round(elapsed / 60)} minute${Math.round(elapsed / 60) === 1 ? "" : "s"}!`,
-            );
+            setMessage(reminderText(reminderToneRef.current, elapsed / 60));
           }
         })
         .catch(() => {
           setReminderNotePinned(false);
-          setMessage(
-            `You've been on for ${Math.round(elapsed / 60)} minute${Math.round(elapsed / 60) === 1 ? "" : "s"}!`,
-          );
+          setMessage(reminderText(reminderToneRef.current, elapsed / 60));
         });
       playReminderAnimRef.current();
     }).then((fn) => {
@@ -817,7 +859,7 @@ function App() {
   // pick phrase helper
   const pickPhraseRef = useRef<() => void>(() => {});
   pickPhraseRef.current = () => {
-    if (overlayHidden || characterHidden) {
+    if (overlayHidden || characterHidden || quietAmbientRef.current) {
       clearOverlayMessageRef.current();
       return;
     }
@@ -828,10 +870,13 @@ function App() {
     const tier = Math.min(5, Math.max(1, timeEvents));
     const category = label ?? "Unknown";
     const stretch = categoryStretchRef.current;
-    const phrase =
-      isDistractingCategory(category) && stretch >= DISTRACTION_LIMIT_SECS
+    const phrase = reminderToneRef.current === "playful"
+      ? (isDistractingCategory(category) && stretch >= DISTRACTION_LIMIT_SECS
         ? pickDistractionNudge(category, stretch)
-        : pickPhrase(tier, category, timePassed);
+        : pickPhrase(tier, category, timePassed))
+      : reminderToneRef.current === "gentle"
+        ? "A little stretch whenever you're ready."
+        : "Check your posture and take a short break.";
     setTransientMessageRef.current(phrase);
   };
 
@@ -843,6 +888,7 @@ function App() {
       clearOverlayMessageRef.current();
       return;
     }
+    if (quietAmbientRef.current) return;
 
     let cancelled = false;
     let id: ReturnType<typeof setInterval> | undefined;
@@ -859,6 +905,7 @@ function App() {
           1000,
           Math.round(baseDelayMs * (1 + variance)),
         );
+        if (setting.quiet_ambient_phrases) return;
         pickPhrase();
         id = setInterval(pickPhrase, delayMs);
       } catch (err) {
@@ -870,7 +917,7 @@ function App() {
       cancelled = true;
       if (id !== undefined) clearInterval(id);
     };
-  }, [overlayHidden, characterHidden]);
+  }, [overlayHidden, characterHidden, quietAmbient]);
 
   // typewriter effect; pinned reminder notes stay until dismissed
   useEffect(() => {
@@ -1009,7 +1056,7 @@ function App() {
       </main>
       {onboardingOpen && <OnboardingPanel onComplete={closeOnboarding} />}
       {settingsOpen && !onboardingOpen && !noteOpen && (
-        <SettingsPanel onClose={closeSettings} />
+        <SettingsPanel onClose={closeSettings} onClearActivity={clearActivityHistory} />
       )}
       {summaryOpen && !settingsOpen && !onboardingOpen && !noteOpen && (
         <SummaryPanel

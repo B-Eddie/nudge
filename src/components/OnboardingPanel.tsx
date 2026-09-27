@@ -36,6 +36,7 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
   const [pendingShortcut, setPendingShortcut] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const pendingShortcutRef = useRef<string | null>(null);
   pendingShortcutRef.current = pendingShortcut;
 
@@ -52,7 +53,10 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
         setMonitorOptions(monitors);
         setCategoryOptions(categories);
       })
-      .catch((err) => console.error("Failed to load onboarding data:", err));
+      .catch((err) => {
+        console.error("Failed to load onboarding data:", err);
+        if (!cancelled) setLoadError(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -136,7 +140,14 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
     setStep((s) => Math.max(0, s - 1));
   }, []);
 
-  if (!draft) return null;
+  if (!draft) return (
+    <div className="onboarding-backdrop interactive">
+      <div className="onboarding-panel" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
+        <header className="onboarding-header"><h2 id="onboarding-title">Welcome to nudge</h2></header>
+        <div className="onboarding-body" role="status">{loadError ? "Couldn't load setup. Restart nudge and try again." : "Loading setup…"}</div>
+      </div>
+    </div>
+  );
 
   const stepId = STEPS[step];
   const isLast = step === STEPS.length - 1;
@@ -157,12 +168,14 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
           {stepId === "welcome" && (
             <>
               <p className="onboarding-lead">
-                Your little companion sits on screen, tracks how you spend time,
-                and nudges you to take breaks.
+                Your little companion sits on screen, watches your active app and
+                time at your desk, and nudges you to take breaks.
               </p>
               <p className="onboarding-hint">
-                Let&apos;s set up a few basics: position, shortcuts, and app
-                categories. You can change these anytime in Settings.
+                Nudge stores app names/categories, time spent, breaks, and your settings
+                only on this Mac. There is no account or sync. Hiding the pet does not
+                stop tracking; quit nudge to stop, or clear your history in Settings.
+                Choose a position, shortcut, and reminder style below.
               </p>
             </>
           )}
@@ -257,17 +270,39 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
                 <input
                   type="number"
                   min={1}
+                  max={240}
                   value={draft.reminder_interval_mins}
                   onChange={(e) =>
                     setDraft({
                       ...draft,
                       reminder_interval_mins: Math.max(
                         1,
-                        parseInt(e.target.value, 10) || 1,
+                        Math.min(240, parseInt(e.target.value, 10) || 1),
                       ),
                     })
                   }
                 />
+              </label>
+              <label className="onboarding-field">
+                <span>Reminder tone</span>
+                <select
+                  value={draft.reminder_tone ?? "playful"}
+                  onChange={(e) => setDraft({ ...draft, reminder_tone: e.target.value as NonNullable<Settings["reminder_tone"]> })}
+                >
+                  <option value="playful">Playful</option>
+                  <option value="gentle">Gentle</option>
+                  <option value="direct">Direct</option>
+                </select>
+              </label>
+              <label className="onboarding-field">
+                <span>Idle chatter</span>
+                <select
+                  value={draft.quiet_ambient_phrases ? "off" : "on"}
+                  onChange={(e) => setDraft({ ...draft, quiet_ambient_phrases: e.target.value === "off" })}
+                >
+                  <option value="on">On</option>
+                  <option value="off">Off, reminders only</option>
+                </select>
               </label>
             </>
           )}

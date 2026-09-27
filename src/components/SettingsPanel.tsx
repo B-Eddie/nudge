@@ -17,9 +17,10 @@ import { LuSearch, LuX } from "react-icons/lu";
 
 interface SettingsPanelProps {
   onClose: () => void;
+  onClearActivity: () => Promise<void>;
 }
 
-export function SettingsPanel({ onClose }: SettingsPanelProps) {
+export function SettingsPanel({ onClose, onClearActivity }: SettingsPanelProps) {
   const [draft, setDraft] = useState<Settings | null>(null);
   const [monitorOptions, setMonitorOptions] = useState<MonitorOption[]>([]);
   const [categoryOptions, setCategoryOptions] = useState<CategoryOption[]>([]);
@@ -27,6 +28,8 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   const [loadError, setLoadError] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [appSearch, setAppSearch] = useState("");
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [recordingShortcut, setRecordingShortcut] = useState(false);
   const [pendingShortcut, setPendingShortcut] = useState<string | null>(null);
   const pendingShortcutRef = useRef<string | null>(null);
@@ -59,6 +62,17 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [recordingShortcut]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || recordingShortcut || clearing) return;
+      e.preventDefault();
+      if (confirmClear) setConfirmClear(false);
+      else onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [recordingShortcut, clearing, confirmClear, onClose]);
 
   // reset variables at start
   const stopRecordingShortcut = useCallback(() => {
@@ -139,7 +153,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   }, []);
 
   const handleSave = useCallback(async () => {
-    if (!draft) return;
+    if (!draft || confirmClear || clearing) return;
     setSaving(true); // change button states
     setSaveError(null);
 
@@ -152,10 +166,24 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     } finally {
       setSaving(false);
     }
-  }, [draft, onClose]);
+  }, [draft, onClose, confirmClear, clearing]);
+
+  const handleClear = useCallback(async () => {
+    setClearing(true);
+    setSaveError(null);
+    try {
+      await onClearActivity();
+      setConfirmClear(false);
+    } catch (err) {
+      console.error("Failed to clear activity:", err);
+      setSaveError("Couldn't clear activity. Please try again.");
+    } finally {
+      setClearing(false);
+    }
+  }, [onClearActivity]);
 
   const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) onClose();
+    if (e.target === e.currentTarget && !confirmClear && !clearing) onClose();
   };
 
   // Render the panel chrome immediately so opening settings never shows a
@@ -170,6 +198,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
         <div
           className="settings-panel"
           role="dialog"
+          aria-modal="true"
           aria-labelledby="settings-title"
         >
           <header className="settings-header">
@@ -177,7 +206,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             <button
               type="button"
               className="settings-close"
-              onClick={onClose}
+              onClick={() => { if (!confirmClear && !clearing) onClose(); }}
               aria-label="Close settings"
             >
               <LuX size={15} />
@@ -206,6 +235,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
       <div
         className="settings-panel"
         role="dialog"
+        aria-modal="true"
         aria-labelledby="settings-title"
       >
         <header className="settings-header">
@@ -213,7 +243,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
           <button
             type="button"
             className="settings-close"
-            onClick={onClose}
+            onClick={() => { if (!confirmClear && !clearing) onClose(); }}
             aria-label="Close settings"
           >
             <LuX size={15} />
@@ -245,18 +275,41 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             <input
               type="number"
               min={1}
+              max={240}
               value={draft.reminder_interval_mins}
               onChange={(e) =>
                 setDraft({
                   ...draft,
                   reminder_interval_mins: Math.max(
                     1,
-                    parseInt(e.target.value, 10) || 1,
+                    Math.min(240, parseInt(e.target.value, 10) || 1),
                   ),
                 })
               }
             />
           </label>
+
+          <label className="settings-field">
+            <span>Reminder tone</span>
+            <select
+              value={draft.reminder_tone ?? "playful"}
+              onChange={(e) => setDraft({ ...draft, reminder_tone: e.target.value as NonNullable<Settings["reminder_tone"]> })}
+            >
+              <option value="playful">Playful</option>
+              <option value="gentle">Gentle</option>
+              <option value="direct">Direct</option>
+            </select>
+          </label>
+          <label className="settings-field settings-toggle">
+            <span>Only speak for reminders</span>
+            <input
+              type="checkbox"
+              checked={draft.quiet_ambient_phrases ?? false}
+              onChange={(e) => setDraft({ ...draft, quiet_ambient_phrases: e.target.checked })}
+            />
+            <span className="settings-toggle-slider" />
+          </label>
+          <p className="settings-hint">Turns off idle chatter. Timed reminders and your own notes still appear.</p>
 
           <label className="settings-field">
             <span>Screen position</span>
@@ -311,6 +364,21 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             />
             <span className="settings-toggle-slider" />
           </label>
+
+          <section className="settings-section">
+            <h3 className="settings-section-title">Your data</h3>
+            <p className="settings-hint">Nudge tracks the frontmost app's name and category, time spent, and breaks. Stats and settings stay in files on this Mac; no account or sync. Hiding the pet does not stop tracking. Quit nudge to stop tracking. To erase history, use the clear button below; this does not delete your settings.</p>
+            <button type="button" className="settings-btn secondary" onClick={() => setConfirmClear(true)}>
+              Clear activity history
+            </button>
+            {confirmClear && (
+              <div role="alertdialog" aria-modal="true" aria-label="Confirm clearing activity history" className="settings-clear-confirm">
+                <p>Delete all saved activity history on this Mac? This can't be undone. Tracking restarts from zero.</p>
+                <button type="button" className="settings-btn secondary" onClick={() => setConfirmClear(false)}>Keep history</button>
+                <button type="button" className="settings-btn danger" disabled={clearing} onClick={() => void handleClear()}>{clearing ? "Clearing…" : "Delete history"}</button>
+              </div>
+            )}
+          </section>
 
           <section className="settings-section">
             <h3 className="settings-section-title">App categories</h3>
@@ -369,7 +437,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
           <button
             type="button"
             className="settings-btn secondary"
-            onClick={onClose}
+            onClick={() => { if (!confirmClear && !clearing) onClose(); }}
           >
             Cancel
           </button>
@@ -377,7 +445,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             type="button"
             className="settings-btn primary"
             onClick={() => void handleSave()}
-            disabled={saving}
+            disabled={saving || clearing || confirmClear}
           >
             {saving ? "Saving…" : "Save"}
           </button>

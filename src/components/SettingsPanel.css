@@ -441,3 +441,8 @@
 .settings-toggle input[type="checkbox"]:focus + .settings-toggle-slider {
   box-shadow: var(--focus-ring);
 }
+
+.settings-clear-confirm { padding: 12px; border: 1px solid var(--danger); border-radius: 8px; }
+.settings-clear-confirm p { margin: 0 0 10px; }
+.settings-clear-confirm button { margin-right: 8px; margin-bottom: 4px; }
+.settings-btn.danger { background: var(--danger); color: #171717; }

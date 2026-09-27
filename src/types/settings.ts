@@ -9,6 +9,8 @@ export interface AppCategoryEntry {
 export interface Settings {
   monitor_index: number;
   reminder_interval_mins: number; // default 30 mins - in mins
+  reminder_tone?: "playful" | "gentle" | "direct";
+  quiet_ambient_phrases?: boolean;
   position: string;
   // Global shortcut that hides the character, e.g. "Cmd+Shift+KeyP"
   pause_shortcut: string;

@@ -167,9 +167,22 @@ fn save_to_path(path: &Path, bytes: &[u8]) -> Result<(), String> {
     write_atomic(path, bytes)
 }
 
+fn clear_at_path(path: &Path) -> Result<ActivityState, String> {
+    let fresh = ActivityState::default();
+    let bytes = serde_json::to_vec(&fresh).map_err(|e| e.to_string())?;
+    let backup = backup_path(path);
+    // Removing a backup first leaves the valid primary untouched if deletion fails.
+    // The next write is atomic. Deletion is deliberate and already confirmed in the UI.
+    if backup.exists() {
+        std::fs::remove_file(backup).map_err(|e| e.to_string())?;
+    }
+    write_atomic(path, &bytes)?;
+    Ok(fresh)
+}
+
 pub struct ActivityStore {
     cache: Mutex<ActivityState>,
-    load_error: Option<String>,
+    load_error: Mutex<Option<String>>,
 }
 
 impl ActivityStore {
@@ -182,18 +195,18 @@ impl ActivityStore {
                 (ActivityState::default(), Some(error))
             }
         };
-        Self { cache: Mutex::new(activity), load_error }
+        Self { cache: Mutex::new(activity), load_error: Mutex::new(load_error) }
     }
 
     pub fn persist(&self, app: &AppHandle) -> Result<(), String> {
-        if let Some(error) = &self.load_error { return Err(error.clone()); }
+        if let Some(error) = &*self.load_error.lock().unwrap() { return Err(error.clone()); }
         self.cache.lock().unwrap().save(app)
     }
 }
 
 #[tauri::command]
 pub fn get_activity(state: State<ActivityStore>) -> Result<ActivityState, String> {
-    if let Some(error) = &state.load_error { return Err(error.clone()); }
+    if let Some(error) = &*state.load_error.lock().unwrap() { return Err(error.clone()); }
     Ok(state.cache.lock().unwrap().clone())
 }
 
@@ -203,11 +216,21 @@ pub fn save_activity(
     state: State<ActivityStore>,
     activity: ActivityState,
 ) -> Result<(), String> {
-    if let Some(error) = &state.load_error { return Err(error.clone()); }
+    if let Some(error) = &*state.load_error.lock().unwrap() { return Err(error.clone()); }
     let mut cache = state.cache.lock().unwrap();
     activity.save(&app)?;
     *cache = activity;
     Ok(())
+}
+
+#[tauri::command]
+pub fn clear_activity(app: AppHandle, state: State<ActivityStore>) -> Result<ActivityState, String> {
+    // Explicit deletion can recover even if the previous on-disk history was unreadable.
+    // The user is shown a separate confirmation before this command is invoked.
+    let mut cache = state.cache.lock().unwrap();
+    *cache = clear_at_path(&ActivityState::path(&app)?)?;
+    *state.load_error.lock().unwrap() = None;
+    Ok(cache.clone())
 }
 
 pub fn persist_activity(app: &AppHandle) -> Result<(), String> {
@@ -275,4 +298,16 @@ mod tests {
         assert_eq!(load_from_path(&path).unwrap().time_passed, 12);
         std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
     }
+    #[test]
+    fn clearing_removes_primary_and_backup_history() {
+        let path = fixture();
+        save_to_path(&path, &data(12)).unwrap();
+        save_to_path(&path, &data(13)).unwrap();
+        let fresh = clear_at_path(&path).unwrap();
+        assert_eq!(fresh.time_passed, 0);
+        assert_eq!(load_from_path(&path).unwrap().time_passed, 0);
+        assert!(!backup_path(&path).exists());
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
 }

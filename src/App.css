@@ -379,3 +379,12 @@ main.hidden {
   font: 12px/1.35 sans-serif;
   pointer-events: auto;
 }
+
+/* Respect system motion settings without suppressing state information. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
