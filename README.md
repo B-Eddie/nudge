@@ -56,3 +56,18 @@ TO ADD:
 - adding notes for it to tell you on next timeevent
 - onboarding
 - no text select on settings popup
+
+## Data and development
+Activity and settings are stored locally in the application's configuration directory.
+Activity writes are atomic and keep the previous valid snapshot as `activity.json.bak`.
+If both files cannot be read, nudge will refuse to overwrite the existing history.
+No account or cloud sync is required.
+
+Run `npm test` for the activity rollover tests and `npm run build` for the
+TypeScript/frontend build. On a Mac with Rust and Tauri prerequisites installed,
+run `cargo test --manifest-path src-tauri/Cargo.toml --locked` for the native
+persistence tests. Pull requests run these checks in CI. The unsigned macOS
+release may require a manual Gatekeeper exception; do not disable quarantine
+on software you do not trust.
+
+Licensed under MIT; see [LICENSE](LICENSE).

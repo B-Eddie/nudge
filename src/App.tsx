@@ -7,13 +7,12 @@ import { OnboardingPanel } from "./components/OnboardingPanel";
 import {
   SummaryPanel,
   emptySessionStats,
-  dayKey,
-  dayRecordFromStats,
   formatDuration,
   type DayRecord,
   type SessionStats,
 } from "./components/SummaryPanel";
 import "./App.css";
+import { rollOverActivity, resumeAfterRestart, type ActivitySnapshot } from "./activityLifecycle";
 import { useCharacterInteraction } from "./hooks/useCharacterInteraction";
 import { useCharacterFrame } from "./hooks/useCharacterFrame";
 import { useSettingsShortcut } from "./hooks/useSettingsShortcut";
@@ -39,13 +38,7 @@ interface FrontmostApp {
   category_label: string;
 }
 
-interface ActivityState {
-  timePassed: number;
-  timeEvents: number;
-  stats: SessionStats;
-  paused: boolean;
-  history: DayRecord[];
-}
+type ActivityState = ActivitySnapshot;
 
 interface AutoBreakStatus {
   idle_seconds: number;
@@ -53,20 +46,6 @@ interface AutoBreakStatus {
   should_auto_break: boolean;
   defer_auto_break: boolean;
   defer_reason: string | null;
-}
-
-function archiveDay(history: DayRecord[], stats: SessionStats): DayRecord[] {
-  const record = dayRecordFromStats(stats);
-  const next = history.filter((rec) => rec.date !== record.date);
-  // only keep days that had activity
-  if (
-    Object.keys(record.categorySeconds).length > 0 ||
-    record.restSeconds > 0
-  ) {
-    next.push(record);
-  }
-  next.sort((a, b) => a.date.localeCompare(b.date));
-  return next.slice(-31); // keep a month of activity
 }
 
 const ENERGY_CELLS = 5;
@@ -174,6 +153,7 @@ function App() {
   const lastDistractionNudgeAtRef = useRef(0);
 
   const [activityHydrated, setActivityHydrated] = useState(false);
+  const [activityError, setActivityError] = useState<string | null>(null);
 
   const clearOverlayMessage = useCallback(() => {
     setMessage("");
@@ -369,31 +349,22 @@ function App() {
       invoke<Settings>("get_settings"),
     ]).then(([saved, settings]) => {
       reminderIntervalRef.current = settings.reminder_interval_mins;
-      let savedStats = saved.stats;
-      let savedHistory = saved.history ?? [];
-      let savedTimePassed = saved.timePassed;
-      let savedTimeEvents = saved.timeEvents;
-
-      // archive session reset stats
-      if (dayKey(savedStats.startedAt) !== dayKey(Date.now())) {
-        savedHistory = archiveDay(savedHistory, savedStats);
-        savedStats = emptySessionStats();
-        savedTimePassed = 0;
-        savedTimeEvents = 1;
-      } else if (savedTimePassed > 0 && savedTimeEvents > 0) {
-        savedTimeEvents = tierFromWorkSeconds(
-          savedTimePassed,
-          settings.reminder_interval_mins,
-        );
+      const restored = resumeAfterRestart(rollOverActivity(saved, Date.now()));
+      let savedStats = restored.stats;
+      let savedHistory = restored.history;
+      let savedTimePassed = restored.timePassed;
+      let savedTimeEvents = restored.timeEvents;
+      if (savedTimePassed > 0) {
+        savedTimeEvents = tierFromWorkSeconds(savedTimePassed, settings.reminder_interval_mins);
       }
 
       setTimePassed(savedTimePassed);
       setTimeEvents(savedTimeEvents);
       setStats(savedStats);
       setHistory(savedHistory);
-      if (saved.paused) setCharacterHidden(true);
+      if (restored.paused) setCharacterHidden(true);
       activityRef.current = {
-        ...saved,
+        ...restored,
         timePassed: savedTimePassed,
         timeEvents: savedTimeEvents,
         stats: savedStats,
@@ -401,9 +372,9 @@ function App() {
       };
       setActivityHydrated(true);
     }).catch((err) => {
-      // Start from a clean slate rather than silently disabling autosave.
-      console.error("Failed to load saved activity:", err);
-      setActivityHydrated(true);
+      // Do not overwrite unreadable on-disk history with empty stats.
+      console.error("Failed to load saved activity; autosave disabled:", err);
+      setActivityError("Your saved activity could not be read. Nudge has stopped tracking and will not overwrite it. Restart after checking the activity file.");
     });
   }, []);
 
@@ -411,7 +382,12 @@ function App() {
   useEffect(() => {
     if (!activityHydrated) return;
     const id = setInterval(() => {
-      void invoke("save_activity", { activity: activityRef.current });
+      void invoke("save_activity", { activity: activityRef.current })
+        .then(() => setActivityError(null))
+        .catch((err) => {
+          console.error("Failed to save activity:", err);
+          setActivityError("Activity could not be saved. Check available disk space; your last saved snapshot remains on disk.");
+        });
     }, 5000);
     return () => clearInterval(id);
   }, [activityHydrated]);
@@ -421,17 +397,20 @@ function App() {
     let cancelled = false;
     let unlisten: (() => void) | undefined;
 
+    if (!activityHydrated) return;
     (async () => {
       const stop = await listen("time-passed", () => {
         // crossed midnight: archive today into history and start a new day.
         // Reset timePassed and timeEvents alongside stats so the energy tier
         // and reminder bubble reflect the fresh day rather than yesterday.
-        const current = activityRef.current.stats;
-        if (dayKey(current.startedAt) !== dayKey(Date.now())) {
-          setHistory((prev) => archiveDay(prev, current));
-          setStats(emptySessionStats());
-          setTimePassed(0);
-          setTimeEvents(1);
+        const current = activityRef.current;
+        const rolled = rollOverActivity(current, Date.now());
+        if (rolled !== current) {
+          activityRef.current = rolled;
+          setHistory(rolled.history);
+          setStats(rolled.stats);
+          setTimePassed(rolled.timePassed);
+          setTimeEvents(rolled.timeEvents);
           categoryStretchRef.current = 0;
           categoryStretchLabelRef.current = null;
           lastDistractionNudgeAtRef.current = 0;
@@ -518,7 +497,7 @@ function App() {
       cancelled = true;
       unlisten?.();
     };
-  }, []);
+  }, [activityHydrated]);
 
   // Ends the current break. interrupted means the user touched their computer during break (detected by Rust)
   const endBreak = useCallback(
@@ -663,6 +642,7 @@ function App() {
 
   // Auto-break when the Mac goes to sleep.
   useEffect(() => {
+    if (!activityHydrated) return;
     let cancelled = false;
     let unlistenSleep: (() => void) | undefined;
 
@@ -680,7 +660,7 @@ function App() {
       cancelled = true;
       unlistenSleep?.();
     };
-  }, [startBreak]);
+  }, [activityHydrated, startBreak]);
 
   // While on break, watch for keyboard/mouse activity.
   useEffect(() => {
@@ -948,6 +928,11 @@ function App() {
 
   return (
     <>
+      {activityError && (
+        <div className="activity-error" role="alert">
+          <span>{activityError}</span>
+        </div>
+      )}
       <main
         className={`container ${overlayHidden ? "hidden" : ""}`}
         style={{

@@ -364,3 +364,18 @@ main.hidden {
   pointer-events: none;
   user-select: none;
 }
+
+/* Keep storage failures visible even when the companion overlay is suppressed. */
+.activity-error {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  z-index: 10000;
+  padding: 10px;
+  background: #271313;
+  border: 1px solid #ff6b6b;
+  color: white;
+  font: 12px/1.35 sans-serif;
+  pointer-events: auto;
+}
