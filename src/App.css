@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap");
+
 
 @font-face {
   font-family: "PPNeueBit-Bold";
@@ -17,28 +17,8 @@
 /* Shared pixel theme. Every panel pulls from these tokens so the whole app
    reads as one consistent surface instead of per-file color drift. */
 :root {
-  --font-body:
-    "PPMondwest-Regular",
-    "Pixelify Sans",
-    ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    Monaco,
-    Consolas,
-    "Liberation Mono",
-    "Courier New",
-    monospace;
-  --font-display:
-    "PPNeueBit-Bold",
-    "Pixelify Sans",
-    ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    Monaco,
-    Consolas,
-    "Liberation Mono",
-    "Courier New",
-    monospace;
+  --font-body: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-display: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
   --panel-bg: rgba(28, 28, 30, 0.94);
   --panel-border: rgba(255, 255, 255, 0.12);
@@ -112,7 +92,7 @@ main.hidden {
   position: relative;
   width: max-content;
   min-width: 10vw;
-  max-width: 40vw;
+  max-width: min(40vw, 240px);
   text-align: center;
   display: block;
   white-space: pre-line;
@@ -141,8 +121,8 @@ main.hidden {
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: #fff;
-  mix-blend-mode: difference;
+  color: var(--text);
+  mix-blend-mode: normal;
   cursor: pointer;
   opacity: 0.85;
 }
@@ -160,8 +140,8 @@ main.hidden {
   position: relative;
   z-index: 2;
   display: block;
-  color: #fff;
-  mix-blend-mode: difference;
+  color: var(--text);
+  mix-blend-mode: normal;
 }
 
 .messages::before {
