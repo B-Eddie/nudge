@@ -28,7 +28,6 @@ Nudge makes the time spent on your computer tangible. A desktop companion gets v
 ## The future
 - Smoother character transitions (idle -> moving to an app with enter/exit animations)
 - More art - different characters, polish, **more categories/different appearance for time spent on computer**, accesories
-- Launch at login
 - Windows support
 - Better actvity insights and more powerful break reminders
 
@@ -39,7 +38,7 @@ Note: Not tested on Windows.
 
 ```bash
 # dependencies
-git clone [repo url]
+git clone https://github.com/B-Eddie/nudge.git
 cd nudge
 npm install
 
@@ -50,12 +49,8 @@ npm run tauri dev
 npm run tauri build
 ```
 
-TO ADD:
-- weird thing on back (setting backdrop)
-- change color of stat hover based on background
-- adding notes for it to tell you on next timeevent
-- onboarding
-- no text select on settings popup
+Remaining work includes desktop visual polish, real-Mac edge-case tests, and
+installer verification before a wider launch.
 
 ## Data and development
 Activity and settings are stored locally in the application's configuration directory.
@@ -80,3 +75,22 @@ hides the pet but does not stop tracking; quit the app to stop tracking.
 Settings > Your data > Clear activity history deletes both the current activity
 snapshot and its backup, then begins a fresh session. It does not remove
 settings. Review the confirmation carefully; deleted history cannot be restored.
+
+## Unsigned review builds
+The old v0.1.1 release contains an artifact named 0.1.0. It predates this
+branch. The next candidate is v0.1.2, with matching npm, Cargo, and Tauri
+versions. `npm run check:release -- v0.1.2` verifies those versions before
+creating a tag; it rejects a mismatched tag. Do not retag the old binary.
+
+The manually triggered "Unsigned macOS review build" workflow builds an
+Apple Silicon DMG as a GitHub Actions artifact, not a public GitHub Release.
+The maintainer should test it on a clean Apple Silicon Mac, inspect the artifact
+and version, then decide whether to publish it. There is no signing or
+notarization: Gatekeeper may block it. Do not advise users to run `xattr -cr`
+or disable security system-wide. The safest beta path is to tell testers the
+build is unsigned and let them decide whether to open it using macOS's
+per-app exception. Intel Macs remain untested and unsupported for this build.
+
+`npm audit` on this branch reports no known JavaScript dependency advisories
+as of September 27, 2026. The Rust dependency tree has not been audited here.
+Recheck both before publishing.

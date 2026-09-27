@@ -2249,7 +2249,7 @@ checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 
 [[package]]
 name = "nudge"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "cocoa 0.25.0",
  "objc",

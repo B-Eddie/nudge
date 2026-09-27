@@ -1,14 +1,15 @@
 {
   "name": "nudge",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check:release": "node scripts/check-release.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
@@ -24,7 +25,7 @@
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.6.0",
     "typescript": "~5.8.3",
-    "vite": "^7.0.4",
-    "vitest": "^3.2.7"
+    "vite": "^7.3.6",
+    "vitest": "^4.1.11"
   }
 }

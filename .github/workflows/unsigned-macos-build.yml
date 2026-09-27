@@ -1,0 +1,28 @@
+name: Unsigned macOS review build
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  unsigned-apple-silicon:
+    runs-on: macos-15-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run check:release
+      - run: npm test
+      - run: npm run tauri build -- --bundles dmg
+        env:
+          # Intentionally no signing/notarization secrets. This is a review artifact, not a public release.
+          CI: true
+          APPLE_SIGNING_IDENTITY: "-"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nudge-unsigned-apple-silicon-review
+          path: src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: error
