@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { archiveDay, rollOverActivity, resumeAfterRestart, type ActivitySnapshot } from "./activityLifecycle";
+import { archiveDay, rollOverActivity, resumeAfterRestart, setTrackingPause, type ActivitySnapshot } from "./activityLifecycle";
 import { emptySessionStats } from "./components/SummaryPanel";
 
 const start = new Date(2026, 8, 27, 23, 59).getTime();
@@ -9,7 +9,7 @@ function snapshot(timeEvents = 3): ActivitySnapshot {
     timePassed: 63, timeEvents, stats: {
       ...emptySessionStats(start), categorySeconds: { Productivity: 63 },
       breaksTaken: 1, longestStretchSeconds: 63,
-    }, paused: false, history: [],
+    }, paused: false, trackingPaused: false, history: [],
   };
 }
 
@@ -34,6 +34,16 @@ describe("activity day rollover", () => {
     expect(restored.timePassed).toBe(0);
     expect(restored.stats.breaksTaken).toBe(1);
     expect(resumeAfterRestart(restored)).toBe(restored);
+  });
+  it("pauses and resumes without crediting away time to the current stretch", () => {
+    const before = snapshot();
+    const paused = setTrackingPause(before, true);
+    expect(paused.trackingPaused).toBe(true);
+    expect(paused.timePassed).toBe(0);
+    expect(paused.stats.currentStretchSeconds).toBe(0);
+    expect(paused.stats.categorySeconds.Productivity).toBe(63);
+    expect(setTrackingPause(paused, true)).toBe(paused);
+    expect(setTrackingPause(paused, false).trackingPaused).toBe(false);
   });
   it("keeps no more than 31 history dates and replaces duplicate dates", () => {
     const previous = Array.from({ length: 31 }, (_, i) => ({

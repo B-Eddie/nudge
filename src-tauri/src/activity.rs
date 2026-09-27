@@ -58,6 +58,8 @@ pub struct ActivityState {
     #[serde(default)]
     pub paused: bool,
     #[serde(default)]
+    pub tracking_paused: bool,
+    #[serde(default)]
     pub history: Vec<DayRecord>,
 }
 
@@ -68,6 +70,7 @@ impl Default for ActivityState {
             time_events: 1,
             stats: SessionStats::default(),
             paused: false,
+            tracking_paused: false,
             history: Vec::new(),
         }
     }

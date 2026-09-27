@@ -18,9 +18,11 @@ import { LuSearch, LuX } from "react-icons/lu";
 interface SettingsPanelProps {
   onClose: () => void;
   onClearActivity: () => Promise<void>;
+  trackingPaused: boolean;
+  onToggleTracking: () => void;
 }
 
-export function SettingsPanel({ onClose, onClearActivity }: SettingsPanelProps) {
+export function SettingsPanel({ onClose, onClearActivity, trackingPaused, onToggleTracking }: SettingsPanelProps) {
   const [draft, setDraft] = useState<Settings | null>(null);
   const [monitorOptions, setMonitorOptions] = useState<MonitorOption[]>([]);
   const [categoryOptions, setCategoryOptions] = useState<CategoryOption[]>([]);
@@ -169,6 +171,7 @@ export function SettingsPanel({ onClose, onClearActivity }: SettingsPanelProps) 
   }, [draft, onClose, confirmClear, clearing]);
 
   const handleClear = useCallback(async () => {
+    if (clearing) return;
     setClearing(true);
     setSaveError(null);
     try {
@@ -180,7 +183,7 @@ export function SettingsPanel({ onClose, onClearActivity }: SettingsPanelProps) 
     } finally {
       setClearing(false);
     }
-  }, [onClearActivity]);
+  }, [onClearActivity, clearing]);
 
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget && !confirmClear && !clearing) onClose();
@@ -367,7 +370,11 @@ export function SettingsPanel({ onClose, onClearActivity }: SettingsPanelProps) 
 
           <section className="settings-section">
             <h3 className="settings-section-title">Your data</h3>
-            <p className="settings-hint">Nudge tracks the frontmost app's name and category, time spent, and breaks. Stats and settings stay in files on this Mac; no account or sync. Hiding the pet does not stop tracking. Quit nudge to stop tracking. To erase history, use the clear button below; this does not delete your settings.</p>
+            <p className="settings-hint">Nudge reads the frontmost app name and category to count time by category, plus breaks. It keeps a local list of discovered app names for category settings. Stats and settings stay in files on this Mac; no account or sync. Hiding the pet does not stop tracking. Pause tracking here or quit nudge to stop. To erase history, use the clear button below; this does not delete your settings.</p>
+            <button type="button" className="settings-btn secondary" onClick={onToggleTracking} disabled={clearing || confirmClear}>
+              {trackingPaused ? "Resume tracking" : "Pause tracking"}
+            </button>
+            <p className="settings-hint" role="status">{trackingPaused ? "Tracking paused. No activity or break time is being counted." : "Tracking is on."}</p>
             <button type="button" className="settings-btn secondary" onClick={() => setConfirmClear(true)}>
               Clear activity history
             </button>

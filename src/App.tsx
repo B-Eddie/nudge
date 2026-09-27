@@ -12,7 +12,7 @@ import {
   type SessionStats,
 } from "./components/SummaryPanel";
 import "./App.css";
-import { rollOverActivity, resumeAfterRestart, type ActivitySnapshot } from "./activityLifecycle";
+import { rollOverActivity, resumeAfterRestart, setTrackingPause, type ActivitySnapshot } from "./activityLifecycle";
 import { useCharacterInteraction } from "./hooks/useCharacterInteraction";
 import { useCharacterFrame } from "./hooks/useCharacterFrame";
 import { useSettingsShortcut } from "./hooks/useSettingsShortcut";
@@ -101,6 +101,7 @@ function App() {
   const [stats, setStats] = useState<SessionStats>(emptySessionStats);
   const [history, setHistory] = useState<DayRecord[]>([]);
   const [characterHidden, setCharacterHidden] = useState(false);
+  const [trackingPaused, setTrackingPaused] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
   const panelOpen = settingsOpen || summaryOpen || onboardingOpen || noteOpen;
   const overlayHidden = panelOpen || overlaySuppressed;
@@ -135,6 +136,7 @@ function App() {
     timeEvents,
     stats,
     paused: characterHidden,
+    trackingPaused,
     history,
   });
   activityRef.current = {
@@ -142,6 +144,7 @@ function App() {
     timeEvents,
     stats,
     paused: characterHidden,
+    trackingPaused,
     history,
   };
   const closeBarRef = useRef<() => void>(() => {});
@@ -375,6 +378,7 @@ function App() {
       setStats(savedStats);
       setHistory(savedHistory);
       if (restored.paused) setCharacterHidden(true);
+      setTrackingPaused(restored.trackingPaused ?? false);
       activityRef.current = {
         ...restored,
         timePassed: savedTimePassed,
@@ -433,6 +437,8 @@ function App() {
           lastDistractionNudgeAtRef.current = 0;
           return;
         }
+
+        if (activityRef.current.trackingPaused) return;
 
         // tracks active work since the last break
         setTimePassed((prev) => {
@@ -563,7 +569,7 @@ function App() {
 
   const startBreak = useCallback(
     (options?: { auto?: boolean; sleep?: boolean }) => {
-      if (breakTimeRef.current !== 0) return;
+      if (breakTimeRef.current !== 0 || activityRef.current.trackingPaused) return;
       const { timePassed: workSeconds, timeEvents: events } =
         activityRef.current;
       const minutesWorked = workSeconds / 60;
@@ -636,6 +642,39 @@ function App() {
     ],
   );
 
+  const toggleTracking = useCallback(() => {
+    if (clearingActivityRef.current || !activityHydrated) return;
+    // Hiding the character is separate: this control stops category and break counting.
+    if (breakTimeRef.current !== 0) {
+      breakTimeRef.current = 0;
+      setBreakTime(0);
+      setbreakNeeded(0);
+    }
+    const paused = !activityRef.current.trackingPaused;
+    if (paused) setFrontmostApp(null);
+    const snapshot = setTrackingPause(activityRef.current, paused);
+    activityRef.current = snapshot;
+    setTrackingPaused(paused);
+    setTimePassed(0);
+    setTimeEvents(1);
+    setStats(snapshot.stats);
+    clearOverlayMessage();
+    categoryStretchRef.current = 0;
+    categoryStretchLabelRef.current = null;
+    lastDistractionNudgeAtRef.current = 0;
+    void invoke("reset_reminder_timer").catch(console.error);
+    // Persist the choice immediately; regular five-second autosave is not enough
+    // if the user quits right after pausing.
+    saveQueueRef.current = saveQueueRef.current.then(async () => {
+      if (clearingActivityRef.current) return;
+      await invoke("save_activity", { activity: snapshot });
+      setActivityError(null);
+    }).catch((err) => {
+      console.error("Failed to save tracking choice:", err);
+      setActivityError("Couldn't save the tracking choice. It may change after a restart.");
+    });
+  }, [activityHydrated, clearOverlayMessage]);
+
   const clearActivityHistory = useCallback(async () => {
     clearingActivityRef.current = true;
     try {
@@ -643,6 +682,7 @@ function App() {
       const fresh = await invoke<ActivityState>("clear_activity");
       activityRef.current = fresh;
       setStats(fresh.stats);
+      setTrackingPaused(false);
       setHistory([]);
       setTimePassed(0);
       setTimeEvents(1);
@@ -669,12 +709,12 @@ function App() {
 
     const POLL_MS = 30_000;
     const checkAutoBreak = () => {
-      if (breakTimeRef.current !== 0) return;
+      if (breakTimeRef.current !== 0 || activityRef.current.trackingPaused) return;
       if (panelOpenRef.current) return;
 
       void invoke<AutoBreakStatus>("get_auto_break_status")
         .then((status) => {
-          if (status.should_auto_break) {
+          if (status.should_auto_break && !activityRef.current.trackingPaused) {
             startBreak({ auto: true });
           }
         })
@@ -795,9 +835,10 @@ function App() {
   useEffect(() => {
     let cancelled = false;
     const poll = () => {
+      if (activityRef.current.trackingPaused) return;
       invoke<FrontmostApp | null>("get_frontmost_app")
         .then((app) => {
-          if (!cancelled) setFrontmostApp(app);
+          if (!cancelled && !activityRef.current.trackingPaused) setFrontmostApp(app);
         })
         .catch(console.error);
     };
@@ -818,13 +859,14 @@ function App() {
 
     listen("show-reminder", () => {
       // Don't drain energy (or break the sleep animation) while resting
-      if (onBreakRef.current) return;
+      if (onBreakRef.current || activityRef.current.trackingPaused) return;
       if (characterHiddenRef.current) return;
       if (Date.now() < suppressReminderUntilRef.current) return;
       const elapsed = activityRef.current.timePassed;
       if (clearingActivityRef.current) return;
       void invoke<string | null>("pop_pending_note")
         .then((note) => {
+          if (activityRef.current.trackingPaused) return;
           const text = note?.trim();
           if (text) {
             setReminderNotePinned(true);
@@ -835,6 +877,7 @@ function App() {
           }
         })
         .catch(() => {
+          if (activityRef.current.trackingPaused) return;
           setReminderNotePinned(false);
           setMessage(reminderText(reminderToneRef.current, elapsed / 60));
         });
@@ -859,10 +902,11 @@ function App() {
   // pick phrase helper
   const pickPhraseRef = useRef<() => void>(() => {});
   pickPhraseRef.current = () => {
-    if (overlayHidden || characterHidden || quietAmbientRef.current) {
+    if (overlayHidden || characterHidden || trackingPaused) {
       clearOverlayMessageRef.current();
       return;
     }
+    if (quietAmbientRef.current) return;
     // Don't don't interrupt a message that is still typing or being shown. instead, wait for the next tick
     if (breakTime !== 0 || displayedMessage !== "" || !label) return;
 
@@ -884,7 +928,7 @@ function App() {
   // The interval id lives outside the async body so the effect cleanup can
   // always clear it — returning a cleanup from an async IIFE leaks intervals.
   useEffect(() => {
-    if (overlayHidden || characterHidden) {
+    if (overlayHidden || characterHidden || trackingPaused) {
       clearOverlayMessageRef.current();
       return;
     }
@@ -917,7 +961,7 @@ function App() {
       cancelled = true;
       if (id !== undefined) clearInterval(id);
     };
-  }, [overlayHidden, characterHidden, quietAmbient]);
+  }, [overlayHidden, characterHidden, trackingPaused, quietAmbient]);
 
   // typewriter effect; pinned reminder notes stay until dismissed
   useEffect(() => {
@@ -1056,7 +1100,8 @@ function App() {
       </main>
       {onboardingOpen && <OnboardingPanel onComplete={closeOnboarding} />}
       {settingsOpen && !onboardingOpen && !noteOpen && (
-        <SettingsPanel onClose={closeSettings} onClearActivity={clearActivityHistory} />
+        <SettingsPanel onClose={closeSettings} onClearActivity={clearActivityHistory}
+          trackingPaused={trackingPaused} onToggleTracking={toggleTracking} />
       )}
       {summaryOpen && !settingsOpen && !onboardingOpen && !noteOpen && (
         <SummaryPanel

@@ -172,8 +172,8 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
                 time at your desk, and nudges you to take breaks.
               </p>
               <p className="onboarding-hint">
-                Nudge stores app names/categories, time spent, breaks, and your settings
-                only on this Mac. There is no account or sync. Hiding the pet does not
+                Nudge reads active app names and stores the discovered names for category settings.
+                Time by category, breaks, and settings stay only on this Mac. There is no account or sync. Hiding the pet does not
                 stop tracking; quit nudge to stop, or clear your history in Settings.
                 Choose a position, shortcut, and reminder style below.
               </p>

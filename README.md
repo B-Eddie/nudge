@@ -94,3 +94,9 @@ per-app exception. Intel Macs remain untested and unsupported for this build.
 `npm audit` on this branch reports no known JavaScript dependency advisories
 as of September 27, 2026. The Rust dependency tree has not been audited here.
 Recheck both before publishing.
+
+## Pause tracking
+In Settings > Your data, Pause tracking stops counting app-category time,
+breaks and reminder prompts without quitting. Resume there when ready.
+This preference is stored locally and survives a restart. It is separate
+from the hide-character shortcut, which does not stop tracking.

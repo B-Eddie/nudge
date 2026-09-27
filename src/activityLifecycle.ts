@@ -6,6 +6,7 @@ export interface ActivitySnapshot {
   timeEvents: number;
   stats: SessionStats;
   paused: boolean;
+  trackingPaused?: boolean;
   history: DayRecord[];
 }
 
@@ -37,4 +38,16 @@ export function rollOverActivity(snapshot: ActivitySnapshot, now: number): Activ
 export function resumeAfterRestart(snapshot: ActivitySnapshot): ActivitySnapshot {
   if (snapshot.timeEvents >= 0) return snapshot;
   return { ...snapshot, timeEvents: 1, timePassed: 0 };
+}
+
+/** Pause and resume without adding time spent away to the current stretch. */
+export function setTrackingPause(snapshot: ActivitySnapshot, paused: boolean): ActivitySnapshot {
+  if (Boolean(snapshot.trackingPaused) === paused) return snapshot;
+  return {
+    ...snapshot,
+    trackingPaused: paused,
+    timePassed: 0,
+    timeEvents: 1,
+    stats: { ...snapshot.stats, currentStretchSeconds: 0 },
+  };
 }

@@ -190,7 +190,7 @@ function CategoryBreakdown({
   if (entries.length === 0) {
     return (
       <p className="summary-hint">
-        Nothing tracked yet. Your stats will show here as you use computer.
+        Nothing tracked yet. Your stats will show here as you use your computer.
       </p>
     );
   }
@@ -278,6 +278,7 @@ export function SummaryPanel({
       <div
         className="summary-panel"
         role="dialog"
+        aria-modal="true"
         aria-labelledby="summary-title"
       >
         <header className="summary-header">
@@ -357,7 +358,7 @@ export function SummaryPanel({
                 <span className="summary-card-value">
                   {formatDuration(activeSeconds)}
                 </span>
-                <span className="summary-card-label">screen time</span>
+                <span className="summary-card-label">tracked time</span>
               </div>
               <div className="summary-card">
                 <span className="summary-card-value">
@@ -446,7 +447,7 @@ export function SummaryPanel({
                 <span className="summary-card-value">
                   {formatDuration(week.total)}
                 </span>
-                <span className="summary-card-label">screen time</span>
+                <span className="summary-card-label">tracked time</span>
               </div>
               <div className="summary-card">
                 <span className="summary-card-value">
