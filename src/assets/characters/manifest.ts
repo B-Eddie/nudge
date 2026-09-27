@@ -1,9 +1,9 @@
 // Companion roster, per-character themes, and portrait art.
 //
 // Art lives in src/assets/characters/<id>/*.png (AI-generated pixel portraits
-// committed to the repo). The overlay pet sprite bundles in
-// src/assets/animation/ are untouched — new art is used for portraits, panel
-// headers, the picker, and empty states. Theme tokens here mirror
+// committed to the repo). The overlay pet sprite bundles live in
+// src/assets/animation/<character>/<bundle>/<category>/*.png (64x64 frames,
+// 4 energy tiers x 6 categories + sleep/announce alts per character).
 // design/DESIGN-SYSTEM.md; the CSS in App.css applies them via
 // [data-character-theme] on <html> (token swap, not component swap).
 
@@ -13,7 +13,7 @@ const portraitModules = import.meta.glob<string>("./*/*.png", {
   query: "?url",
 });
 
-const spriteModules = import.meta.glob<string>("../animation/*/*/*.png", {
+const spriteModules = import.meta.glob<string>("../animation/*/*/*/*.png", {
   eager: true,
   import: "default",
   query: "?url",
@@ -25,10 +25,12 @@ function portrait(id: string, file: string): string {
   return url;
 }
 
-/** First idle frame of a sprite bundle (1 = fresh … 4 = most tired). */
-function spritePortrait(bundle: number): string {
-  const url = spriteModules[`../animation/${bundle}/idle/1.png`];
-  if (!url) throw new Error(`missing sprite portrait: bundle ${bundle}`);
+/** First idle frame of a character's sprite bundle (1 = fresh … 4 = most tired). */
+function spritePortrait(characterId: string, bundle: number): string {
+  const url =
+    spriteModules[`../animation/${characterId}/${bundle}/idle/1.png`];
+  if (!url)
+    throw new Error(`missing sprite portrait: ${characterId} bundle ${bundle}`);
   return url;
 }
 
@@ -64,7 +66,7 @@ export interface CharacterDef {
 // Panda reuses the live sprite bundles for its energy ladder so the portrait
 // in panels always matches the pet on screen: tiers 1-2 → bundle 1 (fresh),
 // then one bundle per tier down to bundle 4 at tier 5.
-const pandaEnergy = [1, 1, 2, 3, 4].map(spritePortrait);
+const pandaEnergy = [1, 1, 2, 3, 4].map((b) => spritePortrait("panda", b));
 
 export const CHARACTERS: CharacterDef[] = [
   {

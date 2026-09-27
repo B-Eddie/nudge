@@ -22,25 +22,39 @@ if (typeof window !== "undefined") {
   }
 }
 
-type FrameMap = Record<string, Record<string, string[]>>;
-const FRAMES: FrameMap = (() => {
-  const map: FrameMap = {};
-  const pattern = /animation\/([^/]+)\/([^/]+)\/(\d+)\.png$/;
+type FrameMap = Record<string, Record<string, Record<string, string[]>>>;
+type AltMap = Record<string, Record<string, string[]>>;
+const { FRAMES, ALTS }: { FRAMES: FrameMap; ALTS: AltMap } = (() => {
+  const frames: FrameMap = {};
+  const alts: AltMap = {};
+  const pattern = /animation\/([^/]+)\/(-?\d+)(?:\/([^/]+))?\/(\d+)\.png$/;
 
   Object.entries(frameModules)
     .map(([path, url]) => {
       const match = path.match(pattern);
       return match
-        ? { bundle: match[1], category: match[2], index: Number(match[3]), url }
+        ? {
+            character: match[1],
+            bundle: match[2],
+            category: match[3],
+            index: Number(match[4]),
+            url,
+          }
         : null;
     })
     .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
     .sort((a, b) => a.index - b.index)
-    .forEach(({ bundle, category, url }) => {
-      ((map[bundle] ??= {})[category] ??= []).push(url);
+    .forEach(({ character, bundle, category, url }) => {
+      if (category) {
+        (((frames[character] ??= {})[bundle] ??= {})[category] ??= []).push(
+          url,
+        );
+      } else {
+        ((alts[character] ??= {})[bundle] ??= []).push(url);
+      }
     });
 
-  return map;
+  return { FRAMES: frames, ALTS: alts };
 })();
 
 function characterSetFromCategory(categoryLabel: string | undefined): string {
@@ -63,9 +77,21 @@ function characterSetFromCategory(categoryLabel: string | undefined): string {
   }
 }
 
-function resolveFrames(bundle: number, category: string): string[] {
-  const byCategory = FRAMES[String(bundle)] ?? FRAMES["1"] ?? {};
+function resolveFrames(
+  character: string,
+  bundle: number,
+  category: string,
+): string[] {
+  const byBundle =
+    FRAMES[character] ?? FRAMES["panda"] ?? {};
+  const byCategory = byBundle[String(bundle)] ?? byBundle["1"] ?? {};
   return byCategory[category] ?? byCategory["idle"] ?? [];
+}
+
+function resolveAlts(character: string, bundle: "-1" | "0"): string[] {
+  return (
+    ALTS[character]?.[bundle] ?? ALTS["panda"]?.[bundle] ?? []
+  );
 }
 
 // The art ships 4 tiredness bundles for 5 energy tiers (tier 1 = full
@@ -93,16 +119,11 @@ export function useCharacterFrame(
   categoryLabel: string | undefined,
   timeEvents: number,
   messageVisible = false,
+  characterId = "panda",
 ): string | undefined {
   const bundle = alternateBundleId(timeEvents, messageVisible);
 
-  const alt1 = bundle
-    ? frameModules[`../assets/animation/${bundle}/1.png`]
-    : undefined;
-  const alt2 = bundle
-    ? frameModules[`../assets/animation/${bundle}/2.png`]
-    : undefined;
-  const alternates = [alt1, alt2].filter(Boolean) as string[];
+  const alternates = bundle ? resolveAlts(characterId, bundle) : [];
 
   const [altIndex, setAltIndex] = useState(0);
 
@@ -120,13 +141,13 @@ export function useCharacterFrame(
 
   const category = characterSetFromCategory(categoryLabel);
   const bundleNumber = bundleFromTier(timeEvents);
-  const frames = resolveFrames(bundleNumber, category);
+  const frames = resolveFrames(characterId, bundleNumber, category);
 
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
     setIndex(0);
-  }, [category, bundleNumber]);
+  }, [category, bundleNumber, characterId]);
 
   useEffect(() => {
     if (bundle || frames.length <= 1) return;

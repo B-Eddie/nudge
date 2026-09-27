@@ -142,6 +142,7 @@ function App() {
     label,
     timeEvents,
     displayedMessage !== "" && !overlayHidden,
+    characterId,
   );
 
   // Ensure time-passed is always updated
