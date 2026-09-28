@@ -26,6 +26,8 @@ interface RadialMenuProps {
   snoozeLabel: string;
 }
 
+/* Arc opens away from the screen corner the pet sits in. Keys match the
+   short position codes set in App.tsx ("br" etc.). */
 const QUADRANT_START: Record<string, number> = {
   bl: -90,
   tl: 0,
@@ -33,12 +35,12 @@ const QUADRANT_START: Record<string, number> = {
   br: 180,
 };
 
-const INNER_R = 70;
-const OUTER_R = 116;
+const INNER_R = 64;
+const OUTER_R = 106;
 const ICON_R = (INNER_R + OUTER_R) / 2;
 const PAD = 6;
 const VIEW = OUTER_R + PAD;
-const ICON_SIZE = 22;
+const ICON_SIZE = 20;
 
 function polar(r: number, deg: number): { x: number; y: number } {
   const a = (deg * Math.PI) / 180;

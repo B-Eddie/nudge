@@ -179,7 +179,7 @@ main.hidden {
   text-align: center;
   display: block;
   white-space: pre-line;
-  word-break: break-word;
+  overflow-wrap: anywhere;
   border-radius: 10px;
   padding: 0.325em 0.7em;
   box-sizing: border-box;
@@ -284,6 +284,13 @@ main.hidden {
 .character img {
   display: block;
   width: 100%;
+}
+
+/* While a break quest card is up it owns the space beside the pet — the
+   hover readout would collide with it, so it stays hidden. */
+.character.quest-active.hovered #hoverInfo,
+.character.quest-active #hoverInfo {
+  display: none !important;
 }
 
 /* different styles for which corner the window is on */
@@ -463,7 +470,8 @@ main.hidden {
   user-select: none;
 }
 
-/* Pet name tag under the radial menu — a little wooden sign. */
+/* Pet name tag under the radial menu — a little wooden sign. For bottom
+   corners it hangs above the menu so it stays inside the overlay window. */
 .radial-pet-name {
   position: absolute;
   top: calc(100% + 2px);
@@ -482,12 +490,19 @@ main.hidden {
   pointer-events: none;
 }
 
-/* Focus session countdown pill, floating above the character. */
+.character.pos-bl .radial-pet-name,
+.character.pos-br .radial-pet-name {
+  top: auto;
+  bottom: calc(100% + 2px);
+}
+
+/* Focus session countdown pill. Sits beside the character (the 300px
+   overlay window has no room above the pet once the message bubble shows)
+   — left for right-side corners, right for left. */
 .focus-pill {
   position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
+  top: 50%;
+  transform: translateY(-50%);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -495,12 +510,23 @@ main.hidden {
   background: var(--card);
   border: 2px solid var(--accent-deep);
   border-radius: 12px;
+  white-space: nowrap;
   box-shadow:
     0 6px 16px rgba(93, 74, 44, 0.2),
     0 0 0 3px var(--accent-glow);
   font-family: var(--font-body);
   white-space: nowrap;
   z-index: 15;
+}
+
+.character.pos-br .focus-pill,
+.character.pos-tr .focus-pill {
+  right: calc(100% + 8px);
+}
+
+.character.pos-bl .focus-pill,
+.character.pos-tl .focus-pill {
+  left: calc(100% + 8px);
 }
 
 .focus-pill-time {
@@ -534,23 +560,37 @@ main.hidden {
   color: var(--paper);
 }
 
-/* Break quest card, floating below the character while resting. */
+/* Break quest card. Sits beside the character (the 300px overlay window has
+   no room below the pet) — left for right-side corners, right for left. */
 .quest-pill {
   position: absolute;
-  top: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
+  top: 50%;
+  transform: translateY(-50%);
   display: flex;
-  align-items: center;
-  gap: 10px;
-  max-width: 300px;
-  padding: 8px 10px 8px 12px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  width: max-content;
+  max-width: 160px;
+  box-sizing: border-box;
+  padding: 10px 12px;
   background: var(--card);
   border: 2px solid var(--line);
   border-radius: 12px;
   box-shadow: 0 6px 16px rgba(93, 74, 44, 0.18);
   font-family: var(--font-body);
+  text-align: center;
   z-index: 15;
+}
+
+.character.pos-br .quest-pill,
+.character.pos-tr .quest-pill {
+  right: calc(100% + 8px);
+}
+
+.character.pos-bl .quest-pill,
+.character.pos-tl .quest-pill {
+  left: calc(100% + 8px);
 }
 
 .quest-label {

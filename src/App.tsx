@@ -747,6 +747,9 @@ function App() {
   const startBreak = useCallback(
     (options?: { auto?: boolean; sleep?: boolean }) => {
       if (breakTimeRef.current !== 0) return;
+      // A break and a focus session can't coexist — ending focus first keeps
+      // the two side pills from colliding and the XP rules honest.
+      if (focusSessionRef.current) cancelFocusSession();
       const { timePassed: workSeconds, timeEvents: events } =
         activityRef.current;
       const minutesWorked = workSeconds / 60;
@@ -794,7 +797,7 @@ function App() {
       setSnooze({ until: 0, level: 0 });
       void invoke("reset_reminder_timer").catch(console.error);
     },
-    [clearReminderRestoreTimeout, setTransientMessage],
+    [cancelFocusSession, clearReminderRestoreTimeout, setTransientMessage],
   );
 
   const handleAction = useCallback(
@@ -1255,7 +1258,9 @@ function App() {
         <div
           className={`character interactive pos-${position || "bl"} ${
             hovered ? "hovered" : ""
-          }${characterHidden ? " character-hidden" : ""}`}
+          }${characterHidden ? " character-hidden" : ""}${
+            quest && breakTime !== 0 ? " quest-active" : ""
+          }`}
           data-character
         >
           {!overlayHidden && !characterHidden && (
