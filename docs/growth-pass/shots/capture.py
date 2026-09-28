@@ -231,17 +231,23 @@ def char_center(page):
 
 
 def click(page, x, y):
-    fire(page, "cursor://move", {"x": x, "y": y, "inside": True, "pressed": True})
-    page.wait_for_timeout(120)
-    fire(page, "cursor://move", {"x": x, "y": y, "inside": True, "pressed": False})
-    # The real runtime also delivers an OS-level DOM click alongside
-    # cursor://move; plain buttons (quest Done, pill stop, panel buttons)
-    # rely on it. Radial slices only use data-action so this is a no-op there.
+    # The real runtime delivers an OS-level DOM click on the element under
+    # the cursor alongside cursor://move; plain buttons (quest Done, pill
+    # stop, panel buttons) rely on it, while radial slices only use
+    # data-action. Fire both in one JS task so the DOM click hits the same
+    # target the OS would — before React re-renders (e.g. a panel opening
+    # under the cursor, whose backdrop would otherwise swallow the click).
     page.evaluate(
-        "([cx, cy]) => { const el = document.elementFromPoint(cx, cy);"
-        " if (el && typeof el.click === 'function') el.click(); }",
+        "([cx, cy]) => {"
+        "  window.__tauriFire('cursor://move',"
+        "    {x: cx, y: cy, inside: true, pressed: true});"
+        "  const el = document.elementFromPoint(cx, cy);"
+        "  if (el && typeof el.click === 'function') el.click();"
+        "}",
         [x, y],
     )
+    page.wait_for_timeout(120)
+    fire(page, "cursor://move", {"x": x, "y": y, "inside": True, "pressed": False})
     page.wait_for_timeout(300)
 
 
