@@ -18,6 +18,7 @@ import {
   getCharacter,
   type CharacterId,
 } from "../assets/characters/manifest";
+import { loadPetProfile, savePetProfile } from "../growth/pet";
 
 interface OnboardingPanelProps {
   onComplete: () => void;
@@ -28,6 +29,7 @@ interface OnboardingPanelProps {
 const STEPS = [
   "welcome",
   "companion",
+  "name",
   "position",
   "shortcut",
   "reminder",
@@ -48,6 +50,12 @@ export function OnboardingPanel({
   const [pendingShortcut, setPendingShortcut] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [petName, setPetName] = useState(() =>
+    loadPetProfile(characterId, getCharacter(characterId).name).name,
+  );
+  const [nameTouched, setNameTouched] = useState(false);
+  const nameTouchedRef = useRef(false);
+  nameTouchedRef.current = nameTouched;
   const pendingShortcutRef = useRef<string | null>(null);
   pendingShortcutRef.current = pendingShortcut;
 
@@ -127,6 +135,13 @@ export function OnboardingPanel({
       await invoke("save_settings", {
         settings: { ...draft, onboarding_complete: true },
       });
+      // Persist the chosen pet name alongside the profile.
+      const profile = loadPetProfile(
+        characterId,
+        getCharacter(characterId).name,
+      );
+      const clean = petName.trim().slice(0, 24) || getCharacter(characterId).name;
+      savePetProfile(characterId, { ...profile, name: clean });
       onComplete();
     } catch (err) {
       console.error("Failed to save onboarding settings:", err);
@@ -134,7 +149,7 @@ export function OnboardingPanel({
     } finally {
       setSaving(false);
     }
-  }, [draft, onComplete]);
+  }, [draft, onComplete, characterId, petName]);
 
   const next = useCallback(() => {
     if (step >= STEPS.length - 1) {
@@ -192,11 +207,40 @@ export function OnboardingPanel({
                 onChange={(id) => {
                   setDraft({ ...draft, character_id: id });
                   onCharacterChange(id);
+                  // Follow the newly picked companion's saved name unless the
+                  // user already typed their own.
+                  if (!nameTouchedRef.current) {
+                    setPetName(loadPetProfile(id, getCharacter(id).name).name);
+                  }
                 }}
               />
               <p className="onboarding-tagline">
                 {getCharacter(characterId).tagline}
               </p>
+            </>
+          )}
+
+          {stepId === "name" && (
+            <>
+              <p className="onboarding-lead">Give your companion a name.</p>
+              <p className="onboarding-hint">
+                This is who you&apos;ll see in your activity report — and who
+                earns XP when you rest well and finish focus sessions.
+              </p>
+              <label className="onboarding-field">
+                <span>Pet name</span>
+                <input
+                  type="text"
+                  value={petName}
+                  maxLength={24}
+                  placeholder={getCharacter(characterId).name}
+                  onChange={(e) => {
+                    setPetName(e.target.value);
+                    setNameTouched(true);
+                  }}
+                  aria-label="Pet name"
+                />
+              </label>
             </>
           )}
 

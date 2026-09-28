@@ -5,6 +5,14 @@ import {
   portraitForEnergy,
   type CharacterDef,
 } from "../assets/characters/manifest";
+import {
+  levelForXp,
+  xpIntoLevel,
+  XP_PER_LEVEL,
+  type PetProfile,
+} from "../growth/pet";
+import { ACHIEVEMENTS } from "../growth/achievements";
+import type { StreakInfo } from "../growth/streaks";
 
 // stats from memory for current session
 export interface SessionStats {
@@ -67,6 +75,10 @@ interface SummaryPanelProps {
   onBreak: boolean;
   onClose: () => void;
   character: CharacterDef;
+  /** Null until the pet profile loads. */
+  pet: PetProfile | null;
+  streak: StreakInfo;
+  unlockedBadges: Set<string>;
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -229,6 +241,30 @@ function CategoryBreakdown({
   );
 }
 
+function PetStrip({ pet }: { pet: PetProfile | null }) {
+  if (!pet) return null;
+  const level = levelForXp(pet.xp);
+  const intoLevel = xpIntoLevel(pet.xp);
+  const filled = Math.round((intoLevel / XP_PER_LEVEL) * 10);
+  return (
+    <div className="summary-pet-strip">
+      <span className="summary-pet-name">{pet.name}</span>
+      <span className="summary-pet-level">Lv {level}</span>
+      <div className="pixel-bar summary-xp-bar" aria-hidden>
+        {Array.from({ length: 10 }, (_, i) => (
+          <span
+            key={i}
+            className={`pixel-cell ${i < filled ? "xp-filled" : ""}`}
+          />
+        ))}
+      </div>
+      <span className="summary-xp-label">
+        {XP_PER_LEVEL - intoLevel} XP to level {level + 1}
+      </span>
+    </div>
+  );
+}
+
 export function SummaryPanel({
   stats,
   history,
@@ -236,6 +272,9 @@ export function SummaryPanel({
   onBreak,
   onClose,
   character,
+  pet,
+  streak,
+  unlockedBadges,
 }: SummaryPanelProps) {
   const [tab, setTab] = useState<"today" | "week">("today");
 
@@ -326,6 +365,7 @@ export function SummaryPanel({
 
         {tab === "today" ? (
           <div className="summary-body">
+            <PetStrip pet={pet} />
             {categories.entries.length !== 0 ? (
               <>
                 <h3 className="summary-persona">
@@ -452,6 +492,7 @@ export function SummaryPanel({
           </div>
         ) : (
           <div className="summary-body">
+            <PetStrip pet={pet} />
             <div className="summary-cards">
               <div className="summary-card">
                 <span className="summary-card-value">
@@ -517,6 +558,29 @@ export function SummaryPanel({
             </section>
 
             <section className="summary-section">
+              <h3 className="summary-section-title">Break streak</h3>
+              <div className="summary-cards">
+                <div className="summary-card">
+                  <span className="summary-card-value">
+                    {streak.current}{" "}
+                    {streak.current === 1 ? "day" : "days"}
+                  </span>
+                  <span className="summary-card-label">current streak</span>
+                </div>
+                <div className="summary-card">
+                  <span className="summary-card-value">
+                    {streak.best} {streak.best === 1 ? "day" : "days"}
+                  </span>
+                  <span className="summary-card-label">best streak</span>
+                </div>
+              </div>
+              <p className="summary-hint">
+                Take 3+ breaks a day to keep the streak alive. One rest day is
+                forgiven.
+              </p>
+            </section>
+
+            <section className="summary-section">
               <h3 className="summary-section-title">Log</h3>
               <ul className="summary-log">
                 <li>active on {week.activeDayCount} of the last 7 days</li>
@@ -544,6 +608,26 @@ export function SummaryPanel({
                     short this week
                   </li>
                 )}
+              </ul>
+            </section>
+
+            <section className="summary-section">
+              <h3 className="summary-section-title">
+                Badges · {unlockedBadges.size}/{ACHIEVEMENTS.length}
+              </h3>
+              <ul className="badge-grid">
+                {ACHIEVEMENTS.map((def) => {
+                  const unlocked = unlockedBadges.has(def.id);
+                  return (
+                    <li
+                      key={def.id}
+                      className={`badge ${unlocked ? "unlocked" : "locked"}`}
+                    >
+                      <span className="badge-name">{def.name}</span>
+                      <span className="badge-desc">{def.desc}</span>
+                    </li>
+                  );
+                })}
               </ul>
             </section>
           </div>

@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { useCallback, useState, useEffect, useRef } from "react";
+import { useCallback, useState, useEffect, useMemo, useRef } from "react";
 import { flushSync } from "react-dom";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { OnboardingPanel } from "./components/OnboardingPanel";
@@ -21,6 +21,25 @@ import { usePauseTrackingShortcut } from "./hooks/usePauseTrackingShortcut";
 import type { Settings } from "./types/settings";
 import { RadialMenu } from "./components/RadialMenu";
 import { ReminderNotePanel } from "./components/ReminderNotePanel";
+import { FocusPanel } from "./components/FocusPanel";
+import { Toasts, type ToastData } from "./components/Toast";
+import {
+  loadPetProfile,
+  savePetProfile,
+  grantXp,
+  levelForXp,
+  XP_QUEST_DONE,
+  XP_FULL_BREAK,
+  XP_FOCUS_25,
+  XP_FOCUS_50,
+  type PetProfile,
+} from "./growth/pet";
+import { breakStreak } from "./growth/streaks";
+import { questForBreak } from "./growth/quests";
+import {
+  checkAchievements,
+  loadUnlockedAchievements,
+} from "./growth/achievements";
 import {
   getCharacter,
   DEFAULT_CHARACTER_ID,
@@ -104,6 +123,14 @@ function tierFromWorkSeconds(
   return Math.min(5, 1 + Math.floor(workSeconds / intervalSecs));
 }
 
+// "24:59" style countdown for the focus pill
+function formatCountdown(ms: number): string {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  const mins = Math.floor(total / 60);
+  const secs = total % 60;
+  return `${mins}:${String(secs).padStart(2, "0")}`;
+}
+
 function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
@@ -136,7 +163,24 @@ function App() {
   const [history, setHistory] = useState<DayRecord[]>([]);
   const [characterHidden, setCharacterHidden] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
-  const panelOpen = settingsOpen || summaryOpen || onboardingOpen || noteOpen;
+  const [focusOpen, setFocusOpen] = useState(false);
+  const [focusSession, setFocusSession] = useState<{
+    endsAt: number;
+    minutes: number;
+  } | null>(null);
+  const [focusTick, setFocusTick] = useState(0);
+  const [quest, setQuest] = useState<{ text: string; done: boolean } | null>(
+    null,
+  );
+  const [snooze, setSnooze] = useState<{ until: number; level: 0 | 1 | 2 }>({
+    until: 0,
+    level: 0,
+  });
+  const [pet, setPet] = useState<PetProfile | null>(null);
+  const [toasts, setToasts] = useState<ToastData[]>([]);
+  const [unlockedBadges, setUnlockedBadges] = useState<Set<string>>(new Set());
+  const panelOpen =
+    settingsOpen || summaryOpen || onboardingOpen || noteOpen || focusOpen;
   const overlayHidden = panelOpen || overlaySuppressed;
   const characterSrc = useCharacterFrame(
     label,
@@ -182,6 +226,15 @@ function App() {
   const closeBarRef = useRef<() => void>(() => {});
   const reminderIntervalRef = useRef(30);
   const reminderAnimUntilRef = useRef(0);
+  const toastIdRef = useRef(0);
+  const petLevelRef = useRef(0);
+  const petRef = useRef<PetProfile | null>(null);
+  petRef.current = pet;
+  const focusSessionRef = useRef<{
+    endsAt: number;
+    minutes: number;
+  } | null>(null);
+  focusSessionRef.current = focusSession;
   // Continuous seconds on the current frontmost category (resets on category change / break).
   const categoryStretchRef = useRef(0);
   const categoryStretchLabelRef = useRef<string | null>(null);
@@ -210,6 +263,81 @@ function App() {
       reminderRestoreTimeoutRef.current = undefined;
     }
   }, []);
+
+  // ---- Growth pass: toasts, pet, snooze, focus, quests ----
+
+  const pushToast = useCallback((title: string, body: string) => {
+    const id = ++toastIdRef.current;
+    setToasts((prev) => [...prev.slice(-2), { id, title, body }]);
+  }, []);
+
+  const dismissToast = useCallback((id: number) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  // Snooze cycles 10 min -> 30 min -> off. Frontend-only: it just pushes the
+  // existing reminder-suppress timestamp out.
+  const cycleSnooze = useCallback(() => {
+    const now = Date.now();
+    if (snooze.level === 0) {
+      const until = now + 10 * 60_000;
+      suppressReminderUntilRef.current = until;
+      setSnooze({ until, level: 1 });
+      setTransientMessage(
+        "Reminders snoozed for 10 minutes. Snooze again for 30.",
+      );
+    } else if (snooze.level === 1) {
+      const until = now + 30 * 60_000;
+      suppressReminderUntilRef.current = until;
+      setSnooze({ until, level: 2 });
+      setTransientMessage("Reminders snoozed for 30 minutes.");
+    } else {
+      suppressReminderUntilRef.current = 0;
+      setSnooze({ until: 0, level: 0 });
+      setTransientMessage("Reminders are back on.");
+    }
+  }, [snooze, setTransientMessage]);
+
+  const cancelFocusSession = useCallback(() => {
+    if (!focusSessionRef.current) return;
+    focusSessionRef.current = null;
+    setFocusSession(null);
+    suppressReminderUntilRef.current = 0;
+    setTransientMessage("Focus session ended early — no XP this time.");
+  }, [setTransientMessage]);
+
+  const completeFocusSession = useCallback(() => {
+    const session = focusSessionRef.current;
+    if (!session) return;
+    focusSessionRef.current = null;
+    setFocusSession(null);
+    // Don't let the megaphone clobber the celebration message.
+    suppressReminderUntilRef.current = Date.now() + 6000;
+    void invoke("reset_reminder_timer").catch(console.error);
+    const xp = session.minutes >= 50 ? XP_FOCUS_50 : XP_FOCUS_25;
+    setPet((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, focusSessions: prev.focusSessions + 1 };
+      grantXp(next, xp);
+      return next;
+    });
+    setTransientMessage(
+      `Focus complete — ${session.minutes} minutes well spent. +${xp} XP.`,
+    );
+    playReminderAnimRef.current();
+  }, [setTransientMessage]);
+
+  const completeQuest = useCallback(() => {
+    setQuest((prev) => (prev ? { ...prev, done: true } : prev));
+    setPet((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, questsDone: prev.questsDone + 1 };
+      grantXp(next, XP_QUEST_DONE);
+      return next;
+    });
+    const name = petRef.current?.name ?? "your pal";
+    setTransientMessage(`Quest complete! +${XP_QUEST_DONE} XP for ${name}.`);
+  }, [setTransientMessage]);
 
   // Megaphone animation for timed reminders and distraction nudges.
   const playReminderAnim = useCallback(() => {
@@ -298,8 +426,10 @@ function App() {
   }, [beginOpenPanel]);
 
   const closeSettings = useCallback(() => {
+    // Settings can rename the pet — reload the profile.
+    setPet(loadPetProfile(characterId, getCharacter(characterId).name));
     void beginClosePanel(() => setSettingsOpen(false));
-  }, [beginClosePanel]);
+  }, [beginClosePanel, characterId]);
 
   const closeSummary = useCallback(() => {
     void beginClosePanel(() => setSummaryOpen(false));
@@ -325,9 +455,40 @@ function App() {
     });
   }, [beginOpenPanel]);
 
-  const closeOnboarding = useCallback(() => {
-    void beginClosePanel(() => setOnboardingOpen(false));
+  const openFocus = useCallback(() => {
+    void beginOpenPanel(() => {
+      setSettingsOpen(false);
+      setSummaryOpen(false);
+      setFocusOpen(true);
+    });
+  }, [beginOpenPanel]);
+
+  const closeFocus = useCallback(() => {
+    void beginClosePanel(() => setFocusOpen(false));
   }, [beginClosePanel]);
+
+  const startFocusSession = useCallback(
+    (minutes: number) => {
+      void beginClosePanel(() => setFocusOpen(false));
+      const endsAt = Date.now() + minutes * 60_000;
+      const session = { endsAt, minutes };
+      focusSessionRef.current = session;
+      setFocusSession(session);
+      setFocusTick(Date.now());
+      // Hold all reminders until the timer ends.
+      suppressReminderUntilRef.current = endsAt;
+      setTransientMessage(
+        `${minutes}-minute focus started. ${petRef.current?.name ?? character.name} is guarding your time.`,
+      );
+    },
+    [beginClosePanel, character, setTransientMessage],
+  );
+
+  const closeOnboarding = useCallback(() => {
+    // Onboarding may have saved a pet name — reload the profile.
+    setPet(loadPetProfile(characterId, getCharacter(characterId).name));
+    void beginClosePanel(() => setOnboardingOpen(false));
+  }, [beginClosePanel, characterId]);
 
   // First launch: show onboarding once settings are loaded
   useEffect(() => {
@@ -565,8 +726,17 @@ function App() {
           ...prev,
           breaksInterrupted: prev.breaksInterrupted + 1,
         }));
+      } else if (progress >= 1) {
+        // A fully-rested break earns the pet XP.
+        setPet((prev) => {
+          if (!prev) return prev;
+          const next = { ...prev, fullBreaks: prev.fullBreaks + 1 };
+          grantXp(next, XP_FULL_BREAK);
+          return next;
+        });
       }
 
+      setQuest(null);
       setBreakTime(0);
       // Restart the reminder/energy-drain clock
       void invoke("reset_reminder_timer").catch(console.error);
@@ -616,6 +786,12 @@ function App() {
       categoryStretchRef.current = 0;
       categoryStretchLabelRef.current = null;
       lastDistractionNudgeAtRef.current = 0;
+      // Every break gets a small quest; a real break beats a snooze.
+      setQuest({
+        text: questForBreak(activityRef.current.stats.breaksTaken),
+        done: false,
+      });
+      setSnooze({ until: 0, level: 0 });
       void invoke("reset_reminder_timer").catch(console.error);
     },
     [clearReminderRestoreTimeout, setTransientMessage],
@@ -629,10 +805,37 @@ function App() {
           openSettings();
           break;
         case "break":
+          if (focusSessionRef.current) {
+            // A real break wins over a focus timer.
+            focusSessionRef.current = null;
+            setFocusSession(null);
+            suppressReminderUntilRef.current = 0;
+          }
           startBreak();
           break;
         case "endbreak":
           endBreak(false);
+          break;
+        case "focus":
+          if (onBreakRef.current) {
+            setTransientMessage("Rest first — we'll focus after your break.");
+            break;
+          }
+          if (focusSessionRef.current) {
+            const remainMs = focusSessionRef.current.endsAt - Date.now();
+            setTransientMessage(
+              `Already focusing — ${formatCountdown(remainMs)} left.`,
+            );
+            break;
+          }
+          syncHideOverlay();
+          openFocus();
+          break;
+        case "endfocus":
+          cancelFocusSession();
+          break;
+        case "snooze":
+          cycleSnooze();
           break;
         case "summary":
           syncHideOverlay();
@@ -643,9 +846,13 @@ function App() {
     [
       openSettings,
       openSummary,
+      openFocus,
       syncHideOverlay,
       endBreak,
       startBreak,
+      cancelFocusSession,
+      cycleSnooze,
+      setTransientMessage,
     ],
   );
 
@@ -746,6 +953,77 @@ function App() {
     const id = setInterval(() => setNowTick(Date.now()), 1000);
     return () => clearInterval(id);
   }, [breakTime]);
+
+  // ---- Growth pass effects ----
+
+  // Load the pet profile for the active character; persist on every change.
+  useEffect(() => {
+    setPet(loadPetProfile(characterId, getCharacter(characterId).name));
+  }, [characterId]);
+  useEffect(() => {
+    if (pet) savePetProfile(characterId, pet);
+  }, [pet, characterId]);
+
+  // Level-up celebration when XP crosses a level boundary.
+  useEffect(() => {
+    if (!pet) return;
+    const level = levelForXp(pet.xp);
+    if (petLevelRef.current !== 0 && level > petLevelRef.current) {
+      setTransientMessage(
+        `${pet.name} reached level ${level}! All that resting paid off.`,
+      );
+      playReminderAnimRef.current();
+      pushToast(
+        `${pet.name} leveled up!`,
+        `Level ${level} — the bond grows stronger.`,
+      );
+    }
+    petLevelRef.current = level;
+  }, [pet, pushToast, setTransientMessage]);
+
+  // Achievement checks: any break count change, pet change, or history
+  // archive can complete a badge. checkAchievements only returns fresh ones.
+  const breaksTakenCount = stats.breaksTaken;
+  useEffect(() => {
+    if (!pet || !activityHydrated) return;
+    const { stats: liveStats, history: liveHistory } = activityRef.current;
+    const fresh = checkAchievements({
+      stats: liveStats,
+      history: liveHistory,
+      pet,
+    });
+    fresh.forEach((def) =>
+      pushToast(`Badge earned: ${def.name}`, def.desc),
+    );
+  }, [pet, breaksTakenCount, history, activityHydrated, pushToast]);
+
+  // Focus session countdown; completing fires XP + celebration.
+  useEffect(() => {
+    if (!focusSession) return;
+    const id = setInterval(() => {
+      const now = Date.now();
+      setFocusTick(now);
+      if (now >= focusSession.endsAt) {
+        clearInterval(id);
+        completeFocusSession();
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [focusSession, completeFocusSession]);
+
+  // A snooze is wall-clock time: expire the label when it lapses.
+  useEffect(() => {
+    if (snooze.level === 0) return;
+    const id = setInterval(() => {
+      if (Date.now() >= snooze.until) setSnooze({ until: 0, level: 0 });
+    }, 15000);
+    return () => clearInterval(id);
+  }, [snooze]);
+
+  // Refresh the badge shelf whenever the summary opens.
+  useEffect(() => {
+    if (summaryOpen) setUnlockedBadges(loadUnlockedAchievements());
+  }, [summaryOpen]);
 
   const toggleNote = openReminderNotes;
 
@@ -956,6 +1234,14 @@ function App() {
       )
     : energyFromTier(timeEvents);
 
+  const snoozeLabel =
+    snooze.level === 0
+      ? "Snooze 10 min"
+      : snooze.level === 1
+        ? `Snoozed ${Math.max(1, Math.ceil((snooze.until - Date.now()) / 60000))}m — extend`
+        : "Snooze off";
+  const streak = useMemo(() => breakStreak(history, stats), [history, stats]);
+
   return (
     <>
       <main
@@ -979,6 +1265,9 @@ function App() {
               break={breakTime}
               portrait={character.portrait}
               characterName={character.name}
+              petName={pet?.name ?? character.name}
+              inFocus={focusSession !== null}
+              snoozeLabel={snoozeLabel}
             />
           )}
           {displayedMessage !== "" && !overlayHidden && !characterHidden && (
@@ -1026,6 +1315,35 @@ function App() {
                   decoded bitmap and paints a blank frame. Updating `src` on a
                   stable element swaps atomically since frames are predecoded. */}
               <img id="characterMain" src={characterSrc} alt="nudge character" />
+              {focusSession && !overlayHidden && (
+                <div className="focus-pill interactive">
+                  <span className="focus-pill-time">
+                    {formatCountdown(focusSession.endsAt - focusTick)}
+                  </span>
+                  <span className="focus-pill-label">focusing</span>
+                  <button
+                    type="button"
+                    className="focus-pill-stop interactive"
+                    onClick={cancelFocusSession}
+                    aria-label="End focus session"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+              {onBreak && quest && !quest.done && !overlayHidden && (
+                <div className="quest-pill interactive">
+                  <span className="quest-label">break quest</span>
+                  <span className="quest-text">{quest.text}</span>
+                  <button
+                    type="button"
+                    className="quest-done interactive"
+                    onClick={completeQuest}
+                  >
+                    Done
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1048,11 +1366,22 @@ function App() {
           onBreak={onBreak}
           onClose={closeSummary}
           character={character}
+          pet={pet}
+          streak={streak}
+          unlockedBadges={unlockedBadges}
         />
       )}
+      {focusOpen &&
+        !settingsOpen &&
+        !onboardingOpen &&
+        !noteOpen &&
+        !summaryOpen && (
+          <FocusPanel onStart={startFocusSession} onClose={closeFocus} />
+        )}
       {noteOpen && !settingsOpen && !onboardingOpen && !summaryOpen && (
         <ReminderNotePanel onClose={closeReminderNotes} />
       )}
+      <Toasts toasts={toasts} onDone={dismissToast} />
     </>
   );
 }

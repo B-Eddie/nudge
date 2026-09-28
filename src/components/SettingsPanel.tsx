@@ -19,6 +19,12 @@ import {
   getCharacter,
   type CharacterId,
 } from "../assets/characters/manifest";
+import {
+  loadPetProfile,
+  savePetProfile,
+  levelForXp,
+  type PetProfile,
+} from "../growth/pet";
 
 interface SettingsPanelProps {
   onClose: () => void;
@@ -34,6 +40,8 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   const [appSearch, setAppSearch] = useState("");
   const [recordingShortcut, setRecordingShortcut] = useState(false);
   const [pendingShortcut, setPendingShortcut] = useState<string | null>(null);
+  const [petProfile, setPetProfile] = useState<PetProfile | null>(null);
+  const [petNameDraft, setPetNameDraft] = useState("");
   const pendingShortcutRef = useRef<string | null>(null);
   pendingShortcutRef.current = pendingShortcut;
 
@@ -85,6 +93,10 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
         setDraft(settings);
         setMonitorOptions(monitors);
         setCategoryOptions(categories);
+        const charId = getCharacter(settings.character_id).id;
+        const profile = loadPetProfile(charId, getCharacter(charId).name);
+        setPetProfile(profile);
+        setPetNameDraft(profile.name);
       })
       .catch((err) => {
         console.error("Failed to load settings:", err);
@@ -324,10 +336,45 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             </p>
             <CharacterPicker
               value={getCharacter(draft.character_id).id}
-              onChange={(id: CharacterId) =>
-                setDraft({ ...draft, character_id: id })
-              }
+              onChange={(id: CharacterId) => {
+                setDraft({ ...draft, character_id: id });
+                const profile = loadPetProfile(id, getCharacter(id).name);
+                setPetProfile(profile);
+                setPetNameDraft(profile.name);
+              }}
             />
+            <label className="settings-field">
+              <span>Pet name</span>
+              <input
+                type="text"
+                value={petNameDraft}
+                maxLength={24}
+                placeholder={getCharacter(draft.character_id).name}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setPetNameDraft(value);
+                  const charId = getCharacter(draft.character_id).id;
+                  const clean =
+                    value.trim().slice(0, 24) || getCharacter(charId).name;
+                  const profile =
+                    petProfile ??
+                    loadPetProfile(charId, getCharacter(charId).name);
+                  const next = { ...profile, name: clean };
+                  setPetProfile(next);
+                  savePetProfile(charId, next);
+                }}
+                aria-label="Pet name"
+              />
+            </label>
+            {petProfile && (
+              <p className="settings-hint">
+                Level {levelForXp(petProfile.xp)} · {petProfile.xp} XP ·{" "}
+                {petProfile.focusSessions}{" "}
+                {petProfile.focusSessions === 1 ? "focus session" : "focus sessions"} ·{" "}
+                {petProfile.questsDone}{" "}
+                {petProfile.questsDone === 1 ? "quest" : "quests"} done
+              </p>
+            )}
             <p className="settings-hint settings-tagline">
               {getCharacter(draft.character_id).tagline}
             </p>

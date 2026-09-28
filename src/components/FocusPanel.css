@@ -1,0 +1,147 @@
+/* Focus session picker — same paper-card grammar as the other panels. */
+.focus-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.focus-panel {
+  font-family: var(--font-body);
+  width: 100%;
+  max-width: 380px;
+  border-radius: 20px;
+  border: 2px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  overflow: hidden;
+  box-shadow:
+    0 12px 32px rgba(93, 74, 44, 0.18),
+    0 2px 6px rgba(93, 74, 44, 0.1);
+  animation: panel-in 0.22s var(--ease-spring);
+  font-size: 1.1rem;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.focus-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.focus-header h2 {
+  margin: 0;
+  flex: 1;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: bold;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+}
+
+.focus-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  flex-shrink: 0;
+}
+
+.focus-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: var(--paper-deep);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.focus-close:hover {
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+
+.focus-hint {
+  margin: 0;
+  padding: 12px 18px 0;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.focus-options {
+  list-style: none;
+  margin: 0;
+  padding: 12px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.focus-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--ink);
+  font-family: var(--font-body);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s ease, transform 0.15s var(--ease-spring);
+}
+
+.focus-option:hover {
+  border-color: var(--accent-deep);
+  transform: translateY(-1px);
+}
+
+.focus-option-time {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  color: var(--accent-deep);
+  white-space: nowrap;
+}
+
+.focus-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.focus-option-text strong {
+  font-size: 0.95rem;
+}
+
+.focus-option-text span {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+
+.focus-option-xp {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  color: var(--accent-deep);
+  background: var(--accent-soft);
+  border-radius: 8px;
+  padding: 4px 8px;
+  white-space: nowrap;
+}

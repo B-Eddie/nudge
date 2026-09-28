@@ -274,6 +274,7 @@ main.hidden {
 
 /* Keep filter paint contained so hover text can blend with the desktop */
 .character-figure {
+  position: relative;
   flex-shrink: 0;
   width: 100%;
   isolation: isolate;
@@ -460,4 +461,125 @@ main.hidden {
 .group-icon * {
   pointer-events: none;
   user-select: none;
+}
+
+/* Pet name tag under the radial menu — a little wooden sign. */
+.radial-pet-name {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 12px 3px;
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  letter-spacing: 0.03em;
+  color: var(--ink);
+  white-space: nowrap;
+  box-shadow: 0 4px 10px rgba(93, 74, 44, 0.15);
+  pointer-events: none;
+}
+
+/* Focus session countdown pill, floating above the character. */
+.focus-pill {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 12px;
+  background: var(--card);
+  border: 2px solid var(--accent-deep);
+  border-radius: 12px;
+  box-shadow:
+    0 6px 16px rgba(93, 74, 44, 0.2),
+    0 0 0 3px var(--accent-glow);
+  font-family: var(--font-body);
+  white-space: nowrap;
+  z-index: 15;
+}
+
+.focus-pill-time {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  color: var(--accent-deep);
+}
+
+.focus-pill-label {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.focus-pill-stop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: var(--paper-deep);
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.focus-pill-stop:hover {
+  background: var(--clay);
+  color: var(--paper);
+}
+
+/* Break quest card, floating below the character while resting. */
+.quest-pill {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 300px;
+  padding: 8px 10px 8px 12px;
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 6px 16px rgba(93, 74, 44, 0.18);
+  font-family: var(--font-body);
+  z-index: 15;
+}
+
+.quest-label {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  color: var(--accent-deep);
+  white-space: nowrap;
+}
+
+.quest-text {
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+
+.quest-done {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border: none;
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--paper);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.quest-done:hover {
+  background: var(--accent-deep);
 }

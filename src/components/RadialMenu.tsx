@@ -2,6 +2,7 @@ import type { IconType } from "react-icons";
 import { FaPause, FaChartSimple, FaNoteSticky } from "react-icons/fa6";
 import { FaPlay } from "react-icons/fa";
 import { IoMdSettings } from "react-icons/io";
+import { LuTimer, LuBellOff } from "react-icons/lu";
 
 interface RadialAction {
   action: string;
@@ -17,6 +18,12 @@ interface RadialMenuProps {
   /** Companion portrait shown in the donut hole. */
   portrait: string;
   characterName: string;
+  /** Pet's chosen name, shown as a tag under the menu. */
+  petName: string;
+  /** True while a focus session timer is running. */
+  inFocus: boolean;
+  /** Label for the snooze slice (reflects 10m / 30m / off state). */
+  snoozeLabel: string;
 }
 
 const QUADRANT_START: Record<string, number> = {
@@ -58,11 +65,18 @@ export function RadialMenu({
   open,
   portrait,
   characterName,
+  petName,
+  inFocus,
+  snoozeLabel,
 }: RadialMenuProps) {
   const ACTIONS: RadialAction[] = [
     breakState === 0
       ? { action: "break", Icon: FaPause, label: "Take a break" }
       : { action: "endbreak", Icon: FaPlay, label: "End break" },
+    inFocus
+      ? { action: "endfocus", Icon: LuTimer, label: "End focus session" }
+      : { action: "focus", Icon: LuTimer, label: "Start a focus session" },
+    { action: "snooze", Icon: LuBellOff, label: snoozeLabel },
     { action: "summary", Icon: FaChartSimple, label: "Activity summary" },
     { action: "settings", Icon: IoMdSettings, label: "Settings" },
     { action: "note", Icon: FaNoteSticky, label: "Reminder note", isNote: true },
@@ -134,6 +148,9 @@ export function RadialMenu({
           );
         })}
       </svg>
+      <div className="radial-pet-name" aria-hidden={!open}>
+        {petName}
+      </div>
     </div>
   );
 }

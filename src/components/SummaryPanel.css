@@ -395,3 +395,94 @@
   content: "! ";
   color: var(--clay);
 }
+
+/* ---- Growth pass: pet strip + badges ---- */
+
+.summary-pet-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+}
+
+.summary-pet-name {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.summary-pet-level {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  color: var(--accent-deep);
+  background: var(--accent-soft);
+  border-radius: 8px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.summary-xp-bar {
+  flex: 1;
+  min-width: 60px;
+}
+
+.pixel-cell.xp-filled {
+  background: var(--accent);
+  border-color: var(--accent-deep);
+}
+
+.summary-xp-label {
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.badge-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.badge {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+}
+
+.badge.unlocked {
+  border-color: var(--accent-deep);
+  background: var(--accent-soft);
+}
+
+.badge.locked {
+  opacity: 0.55;
+}
+
+.badge-name {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+}
+
+.badge.locked .badge-name {
+  color: var(--ink-soft);
+}
+
+.badge-desc {
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
