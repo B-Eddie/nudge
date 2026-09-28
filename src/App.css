@@ -524,6 +524,23 @@ main.hidden {
   bottom: calc(100% + 2px);
 }
 
+/* Corner anchoring: the tag is centered on the menu wrap by default, but at
+   the window edges a long name would push past the overlay. Pull it back so
+   its outer edge meets the window edge instead.
+   Offset = wrap half-width (112px) − pet half-width (60px) = 52px. */
+.character.pos-br .radial-pet-name,
+.character.pos-tr .radial-pet-name {
+  left: auto;
+  right: 52px;
+  transform: none;
+}
+
+.character.pos-bl .radial-pet-name,
+.character.pos-tl .radial-pet-name {
+  left: 52px;
+  transform: none;
+}
+
 /* Focus session countdown pill. Sits beside the character (the 300px
    overlay window has no room above the pet once the message bubble shows)
    — left for right-side corners, right for left. */

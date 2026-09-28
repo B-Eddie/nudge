@@ -775,7 +775,7 @@ function App() {
         setTransientMessage("Stepping away — catching some rest for you.");
       } else {
         setTransientMessage(
-          `You need to rest ${restMinutes} minutes to fully recover`,
+          `You need to rest ${restMinutes} minute${restMinutes === 1 ? "" : "s"} to fully recover`,
         );
       }
 
