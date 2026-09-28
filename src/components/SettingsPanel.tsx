@@ -162,6 +162,13 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
     try {
       await invoke("save_settings", { settings: draft });
+      // The companion rename only persists on Save — Cancel discards it.
+      const charId = getCharacter(draft.character_id).id;
+      const profile =
+        petProfile ?? loadPetProfile(charId, getCharacter(charId).name);
+      const clean =
+        petNameDraft.trim().slice(0, 24) || getCharacter(charId).name;
+      savePetProfile(charId, { ...profile, name: clean });
       onClose();
     } catch (err) {
       console.error("Failed to save settings:", err);
@@ -169,7 +176,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     } finally {
       setSaving(false);
     }
-  }, [draft, onClose]);
+  }, [draft, onClose, petProfile, petNameDraft]);
 
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) onClose();
@@ -353,15 +360,14 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                 onChange={(e) => {
                   const value = e.target.value;
                   setPetNameDraft(value);
+                  // Rename is staged in memory until Save — Cancel discards it.
                   const charId = getCharacter(draft.character_id).id;
                   const clean =
                     value.trim().slice(0, 24) || getCharacter(charId).name;
                   const profile =
                     petProfile ??
                     loadPetProfile(charId, getCharacter(charId).name);
-                  const next = { ...profile, name: clean };
-                  setPetProfile(next);
-                  savePetProfile(charId, next);
+                  setPetProfile({ ...profile, name: clean });
                 }}
                 aria-label="Pet name"
               />

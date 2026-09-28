@@ -712,7 +712,7 @@ function App() {
       setTimeEvents(finalTier);
 
       if (progress >= 1) {
-        setTransientMessage("Fully rested. Nice work resting.");
+        setTransientMessage("Fully rested. Nicely done.");
       } else {
         setTransientMessage(
           interrupted
@@ -1037,6 +1037,15 @@ function App() {
     characterHidden,
   );
 
+  // The radial menu owns the space around the pet while open — dismiss any
+  // speech bubble so the two never collide behind the slices.
+  useEffect(() => {
+    if (barOpen) clearOverlayMessage();
+  }, [barOpen, clearOverlayMessage]);
+
+  const barOpenRef = useRef(barOpen);
+  barOpenRef.current = barOpen;
+
   // Transparent NSPanels can leave stale WebKit layers on some Macs when UI unmounts.
   useEffect(() => {
     void invoke("invalidate_overlay_display").catch(console.error);
@@ -1132,6 +1141,8 @@ function App() {
       clearOverlayMessageRef.current();
       return;
     }
+    // Never talk over the open radial menu — it owns the space.
+    if (barOpenRef.current) return;
     // Don't don't interrupt a message that is still typing or being shown. instead, wait for the next tick
     if (breakTime !== 0 || displayedMessage !== "" || !label) return;
 

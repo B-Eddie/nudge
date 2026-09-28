@@ -207,7 +207,7 @@ function CategoryBreakdown({
   if (entries.length === 0) {
     return (
       <p className="summary-hint">
-        Nothing tracked yet. Your stats will show here as you use computer.
+        Nothing tracked yet. Your stats will show here as you use your computer.
       </p>
     );
   }
@@ -380,13 +380,13 @@ export function SummaryPanel({
                       case "Social Networking":
                         return "Chronically Online";
                       case "Games":
-                        return "Hardstuck addict";
+                        return "Hardstuck Addict";
                       case "Entertainment":
                         return "Binge Mode";
                       case "Video":
                         return "Autoplay Victim";
                       case "Music":
-                        return "DJ of procrastination";
+                        return "DJ of Procrastination";
                       case "Unknown":
                         return "Mystery Explorer";
                       default:

@@ -261,6 +261,31 @@ main.hidden {
     max-width 0.2s;
 }
 
+/* The bubble is centered on the pet by default, but the pet sits against the
+   screen edge — center it and half the text leaves the 300px overlay window.
+   Anchor it to the window edge per corner instead. */
+/* right-side corners: right-align the bubble with the pet's right edge */
+.character.pos-br #messages,
+.character.pos-tr #messages {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+/* left-side corners: left-align with the pet's left edge */
+.character.pos-bl #messages,
+.character.pos-tl #messages {
+  left: 0;
+  transform: none;
+}
+/* top corners: no room above the pet in the window, hang it below instead */
+.character.pos-tl #messages,
+.character.pos-tr #messages {
+  bottom: auto;
+  top: 100%;
+  margin-bottom: 0;
+  margin-top: -0.5em;
+}
+
 #characterMain {
   display: block;
   flex-shrink: 0;
@@ -486,6 +511,9 @@ main.hidden {
   letter-spacing: 0.03em;
   color: var(--ink);
   white-space: nowrap;
+  max-width: 210px;
+  overflow: hidden;
+  text-overflow: ellipsis;
   box-shadow: 0 4px 10px rgba(93, 74, 44, 0.15);
   pointer-events: none;
 }

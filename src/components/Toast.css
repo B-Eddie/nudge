@@ -17,7 +17,9 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  max-width: 320px;
+  /* The overlay window is 300px wide — leave room for the card's own
+     centering so it never clips at the window edge. */
+  max-width: 260px;
   padding: 10px 14px;
   background: var(--card);
   border: 2px solid var(--accent-deep);

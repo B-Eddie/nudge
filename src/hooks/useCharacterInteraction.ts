@@ -50,6 +50,19 @@ export function useCharacterInteraction(
     }
   }, [captureClicks, characterHidden]);
 
+  // Escape dismisses the open radial menu (panels handle their own Escape;
+  // the menu is always closed while a panel is open).
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && barOpenRef.current) {
+        e.preventDefault();
+        setBarOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   // make it pass through
   useEffect(() => {
     if (captureClicks) {
@@ -92,6 +105,9 @@ export function useCharacterInteraction(
         if (action) {
           onActionRef.current(action);
           setBarOpen(false);
+        } else if (el?.closest(".quest-done, .focus-pill-stop")) {
+          // The pill's own button handles the click (quest complete / end
+          // focus) — don't also toggle the radial menu underneath it.
         } else if (overCharacter) {
           setBarOpen((v) => !v);
         } else if (open) {
