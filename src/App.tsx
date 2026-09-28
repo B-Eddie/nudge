@@ -747,6 +747,9 @@ function App() {
   const startBreak = useCallback(
     (options?: { auto?: boolean; sleep?: boolean }) => {
       if (breakTimeRef.current !== 0) return;
+      // A break owns the space around the pet (quest card) — dismiss the
+      // radial menu so the two never overlap (e.g. auto-break while open).
+      closeBarRef.current();
       // A break and a focus session can't coexist — ending focus first keeps
       // the two side pills from colliding and the XP rules honest.
       if (focusSessionRef.current) cancelFocusSession();
@@ -1347,7 +1350,7 @@ function App() {
                   </button>
                 </div>
               )}
-              {onBreak && quest && !quest.done && !overlayHidden && (
+              {onBreak && quest && !quest.done && !overlayHidden && !barOpen && (
                 <div className="quest-pill interactive">
                   <span className="quest-label">break quest</span>
                   <span className="quest-text">{quest.text}</span>

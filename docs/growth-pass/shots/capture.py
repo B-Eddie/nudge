@@ -234,6 +234,14 @@ def click(page, x, y):
     fire(page, "cursor://move", {"x": x, "y": y, "inside": True, "pressed": True})
     page.wait_for_timeout(120)
     fire(page, "cursor://move", {"x": x, "y": y, "inside": True, "pressed": False})
+    # The real runtime also delivers an OS-level DOM click alongside
+    # cursor://move; plain buttons (quest Done, pill stop, panel buttons)
+    # rely on it. Radial slices only use data-action so this is a no-op there.
+    page.evaluate(
+        "([cx, cy]) => { const el = document.elementFromPoint(cx, cy);"
+        " if (el && typeof el.click === 'function') el.click(); }",
+        [x, y],
+    )
     page.wait_for_timeout(300)
 
 
