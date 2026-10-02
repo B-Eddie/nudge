@@ -8,7 +8,8 @@ use tauri_plugin_global_shortcut::GlobalShortcutExt;
 use tauri_plugin_positioner::Position;
 
 use crate::app_categories::{
-    discover_running_apps, merge_discovered_apps, AppCategoryEntry, UNKNOWN_CATEGORY,
+    discover_running_apps, merge_discovered_apps, refresh_app_categories, AppCategoryEntry,
+    UNKNOWN_CATEGORY,
 };
 
 // ensure these values are consistent everywhere
@@ -140,7 +141,8 @@ impl Settings {
 
     pub fn load_synced(app: &AppHandle) -> Result<Self, String> {
         let mut settings = Self::load(app)?;
-        settings.sync_app_categories();
+        settings.character_size = settings.character_size.clamp(60, 180);
+        refresh_app_categories(&mut settings.app_categories);
         Ok(settings)
     }
 

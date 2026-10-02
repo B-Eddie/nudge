@@ -6,6 +6,7 @@ export interface AppCategoryEntry {
   category: string;
   user_override?: boolean;
   is_helper?: boolean | null;
+  bundle_path?: string | null;
 }
 
 export interface Settings {

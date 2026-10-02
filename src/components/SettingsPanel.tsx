@@ -432,8 +432,8 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
           <section className="settings-section">
             <h3 className="settings-section-title">App categories</h3>
             <p className="settings-hint">
-              Categories are read from each app&apos;s Info.plist when nudge
-              starts.
+              Installed apps are refreshed on every launch and when you open
+              Settings. Deleted apps are removed; your category choices are kept.
             </p>
             <button type="button" className="settings-helper-toggle"
               aria-pressed={draft.hide_helper_apps ?? false}

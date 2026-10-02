@@ -22,6 +22,7 @@ Nudge makes screen time tangible with a desktop companion that gets tired as you
 - Respects Reduce Motion and pauses wandering during interaction, reminders, and breaks
 - Context-aware phrases: says phrases based on what you're doing (coding, gaming, social, etc.) and how tired the companion is
 - Configurable reminder rhythm, ten-minute snooze, automatic-break threshold, screen position, monitor, and per-app categories
+- Refreshes installed apps on every launch and when Settings opens, removes deleted apps, and preserves custom categories for apps you still have
 - Reminders wait until you return from an idle stretch or finish passive media
 - Four timed reset ideas, with clear steps and a visible countdown; every pause can be ended early
 - Activity summary: time per category, breaks taken/interrupted, longest stretch, ~31 days of history
