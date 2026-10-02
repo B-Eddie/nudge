@@ -1,0 +1,108 @@
+.living-pet { position: relative; width: 120px; height: 120px; }
+.pet-body { position: relative; display: block; width: 120px; height: 120px; border: 0; padding: 0; background: none; cursor: grab; touch-action: none; transition: transform 3.2s steps(16, end); }
+.pet-body:focus-visible { border-radius: 12px; }
+.pixel-pet-sprite { display: block; width: 120px; height: 120px; image-rendering: pixelated; }
+.pet-rig, .pet-breath, .pet-attention, .pet-facing-left, .pet-facing-right { display: block; }
+.pet-rig { transform-origin: 60px 108px; transition: transform .25s steps(2, end); }
+.pet-breath { animation: pet-breathe 4.8s steps(2, end) infinite; }
+.pet-attention { transform: translateX(var(--gaze-x)); transition: transform .3s steps(2, end); }
+.pet-facing-left { transform: scaleX(-1); }
+.pet-shadow { position: absolute; left: 30px; bottom: 10px; width: 60px; height: 4px; background: #272e2629; }
+.mood-lifted .pet-body { cursor: grabbing; }
+.mood-lifted .pet-rig { transform: translateY(-8px); }
+.mood-lifted .pet-shadow { opacity: .25; }
+.mood-happy .pet-rig { animation: pet-hop .8s steps(3, end) 2; }
+.mood-music .pet-rig { animation: pet-sway 2.4s steps(2, end) infinite; }
+.pet-changing .pet-rig { transform: translateY(2px); }
+.pet-tired .pet-breath, .mood-sleep .pet-breath { animation-duration: 6.5s; }
+.outing-walk .pet-body, .adventure-travels.outing-sniff .pet-body { transform: translateX(var(--walk-x)); }
+.outing-walk .pet-rig, .outing-home .pet-rig { animation: pet-step .52s steps(2, end) infinite; }
+.mood-sniff .pet-attention { transform: translate(var(--sniff-x), 4px); }
+.pet-heart { position: absolute; top: 6px; right: 8px; width: 18px; height: 16px; opacity: 0; pointer-events: none !important; }
+.mood-happy .pet-heart { opacity: 1; animation: pet-heart-rise 2.2s steps(6, end) both; }
+.pet-zzz { position: absolute; top: 34px; right: 10px; opacity: 0; color: #899780; font: 22px var(--font-display); }
+.mood-sleep .pet-zzz { animation: pet-dream 4s steps(4, end) infinite; }
+.pet-menu-button { position: absolute; bottom: 12px; right: 6px; width: 28px; height: 24px; border: 1px solid var(--panel-border); border-radius: 8px; background: var(--panel-bg); color: var(--text); font-size: 19px; line-height: 14px; cursor: pointer; opacity: 0; visibility: hidden; transition: opacity .2s; }
+.living-pet:hover .pet-menu-button, .living-pet:focus-within .pet-menu-button, .character.hovered .pet-menu-button { opacity: 1; visibility: visible; }
+@keyframes pet-breathe { 50% { transform: translateY(-2px); } }
+@keyframes pet-sway { 25% { transform: translateX(-2px); } 75% { transform: translateX(2px); } }
+@keyframes pet-step { 50% { transform: translateY(-2px); } }
+@keyframes pet-hop { 40% { transform: translateY(-4px); } 80% { transform: translateY(-2px); } }
+@keyframes pet-heart-rise { from { transform: translateY(8px); } to { transform: translateY(-4px); } }
+@keyframes pet-dream { 50% { opacity: .7; transform: translateY(-6px); } 100% { transform: translateY(-12px); } }
+@keyframes flower-nuzzle { 50% { transform: translateX(2px); } }
+@media (prefers-reduced-motion: reduce) { .living-pet *, .living-pet *::before { animation: none !important; transition: none !important; } .pet-attention { transform: none; } .mood-sleep .pet-zzz { opacity: .7; } }
+.pet-actions { position: absolute; left: 128px; bottom: 0; width: 150px; padding: 5px; z-index: 30; box-sizing: border-box; background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 12px; box-shadow: 0 5px 18px #26332720; }
+.pet-actions-br, .pet-actions-tr { left: auto; right: 128px; }
+.pet-actions-center { left: 0; bottom: 100%; }
+.pet-actions button { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 30px; border: 0; border-radius: 7px; padding: 6px; background: transparent; color: var(--text); font: 13px var(--font-body); text-align: left; cursor: pointer; }
+.pet-actions button:hover { background: var(--surface-raised); }
+.companion-option-art .pixel-pet-sprite { width: 60px; height: 60px; }
+
+.character:has(.pet-actions) .pet-menu-button { opacity: 1; visibility: visible; }
+/* Small stories live in the same pixel world as the companion. */
+.pet-attention { transform: translate(var(--gaze-x), var(--gaze-y)); }
+.pet-plaything { position: absolute; left: var(--object-x); bottom: 10px; width: 32px; height: 32px; padding: 0; border: 0; background: transparent; cursor: pointer; z-index: 4; -webkit-tap-highlight-color: transparent; }
+.pet-plaything:focus-visible { outline: 1px solid var(--accent-strong); outline-offset: 3px; border-radius: 4px; }
+.plaything-art, .plaything-art svg { display: block; width: 32px; height: 32px; }
+.plaything-art { transform-origin: 50% 100%; animation: plaything-arrive .8s steps(5, end) both; }
+.pet-plaything.plaything-touched .plaything-art { animation: toy-touch .7s steps(5, end); }
+.phase-return { opacity: .35; transition: opacity 2s; }
+.plaything-garden { height: 40px; }
+.plaything-garden .plaything-art, .plaything-garden svg { height: 40px; }
+.plaything-garden.phase-interact .plaything-art { animation: flower-nuzzle 2.4s steps(3, end) infinite; }
+.plaything-ball.phase-interact .plaything-art { animation: toy-ball 1.7s steps(6, end) infinite; }
+.plaything-ball.plaything-touched .plaything-art { animation: ball-kick .85s steps(6, end); }
+.plaything-butterfly { bottom: 64px; }
+.plaything-butterfly .plaything-art { animation: butterfly-visit 4s steps(12, end) infinite; transform-origin: 50%; }
+.plaything-butterfly.plaything-touched .plaything-art { animation: butterfly-flutter .85s steps(8, end); }
+.plaything-bubbles { bottom: 34px; }
+.plaything-bubbles .plaything-art { animation: bubble-rise 3s steps(10, end) infinite; }
+.plaything-bubbles.plaything-touched .plaything-art { animation: bubble-pop .85s steps(4, end); }
+.plaything-leaf .plaything-art { animation: leaf-tumble 4s steps(8, end) infinite; }
+.plaything-snack.phase-interact .plaything-art { animation: snack-nibble 1.6s steps(3, end) infinite; }
+.plaything-tea .tea-steam { animation: tea-steam 2.6s steps(4, end) infinite; }
+.plaything-stargaze { bottom: 68px; }
+.plaything-stargaze .plaything-art { animation: star-twinkle 3s steps(4, end) infinite; }
+.plaything-exercise, .plaything-nap { bottom: 6px; }
+.plaything-peek { bottom: 6px; }
+.adventure-ball.adventure-interact .pet-rig, .adventure-bubbles.adventure-interact .pet-rig { animation: pet-pounce 1.7s steps(4, end) infinite; }
+.adventure-butterfly.adventure-interact .pet-attention { animation: pet-look-up 3s steps(3, end) infinite; }
+.adventure-exercise.adventure-interact .pet-rig { animation: pet-stretch 3s steps(5, end) infinite; }
+.adventure-peek.adventure-interact .pet-rig { animation: pet-peek 2.55s steps(4, end) infinite; }
+.adventure-nap .pet-breath { animation-duration: 6.5s; }
+.adventure-nap .pet-zzz { animation: pet-dream 4s steps(4, end) infinite; }
+.plaything-spark { position: absolute; top: -10px; left: 9px; color: #cfb277; font-size: 14px; pointer-events: none !important; animation: toy-spark .85s steps(6, end) both; }
+@keyframes plaything-arrive { from { opacity: 0; transform: translateY(4px) scale(.7); } to { opacity: 1; transform: none; } }
+@keyframes toy-touch { 40% { transform: translateY(-8px) rotate(12deg); } }
+@keyframes toy-ball { 25% { transform: translate(-8px, -5px) rotate(-30deg); } 75% { transform: translate(7px, -2px) rotate(35deg); } }
+@keyframes ball-kick { 35% { transform: translate(14px, -16px) rotate(90deg); } 70% { transform: translate(6px, -6px) rotate(180deg); } }
+@keyframes butterfly-visit { 25% { transform: translate(4px, -8px) scaleX(.65); } 50% { transform: translate(-6px, -14px); } 75% { transform: translate(-8px, -4px) scaleX(.65); } }
+@keyframes butterfly-flutter { 25% { transform: translate(6px, -18px) scaleX(.4); } 75% { transform: translate(-6px, -12px) scaleX(.5); } }
+@keyframes bubble-rise { 0% { opacity: .1; transform: translateY(14px); } 35% { opacity: .9; } 100% { opacity: .1; transform: translate(-4px, -18px); } }
+@keyframes bubble-pop { 30% { transform: scale(1.2); opacity: .8; } 60% { transform: scale(.2); opacity: 0; } }
+@keyframes leaf-tumble { 35% { transform: translate(-5px, -4px) rotate(-15deg); } 70% { transform: translate(4px, -2px) rotate(10deg); } }
+@keyframes snack-nibble { 50% { transform: translateY(-2px) rotate(-4deg); } }
+@keyframes tea-steam { 50% { opacity: .3; transform: translateY(-3px); } }
+@keyframes star-twinkle { 50% { opacity: .35; transform: translateY(-3px); } }
+@keyframes pet-pounce { 35% { transform: translate(var(--sniff-x), -5px); } 65% { transform: translateY(1px); } }
+@keyframes pet-look-up { 50% { transform: translate(var(--gaze-x), -4px); } }
+@keyframes pet-stretch { 35% { transform: translateY(-3px) scaleY(1.04); } 70% { transform: rotate(-3deg); } }
+@keyframes pet-peek { 30% { transform: translateY(5px) rotate(-5deg); } 65% { transform: translateY(-4px) rotate(4deg); } }
+@keyframes toy-spark { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-16px); } }
+@media (prefers-reduced-motion: reduce) { .living-pet *, .living-pet *::before { animation: none !important; transition: none !important; } }
+.outing-walk .pet-body { animation: pet-wander-out 3.2s steps(16, end) both; }
+.outing-home .pet-body { animation: pet-wander-home 3.2s steps(16, end) both; }
+.pet-attended .pet-body, .pet-attended .pet-rig, .pet-attended .pet-plaything * { animation-play-state: paused; }
+@keyframes pet-wander-out { from { transform: translateX(0); } to { transform: translateX(var(--walk-x)); } }
+@keyframes pet-wander-home { from { transform: translateX(var(--walk-x)); } to { transform: translateX(0); } }
+@media (prefers-reduced-motion: reduce) { .living-pet * { animation: none !important; } }
+
+/* Resize the artwork and its world together; keep desktop controls readable. */
+.pet-stage { position: relative; width: var(--pet-size, 120px); height: var(--pet-size, 120px); }
+.pet-stage > .living-pet { transform: scale(var(--pet-scale, 1)); transform-origin: 0 0; }
+.pet-stage > .pet-menu-button { position: fixed; right: auto; bottom: auto; z-index: 25; }
+.pet-stage:hover .pet-menu-button, .pet-stage:focus-within .pet-menu-button, .pet-pointer-near > .pet-menu-button { opacity: 1; visibility: visible; }
+.pet-plaything { width: 44px; height: 44px; display: grid; place-items: center; }
+.pet-plaything.plaything-garden { height: 44px; }
+.pet-menu-button:focus-visible, .pet-actions button:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 2px; }

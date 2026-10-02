@@ -56,6 +56,8 @@ pub struct AppCategoryEntry {
     pub category: String,
     #[serde(default)]
     pub user_override: bool,
+    #[serde(default)]
+    pub is_helper: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -66,6 +68,7 @@ pub struct CategoryOption {
 
 #[derive(Debug, Clone)]
 pub struct DiscoveredApp {
+    pub is_helper: bool,
     pub bundle_id: String,
     pub name: String,
     pub category: String,
@@ -114,7 +117,7 @@ fn category_from_info_plist(bundle_path: &Path) -> String {
 #[cfg(target_os = "macos")]
 pub fn discover_running_apps() -> Vec<DiscoveredApp> {
     use objc2::rc::autoreleasepool;
-    use objc2_app_kit::NSWorkspace;
+    use objc2_app_kit::{NSWorkspace, NSApplicationActivationPolicy};
     use objc2_foundation::NSBundle;
 
     autoreleasepool(|pool| {
@@ -140,12 +143,20 @@ pub fn discover_running_apps() -> Vec<DiscoveredApp> {
                 .map(|n| n.as_str(pool).to_owned())
                 .unwrap_or_else(|| bundle_id.clone());
 
+            let bundle_path = unsafe { app.bundleURL() }
+                .and_then(|url| unsafe { url.path() })
+                .map(|path| path.as_str(pool).to_owned());
             let category = unsafe { app.bundleURL() }
                 .and_then(|url| unsafe { url.path() })
                 .map(|path| category_from_info_plist(Path::new(path.as_str(pool))))
                 .unwrap_or_else(|| UNKNOWN_CATEGORY.to_string());
 
+            let policy = unsafe { app.activationPolicy() };
+            let embedded = bundle_path.as_deref().is_some_and(|path| path.contains("/Contents/") || path.contains("/System/Library/"));
+            let is_helper = policy == NSApplicationActivationPolicy::Prohibited
+                || (policy == NSApplicationActivationPolicy::Accessory && embedded);
             seen.entry(bundle_id.clone()).or_insert(DiscoveredApp {
+                is_helper,
                 bundle_id,
                 name,
                 category,
@@ -170,6 +181,7 @@ pub fn merge_discovered_apps(
     for app in discovered {
         if let Some(entry) = app_categories.get_mut(&app.bundle_id) {
             entry.name = app.name.clone();
+            entry.is_helper = Some(app.is_helper);
             if !entry.user_override
                 && entry.category == UNKNOWN_CATEGORY
                 && app.category != UNKNOWN_CATEGORY
@@ -184,7 +196,34 @@ pub fn merge_discovered_apps(
                 name: app.name.clone(),
                 category: app.category.clone(),
                 user_override: false,
+                is_helper: Some(app.is_helper),
             },
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn helper_metadata_updates_without_overwriting_user_categories() {
+        let mut entries = HashMap::new();
+        entries.insert("test.helper".into(), AppCategoryEntry {
+            name: "Old helper".into(), category: "public.app-category.music".into(),
+            user_override: true, is_helper: None,
+        });
+        merge_discovered_apps(&mut entries, &[DiscoveredApp {
+            bundle_id: "test.helper".into(), name: "Helper".into(),
+            category: UNKNOWN_CATEGORY.into(), is_helper: true,
+        }]);
+        let entry = &entries["test.helper"];
+        assert_eq!(entry.is_helper, Some(true));
+        assert_eq!(entry.category, "public.app-category.music");
+        assert!(entry.user_override);
+    }
+    #[test]
+    fn legacy_entries_deserialize_without_helper_metadata() {
+        let entry: AppCategoryEntry = serde_json::from_str(r#"{"name":"Safari","category":"unknown"}"#).unwrap();
+        assert_eq!(entry.is_helper, None);
     }
 }

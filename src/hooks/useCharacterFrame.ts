@@ -1,10 +1,17 @@
 import { useEffect, useState } from "react";
 
-const frameModules = import.meta.glob<string>("../assets/animation/**/*.png", {
-  eager: true,
-  import: "default",
-  query: "?url",
-});
+const frameModules = {
+  ...import.meta.glob<string>("../assets/animation/**/*.png", {
+    eager: true,
+    import: "default",
+    query: "?url",
+  }),
+  ...import.meta.glob<string>("../assets/characters/**/*.svg", {
+    eager: true,
+    import: "default",
+    query: "?url",
+  }),
+};
 
 // Decode every frame once at startup and hold the references so the bitmaps
 // stay in the image cache. Swapping `src` between frames then never hits the
@@ -22,22 +29,42 @@ if (typeof window !== "undefined") {
   }
 }
 
-type FrameMap = Record<string, Record<string, string[]>>;
+type FrameMap = Record<string, Record<string, Record<string, string[]>>>;
 const FRAMES: FrameMap = (() => {
   const map: FrameMap = {};
-  const pattern = /animation\/([^/]+)\/([^/]+)\/(\d+)\.png$/;
 
   Object.entries(frameModules)
     .map(([path, url]) => {
-      const match = path.match(pattern);
-      return match
-        ? { bundle: match[1], category: match[2], index: Number(match[3]), url }
+      const legacy = path.match(
+        /animation\/([^/]+)\/(?:([^/]+)\/)?(\d+)\.png$/,
+      );
+      if (legacy) {
+        return {
+          character: "panda",
+          bundle: legacy[1],
+          category: legacy[2] ?? "$special",
+          index: Number(legacy[3]),
+          url,
+        };
+      }
+
+      const companion = path.match(
+        /characters\/([^/]+)\/([^/]+)\/(?:([^/]+)\/)?(\d+)\.svg$/,
+      );
+      return companion
+        ? {
+            character: companion[1],
+            bundle: companion[2],
+            category: companion[3] ?? "$special",
+            index: Number(companion[4]),
+            url,
+          }
         : null;
     })
     .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
     .sort((a, b) => a.index - b.index)
-    .forEach(({ bundle, category, url }) => {
-      ((map[bundle] ??= {})[category] ??= []).push(url);
+    .forEach(({ character, bundle, category, url }) => {
+      (((map[character] ??= {})[bundle] ??= {})[category] ??= []).push(url);
     });
 
   return map;
@@ -54,16 +81,25 @@ function characterSetFromCategory(categoryLabel: string | undefined): string {
     case "social networking":
       return "social";
     case "games":
+      return "games";
     case "entertainment":
     case "video":
-      return "idle";
+      // The source bundle has an integrated laptop scene, but no video-specific
+      // emote. Reuse the screen-use pose instead of drawing a loose prop.
+      return "computer";
     default:
       return "idle";
   }
 }
 
-function resolveFrames(bundle: number, category: string): string[] {
-  const byCategory = FRAMES[String(bundle)] ?? FRAMES["1"] ?? {};
+function resolveFrames(
+  character: string,
+  bundle: string | number,
+  category: string,
+): string[] {
+  const characterFrames = FRAMES[character] ?? FRAMES["crab"] ?? FRAMES["panda"] ?? {};
+  const byBundle = characterFrames[String(bundle)];
+  const byCategory = byBundle ?? characterFrames["1"] ?? {};
   return byCategory[category] ?? byCategory["idle"] ?? [];
 }
 
@@ -89,25 +125,22 @@ const MIN_FRAME_INTERVAL_MS = 300;
 const MAX_FRAME_INTERVAL_MS = 800;
 
 export function useCharacterFrame(
+  character: string,
   categoryLabel: string | undefined,
   timeEvents: number,
   messageVisible = false,
 ): string | undefined {
   const bundle = alternateBundleId(timeEvents, messageVisible);
 
-  const alt1 = bundle
-    ? frameModules[`../assets/animation/${bundle}/1.png`]
-    : undefined;
-  const alt2 = bundle
-    ? frameModules[`../assets/animation/${bundle}/2.png`]
-    : undefined;
-  const alternates = [alt1, alt2].filter(Boolean) as string[];
+  const alternates = bundle
+    ? resolveFrames(character, bundle, "$special")
+    : [];
 
   const [altIndex, setAltIndex] = useState(0);
 
   useEffect(() => {
     setAltIndex(0);
-  }, [bundle, timeEvents, messageVisible]);
+  }, [character, bundle, timeEvents, messageVisible]);
 
   useEffect(() => {
     if (!bundle || alternates.length < 2) return;
@@ -115,17 +148,17 @@ export function useCharacterFrame(
       setAltIndex((prev) => (prev + 1) % 2);
     }, 500);
     return () => clearInterval(id);
-  }, [bundle, alternates.length, timeEvents, messageVisible]);
+  }, [character, bundle, alternates.length, timeEvents, messageVisible]);
 
   const category = characterSetFromCategory(categoryLabel);
   const bundleNumber = bundleFromTier(timeEvents);
-  const frames = resolveFrames(bundleNumber, category);
+  const frames = resolveFrames(character, bundleNumber, category);
 
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
     setIndex(0);
-  }, [category, bundleNumber]);
+  }, [character, category, bundleNumber]);
 
   useEffect(() => {
     if (bundle || frames.length <= 1) return;
@@ -138,7 +171,7 @@ export function useCharacterFrame(
       setIndex((prev) => (prev + 1) % frames.length);
     }, interval);
     return () => clearInterval(id);
-  }, [bundle, frames.length, category, bundleNumber]);
+  }, [bundle, frames.length, character, category, bundleNumber]);
 
   if (bundle) {
     return alternates[altIndex] ?? alternates[0];

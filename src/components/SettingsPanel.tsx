@@ -12,6 +12,10 @@ import {
   POSITION_OPTIONS,
   shortcutFromKeyboardEvent,
 } from "../types/settings";
+import { isHelperApp } from "../types/appVisibility";
+import { PetSizeControl } from "./PetSizeControl";
+import { applyTheme, type ThemeId } from "../types/appearance";
+import { CompanionPicker, ThemePicker } from "./AppearancePicker";
 import "./SettingsPanel.css";
 import { LuSearch, LuX } from "react-icons/lu";
 
@@ -20,6 +24,7 @@ interface SettingsPanelProps {
 }
 
 export function SettingsPanel({ onClose }: SettingsPanelProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState<Settings | null>(null);
   const [monitorOptions, setMonitorOptions] = useState<MonitorOption[]>([]);
   const [categoryOptions, setCategoryOptions] = useState<CategoryOption[]>([]);
@@ -29,8 +34,32 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   const [appSearch, setAppSearch] = useState("");
   const [recordingShortcut, setRecordingShortcut] = useState(false);
   const [pendingShortcut, setPendingShortcut] = useState<string | null>(null);
+  const initialThemeRef = useRef<ThemeId>("bamboo");
+  const themeLoadedRef = useRef(false);
   const pendingShortcutRef = useRef<string | null>(null);
   pendingShortcutRef.current = pendingShortcut;
+
+  useEffect(() => {
+    const panel = panelRef.current;
+    const previous = document.activeElement as HTMLElement | null;
+    panel?.querySelector<HTMLButtonElement>(".settings-close")?.focus({ preventScroll: true });
+    const trapFocus = (event: KeyboardEvent) => {
+      if (event.key !== "Tab" || !panel) return;
+      const controls = [...panel.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex="0"]')]
+        .filter(control => control.getClientRects().length > 0 && control.tabIndex >= 0);
+      const first = controls[0], last = controls[controls.length - 1];
+      if (event.shiftKey && (document.activeElement === first || !panel.contains(document.activeElement))) {
+        event.preventDefault(); last?.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !panel.contains(document.activeElement))) {
+        event.preventDefault(); first?.focus();
+      }
+    };
+    document.addEventListener("keydown", trapFocus);
+    return () => {
+      document.removeEventListener("keydown", trapFocus);
+      if (previous?.isConnected) previous.focus({ preventScroll: true });
+    };
+  }, []);
 
   // capture key presses - escape closesing settings shortcut
   useEffect(() => {
@@ -78,6 +107,9 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
       .then(([settings, monitors, categories]) => {
         if (cancelled) return;
         setDraft(settings);
+        initialThemeRef.current = settings.theme ?? "bamboo";
+        themeLoadedRef.current = true;
+        applyTheme(initialThemeRef.current);
         setMonitorOptions(monitors);
         setCategoryOptions(categories);
       })
@@ -92,7 +124,8 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
   const sortedApps = useMemo(() => {
     if (!draft) return [];
-    return Object.entries(draft.app_categories).sort(([, a], [, b]) =>
+    return Object.entries(draft.app_categories).map(([id, entry]) =>
+      [id, { ...entry, name: entry.name.trim() || id.trim() || "Unnamed app" }] as const).sort(([, a], [, b]) =>
       a.name.localeCompare(b.name),
     );
   }, [draft]);
@@ -107,8 +140,9 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
   const filteredApps = useMemo(() => {
     const query = appSearch.trim().toLowerCase();
-    if (!query) return sortedApps;
     return sortedApps.filter(([bundleId, entry]) => {
+      if (draft?.hide_helper_apps && isHelperApp(bundleId, entry)) return false;
+      if (!query) return true;
       const categoryLabel =
         categoryLabelByValue.get(entry.category) ?? entry.category;
       return (
@@ -117,7 +151,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
         categoryLabel.toLowerCase().includes(query)
       );
     });
-  }, [sortedApps, appSearch, categoryLabelByValue]);
+  }, [sortedApps, appSearch, categoryLabelByValue, draft?.hide_helper_apps]);
 
   const setAppCategory = useCallback((bundleId: string, category: string) => {
     setDraft((prev) => {
@@ -145,6 +179,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
     try {
       await invoke("save_settings", { settings: draft });
+      applyTheme(draft.theme);
       onClose();
     } catch (err) {
       console.error("Failed to save settings:", err);
@@ -154,8 +189,13 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     }
   }, [draft, onClose]);
 
+  const closeWithoutSaving = () => {
+    if (themeLoadedRef.current) applyTheme(initialThemeRef.current);
+    onClose();
+  };
+
   const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) onClose();
+    if (e.target === e.currentTarget) closeWithoutSaving();
   };
 
   // Render the panel chrome immediately so opening settings never shows a
@@ -169,7 +209,9 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
       >
         <div
           className="settings-panel"
+          ref={panelRef}
           role="dialog"
+          aria-modal="true"
           aria-labelledby="settings-title"
         >
           <header className="settings-header">
@@ -177,7 +219,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             <button
               type="button"
               className="settings-close"
-              onClick={onClose}
+              onClick={closeWithoutSaving}
               aria-label="Close settings"
             >
               <LuX size={15} />
@@ -205,7 +247,9 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     >
       <div
         className="settings-panel"
+        ref={panelRef}
         role="dialog"
+        aria-modal="true"
         aria-labelledby="settings-title"
       >
         <header className="settings-header">
@@ -213,7 +257,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
           <button
             type="button"
             className="settings-close"
-            onClick={onClose}
+            onClick={closeWithoutSaving}
             aria-label="Close settings"
           >
             <LuX size={15} />
@@ -221,6 +265,32 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
         </header>
 
         <div className="settings-body">
+          <section className="settings-section settings-appearance">
+            <h3 className="settings-section-title">Your companion</h3>
+            <p className="settings-hint">
+              Pick who keeps you company. Each one has its own work, rest, and
+              energy animations.
+            </p>
+            <CompanionPicker
+              value={draft.character}
+              onChange={(character) => setDraft({ ...draft, character })}
+            />
+            <PetSizeControl character={draft.character} value={draft.character_size}
+              onChange={character_size => setDraft({ ...draft, character_size })} />
+          </section>
+
+          <section className="settings-section settings-appearance">
+            <h3 className="settings-section-title">Appearance</h3>
+            <p className="settings-hint">
+              Soft paper for daytime or a quiet forest after dark.
+            </p>
+            <ThemePicker
+              value={draft.theme}
+              previewChanges
+              onChange={(theme) => setDraft({ ...draft, theme })}
+            />
+          </section>
+
           <label className="settings-field">
             <span>Monitor</span>
             <select
@@ -256,6 +326,53 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                 })
               }
             />
+          </label>
+
+          <label className="settings-field">
+            <span>Remind me again after (minutes)</span>
+            <input
+              type="number"
+              min={1}
+              max={90}
+              step={1}
+              value={draft.reminder_snooze_mins ?? 10}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  reminder_snooze_mins: Math.min(
+                    90,
+                    Math.max(1, parseInt(e.target.value, 10) || 1),
+                  ),
+                })
+              }
+            />
+            <span className="settings-hint">
+              Used when you ask Nudge to check back later.
+            </span>
+          </label>
+
+          <label className="settings-field">
+            <span>Start a break after you step away</span>
+            <input
+              type="number"
+              min={1}
+              step={1}
+              value={draft.auto_idle_break_mins ?? 5}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  auto_idle_break_mins: Math.max(
+                    1,
+                    parseInt(e.target.value, 10) || 1,
+                  ),
+                })
+              }
+              aria-label="Minutes without keyboard or mouse input before an automatic break"
+            />
+            <span className="settings-hint">
+              Minutes without keyboard or mouse input. Nudge waits while music
+              or video is playing.
+            </span>
           </label>
 
           <label className="settings-field">
@@ -318,6 +435,11 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
               Categories are read from each app&apos;s Info.plist when nudge
               starts.
             </p>
+            <button type="button" className="settings-helper-toggle"
+              aria-pressed={draft.hide_helper_apps ?? false}
+              onClick={() => setDraft({ ...draft, hide_helper_apps: !draft.hide_helper_apps })}>
+              {draft.hide_helper_apps ? "✓ " : ""}Hide helper apps & processes
+            </button>
             {sortedApps.length > 0 && (
               <label className="settings-app-search">
                 <LuSearch size={14} aria-hidden />
@@ -333,7 +455,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             {sortedApps.length === 0 ? (
               <p className="settings-hint">No other apps detected yet.</p>
             ) : filteredApps.length === 0 ? (
-              <p className="settings-hint">No apps match your search.</p>
+              <p className="settings-hint">{appSearch ? "No apps match your search." : "No visible apps. Turn off the helper filter to see all processes."}</p>
             ) : (
               <ul className="settings-app-list">
                 {filteredApps.map(([bundleId, entry]) => (
@@ -369,7 +491,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
           <button
             type="button"
             className="settings-btn secondary"
-            onClick={onClose}
+            onClick={closeWithoutSaving}
           >
             Cancel
           </button>

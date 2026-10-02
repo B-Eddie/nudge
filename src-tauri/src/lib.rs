@@ -8,6 +8,7 @@ mod activity;
 mod app_categories;
 mod auto_break;
 mod settings;
+mod pet_desktop;
 pub use activity::{get_activity, persist_activity, save_activity, ActivityStore};
 pub use app_categories::get_app_category_options;
 pub use settings::{
@@ -36,6 +37,8 @@ struct CursorMove {
     inside: bool,
     /// if left mouse button is currently held down
     pressed: bool,
+    screen_x: f64,
+    screen_y: f64,
 }
 
 /// Seconds passed on the reminder/energy-drain clock. Shared with the reminder thread so the frontend can reset
@@ -254,6 +257,8 @@ fn emit_cursor_position(window: &tauri::WebviewWindow) {
                 y,
                 inside,
                 pressed,
+                screen_x: mouse.x,
+                screen_y: mouse.y,
             },
         );
     }
@@ -269,7 +274,9 @@ fn start_cursor_monitor(window: tauri::WebviewWindow) {
             let w = window.clone();
             let w2 = w.clone();
             let _ = w.run_on_main_thread(move || {
+                pet_desktop::tick(&w2);
                 emit_cursor_position(&w2);
+                if ticks % 12 == 0 { pet_desktop::follow(&w2); }
                 if ticks % 60 == 0 {
                     ensure_overlay_on_active_space(&w2);
                 }
@@ -583,6 +590,7 @@ pub fn run() {
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
             set_click_through,
+            pet_desktop::pet_drag,
             get_settings,
             get_monitor_options,
             save_settings,
@@ -647,24 +655,7 @@ pub fn run() {
             let _ = window.set_ignore_cursor_events(true);
 
             let app_handle = app.handle().clone();
-            let w_clone = window.clone();
             window.on_window_event(move |event| {
-                if let tauri::WindowEvent::Moved(_) = event {
-                    if *app_handle.state::<AppState>().settings_open.lock().unwrap() {
-                        return;
-                    }
-                    let settings = Settings::load(&app_handle).unwrap_or_default();
-                    let position = settings.window_position();
-                    let _ = move_to_settings_monitor(
-                        &app_handle,
-                        &w_clone,
-                        &settings,
-                        position,
-                        settings::OVERLAY_WIDTH,
-                        settings::OVERLAY_HEIGHT,
-                    );
-                }
-
                 if let tauri::WindowEvent::CloseRequested { .. } = event {
                     if let Err(e) = persist_activity(&app_handle) {
                         eprintln!("Failed to save activity: {e}");

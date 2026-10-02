@@ -4,25 +4,30 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: 20px;
 }
 
 .onboarding-panel {
   font-family: var(--font-body);
   width: 100%;
-  max-width: 360px;
+  max-width: 380px;
   border-radius: var(--panel-radius);
   border: 1px solid var(--panel-border);
   background: var(--panel-bg);
   color: var(--text);
+  box-shadow: var(--panel-shadow);
   overflow: hidden;
   animation: panel-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
   font-size: 1.1rem;
+  max-height: min(86dvh, 680px);
+  display: flex;
+  flex-direction: column;
 }
 
 .onboarding-header {
   padding: 16px 18px 12px;
   border-bottom: 1px solid var(--divider);
+  flex: 0 0 auto;
   -webkit-user-select: none;
   user-select: none;
 }
@@ -32,6 +37,8 @@
   font-size: 1.35rem;
   font-weight: 600;
   letter-spacing: -0.02em;
+  font-family: var(--font-display);
+  color: var(--text-strong);
 }
 
 .onboarding-progress {
@@ -45,8 +52,11 @@
   flex-direction: column;
   gap: 16px;
   padding: 18px 22px;
-  max-height: min(70vh, 480px);
+  max-height: min(70dvh, 520px);
   overflow-y: auto;
+  overscroll-behavior: contain;
+  flex: 1 1 auto;
+  min-height: 0;
   -webkit-user-select: none;
   user-select: none;
 }
@@ -207,6 +217,10 @@
   font: inherit;
   font-size: 1.08rem;
   cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    transform 160ms ease,
+    opacity 160ms ease;
   -webkit-user-select: none;
   user-select: none;
 }
@@ -223,7 +237,7 @@
 
 .onboarding-btn.primary {
   background: var(--accent);
-  color: #0d0d0f;
+  color: #21291d;
 }
 
 .onboarding-btn.primary:hover:not(:disabled) {
@@ -233,4 +247,44 @@
 .onboarding-btn.primary:disabled {
   opacity: 0.6;
   cursor: default;
+}
+
+.onboarding-footer {
+  flex: 0 0 auto;
+  background: var(--panel-bg);
+}
+
+.onboarding-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.onboarding-btn:focus-visible,
+.onboarding-shortcut:focus-visible,
+.onboarding-field input:focus-visible,
+.onboarding-field select:focus-visible,
+.onboarding-app-row select:focus-visible {
+  outline: none;
+  border-color: var(--focus-border);
+  box-shadow: var(--focus-ring);
+}
+
+@media (max-height: 620px) {
+  .onboarding-panel {
+    max-height: 92dvh;
+  }
+
+  .onboarding-body {
+    max-height: 66dvh;
+  }
+}
+
+@media (max-width: 420px) {
+  .onboarding-backdrop {
+    padding: 12px;
+  }
+
+  .onboarding-footer {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
 }

@@ -23,16 +23,39 @@ fn default_pause_shortcut() -> String {
     DEFAULT_PAUSE_SHORTCUT.to_string()
 }
 
+fn default_character() -> String {
+    "crab".to_string()
+}
+
+fn default_character_size() -> u32 { 120 }
+
+fn default_theme() -> String {
+    "bamboo".to_string()
+}
+
+fn default_reminder_snooze_mins() -> u32 {
+    10
+}
+
 #[derive(Default)]
 pub struct AppState {
     pub settings_open: Mutex<bool>,
+    pub pet_position: Mutex<Option<PhysicalPosition<i32>>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     pub monitor_index: i32,
     pub reminder_interval_mins: u32,
+    #[serde(default = "default_reminder_snooze_mins")]
+    pub reminder_snooze_mins: u32,
     pub position: String,
+    #[serde(default = "default_character")]
+    pub character: String,
+    #[serde(default = "default_character_size")]
+    pub character_size: u32,
+    #[serde(default = "default_theme")]
+    pub theme: String,
     #[serde(default = "default_pause_shortcut")]
     pub pause_shortcut: String,
     #[serde(default)]
@@ -48,6 +71,8 @@ pub struct Settings {
     /// Whether to automatically launch nudge when the user logs in.
     #[serde(default)]
     pub launch_at_login: bool,
+    #[serde(default)]
+    pub hide_helper_apps: bool,
 }
 
 fn default_auto_idle_break_mins() -> u32 {
@@ -59,19 +84,25 @@ impl Default for Settings {
         Settings {
             monitor_index: 0,
             reminder_interval_mins: 30,
+            reminder_snooze_mins: default_reminder_snooze_mins(),
             position: "bottom_left".to_string(),
+            character: default_character(),
+            character_size: default_character_size(),
+            theme: default_theme(),
             pause_shortcut: default_pause_shortcut(),
             app_categories: HashMap::new(),
             onboarding_complete: false,
             pending_notes: Vec::new(),
             auto_idle_break_mins: default_auto_idle_break_mins(),
             launch_at_login: false,
+            hide_helper_apps: false,
         }
     }
 }
 
 impl Settings {
     pub fn sync_app_categories(&mut self) {
+        self.character_size = self.character_size.clamp(60, 180);
         let discovered = discover_running_apps();
         merge_discovered_apps(&mut self.app_categories, &discovered);
     }
@@ -258,8 +289,9 @@ pub fn register_pause_shortcut(app: &AppHandle, shortcut: &str) -> Result<(), St
 pub fn save_settings(
     app: AppHandle,
     state: State<AppState>,
-    settings: Settings,
+    mut settings: Settings,
 ) -> Result<(), String> {
+    settings.character_size = settings.character_size.clamp(60, 180);
     let previous = Settings::load(&app).unwrap_or_default();
     if previous.pause_shortcut != settings.pause_shortcut {
         // Register the new binding first so an invalid one fails the save.
@@ -268,6 +300,11 @@ pub fn save_settings(
     }
 
     settings.save(&app)?;
+    let placement_changed = previous.position != settings.position || previous.monitor_index != settings.monitor_index;
+    if placement_changed {
+        *state.pet_position.lock().unwrap() = None;
+        crate::pet_desktop::detach();
+    }
 
     // Apply autostart setting
     if let Some(autostart) = app.try_state::<tauri_plugin_autostart::AutoLaunchManager>() {
@@ -281,6 +318,7 @@ pub fn save_settings(
     if *state.settings_open.lock().unwrap() {
         return Ok(());
     }
+    if !placement_changed { return Ok(()); }
     if let Some(window) = app.get_webview_window("main") {
         let position = settings.window_position();
         move_to_settings_monitor(
@@ -301,6 +339,9 @@ pub fn open_settings(app: AppHandle, state: State<AppState>) -> Result<(), Strin
         .get_webview_window("main")
         .ok_or_else(|| "main window not found".to_string())?;
 
+    if !*state.settings_open.lock().unwrap() {
+        *state.pet_position.lock().unwrap() = window.outer_position().ok();
+    }
     *state.settings_open.lock().unwrap() = true;
 
     #[cfg(target_os = "macos")]
@@ -340,14 +381,11 @@ pub fn close_settings(app: AppHandle, state: State<AppState>) -> Result<(), Stri
 
     let settings = Settings::load(&app)?;
     let position = settings.window_position();
-    move_to_settings_monitor(
-        &app,
-        &window,
-        &settings,
-        position,
-        OVERLAY_WIDTH,
-        OVERLAY_HEIGHT,
-    )?;
+    if let Some(saved) = *state.pet_position.lock().unwrap() {
+        window.set_position(saved).map_err(|e| e.to_string())?;
+    } else {
+        move_to_settings_monitor(&app, &window, &settings, position, OVERLAY_WIDTH, OVERLAY_HEIGHT)?;
+    }
 
     #[cfg(target_os = "macos")]
     super::configure_macos_overlay_window(&window, &app);
@@ -400,4 +438,22 @@ pub fn pop_pending_note(app: AppHandle) -> Result<Option<String>, String> {
     let note = settings.pending_notes.remove(0);
     settings.save(&app)?;
     Ok(Some(note))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Settings;
+
+    #[test]
+    fn legacy_settings_keep_default_size_and_saved_sizes_round_trip() {
+        let mut legacy = serde_json::to_value(Settings::default()).unwrap();
+        legacy.as_object_mut().unwrap().remove("character_size");
+        let restored: Settings = serde_json::from_value(legacy).unwrap();
+        assert_eq!(restored.character_size, 120);
+        for size in [60, 144, 180] {
+            let settings = Settings { character_size: size, ..Settings::default() };
+            let saved = serde_json::to_string(&settings).unwrap();
+            assert_eq!(serde_json::from_str::<Settings>(&saved).unwrap().character_size, size);
+        }
+    }
 }

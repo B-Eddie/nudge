@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-pet-drag"
+description = "Allows moving the desktop companion across displays."
+commands.allow = ["pet_drag"]

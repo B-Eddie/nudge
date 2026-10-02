@@ -1,15 +1,21 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { CompanionId, ThemeId } from "./appearance";
 
 export interface AppCategoryEntry {
   name: string;
   category: string;
   user_override?: boolean;
+  is_helper?: boolean | null;
 }
 
 export interface Settings {
   monitor_index: number;
   reminder_interval_mins: number; // default 30 mins - in mins
+  reminder_snooze_mins: number;
   position: string;
+  character: CompanionId;
+  character_size?: number;
+  theme: ThemeId;
   // Global shortcut that hides the character, e.g. "Cmd+Shift+KeyP"
   pause_shortcut: string;
   app_categories: Record<string, AppCategoryEntry>;
@@ -19,6 +25,7 @@ export interface Settings {
   auto_idle_break_mins?: number;
   /** Whether to automatically launch nudge when the user logs in. */
   launch_at_login?: boolean;
+  hide_helper_apps?: boolean;
 }
 
 export interface MonitorOption {

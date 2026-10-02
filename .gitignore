@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 .vscode
 .gstack/
+
+# Generated launch reel and local HyperFrames preview artifacts
+/brag-output/

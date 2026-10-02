@@ -7,7 +7,7 @@ export type Category =
   | "Music"
   | "Unknown";
 
-/** Categories where long continuous sessions should trigger "get off" nudges. */
+/** Categories where long continuous sessions get a gentle reset reminder. */
 export const DISTRACTING_CATEGORIES = new Set([
   "Games",
   "Social Networking",
@@ -278,36 +278,36 @@ function formatStretchLabel(seconds: number): string {
 
 const distractionNudges: Record<string, ((secs: number) => string)[]> = {
   Games: [
-    (s) => `you've been gaming for ${formatStretchLabel(s)} — time to log off`,
-    (s) => `${formatStretchLabel(s)} of games is enough. touch grass`,
-    () => "one more game is how we got here. close it",
-    () => "your rank can wait. get off the game",
+    (s) => `you've been gaming for ${formatStretchLabel(s)} — want to stretch between rounds?`,
+    (s) => `${formatStretchLabel(s)} at the screen. Give your eyes a little rest?`,
+    () => "when this round ends, take a moment to stretch",
+    () => "your next match can wait while you reset",
   ],
   "Social Networking": [
-    (s) => `${formatStretchLabel(s)} of scrolling — put the feed down`,
-    () => "the timeline will still be there. leave the app",
-    (s) => `you've doomscrolled for ${formatStretchLabel(s)}. enough`,
-    () => "close the social app. seriously",
+    (s) => `${formatStretchLabel(s)} of scrolling — maybe look away for a moment?`,
+    () => "the feed will be here after a short stretch",
+    () => `you've had a long scroll. A screen break might feel good`,
+    () => "take a breath, then come back whenever you like",
   ],
   Entertainment: [
-    (s) => `${formatStretchLabel(s)} of entertainment — wrap it up`,
-    () => "binge mode detected. take a break from this",
-    () => "entertainment time's up. switch to something else",
+    (s) => `${formatStretchLabel(s)} of watching. Give your eyes a short rest?`,
+    () => "a little change of scenery can feel good between episodes",
+    () => "pause autoplay if you'd like a moment to reset",
   ],
   Video: [
-    (s) => `${formatStretchLabel(s)} of video — hit pause and step away`,
-    () => "the next episode can wait. get off this",
-    () => "autoplay is not a personality. close the video",
+    (s) => `${formatStretchLabel(s)} of video. Look somewhere farther away for a bit?`,
+    () => "the next video can wait while you stretch",
+    () => "let your eyes rest before the next one",
   ],
 };
 
 const defaultDistractionNudges: ((secs: number) => string)[] = [
-  (s) => `you've been on this for ${formatStretchLabel(s)} — time to switch apps`,
-  () => "long enough on this rabbit hole. move on",
-  () => "hey — get off this app for a bit",
+  (s) => `you've been here for ${formatStretchLabel(s)} — want a short reset?`,
+  () => "take a breath and stretch before your next task",
+  () => "a screen break might make the next thing feel easier",
 ];
 
-/** Stronger "get off this category" line after a long continuous stretch. */
+/** A context-aware reset prompt after a long continuous stretch. */
 export function pickDistractionNudge(
   category: string,
   secondsOnCategory: number,

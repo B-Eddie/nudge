@@ -15,12 +15,19 @@ import {
 } from "./components/SummaryPanel";
 import "./App.css";
 import { useCharacterInteraction } from "./hooks/useCharacterInteraction";
-import { useCharacterFrame } from "./hooks/useCharacterFrame";
+import { usePetLayout } from "./hooks/usePetLayout";
+import { chooseAdventure, type PetRequest } from "./hooks/usePetLife";
+import { petSize, DEFAULT_PET_SIZE } from "./types/petSize";
+import { LivingPet } from "./components/LivingPet";
 import { useSettingsShortcut } from "./hooks/useSettingsShortcut";
 import { usePauseTrackingShortcut } from "./hooks/usePauseTrackingShortcut";
 import type { Settings } from "./types/settings";
 import { RadialMenu } from "./components/RadialMenu";
 import { ReminderNotePanel } from "./components/ReminderNotePanel";
+import { BreakGuidePanel } from "./components/BreakGuidePanel";
+import { COMPANIONS, applyTheme } from "./types/appearance";
+import type { CompanionId } from "./types/appearance";
+import type { BreakRoutine } from "./types/breakRoutines";
 import {
   pickPhrase,
   pickDistractionNudge,
@@ -70,7 +77,6 @@ function archiveDay(history: DayRecord[], stats: SessionStats): DayRecord[] {
 }
 
 const ENERGY_CELLS = 5;
-
 // Energy bars (1..ENERGY_CELLS) for a tier. Tier 1 = full energy
 function energyFromTier(tier: number): number {
   const clamped = Math.min(ENERGY_CELLS, Math.max(1, Math.abs(tier)));
@@ -102,6 +108,7 @@ function tierFromWorkSeconds(
 function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const [breakGuideOpen, setBreakGuideOpen] = useState(false);
   const [overlaySuppressed, setOverlaySuppressed] = useState(false);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [timeEvents, setTimeEvents] = useState(1); // negative time event means sleeping; 0 means reminder animation (megaphone)
@@ -110,6 +117,9 @@ function App() {
   const [message, setMessage] = useState("");
   const [displayedMessage, setDisplayedMessage] = useState("");
   const [reminderNotePinned, setReminderNotePinned] = useState(false);
+  const [reminderPromptOpen, setReminderPromptOpen] = useState(false);
+  const reminderPromptOpenRef = useRef(false);
+  reminderPromptOpenRef.current = reminderPromptOpen;
   const label = frontmostApp?.category_label;
   const [position, setPosition] = useState("");
   const [breakTime, setBreakTime] = useState(0);
@@ -121,15 +131,15 @@ function App() {
   const [stats, setStats] = useState<SessionStats>(emptySessionStats);
   const [history, setHistory] = useState<DayRecord[]>([]);
   const [characterHidden, setCharacterHidden] = useState(false);
+  const [characterSize, setCharacterSize] = useState(DEFAULT_PET_SIZE);
+  const [petSettingsLoaded, setPetSettingsLoaded] = useState(false);
+  const [petMonitor, setPetMonitor] = useState(0);
+  const [character, setCharacter] = useState<CompanionId>("crab");
   const [noteOpen, setNoteOpen] = useState(false);
-  const panelOpen = settingsOpen || summaryOpen || onboardingOpen || noteOpen;
+  const [breakRoutine, setBreakRoutine] = useState<BreakRoutine | null>(null);
+  const panelOpen =
+    settingsOpen || summaryOpen || breakGuideOpen || onboardingOpen || noteOpen;
   const overlayHidden = panelOpen || overlaySuppressed;
-  const characterSrc = useCharacterFrame(
-    label,
-    timeEvents,
-    displayedMessage !== "" && !overlayHidden,
-  );
-
   // Ensure time-passed is always updated
   const labelRef = useRef(label);
   labelRef.current = label;
@@ -166,12 +176,16 @@ function App() {
   };
   const closeBarRef = useRef<() => void>(() => {});
   const reminderIntervalRef = useRef(30);
+  const reminderSnoozeMinsRef = useRef(10);
   const reminderAnimUntilRef = useRef(0);
   // Continuous seconds on the current frontmost category (resets on category change / break).
   const categoryStretchRef = useRef(0);
   const categoryStretchLabelRef = useRef<string | null>(null);
   // Category-stretch seconds at which we last fired a distraction nudge.
   const lastDistractionNudgeAtRef = useRef(0);
+  const pendingReminderRef = useRef(false);
+  const snoozedUntilRef = useRef(0);
+  const reminderCheckInFlightRef = useRef(false);
 
   const [activityHydrated, setActivityHydrated] = useState(false);
 
@@ -179,16 +193,19 @@ function App() {
     setMessage("");
     setDisplayedMessage("");
     setReminderNotePinned(false);
+    setReminderPromptOpen(false);
   }, []);
 
   const dismissReminderNote = useCallback(() => {
     setMessage("");
     setDisplayedMessage("");
     setReminderNotePinned(false);
+    setReminderPromptOpen(false);
   }, []);
 
   const setTransientMessage = useCallback((text: string) => {
     setReminderNotePinned(false);
+    setReminderPromptOpen(false);
     setMessage(text);
   }, []);
 
@@ -224,6 +241,62 @@ function App() {
 
   const playReminderAnimRef = useRef(playReminderAnim);
   playReminderAnimRef.current = playReminderAnim;
+
+  // Queue reminders while the user is away or media is active. Deliver them
+  // on return, when a prompt is less likely to interrupt a thought or call.
+  const deliverPendingReminder = useCallback(async () => {
+    if (!pendingReminderRef.current) return;
+    if (Date.now() < snoozedUntilRef.current) return;
+    if (
+      breakTimeRef.current !== 0 ||
+      panelOpenRef.current ||
+      characterHiddenRef.current
+    ) {
+      return;
+    }
+    if (reminderPromptOpen) {
+      pendingReminderRef.current = false;
+      return;
+    }
+    if (reminderCheckInFlightRef.current) return;
+
+    reminderCheckInFlightRef.current = true;
+    try {
+      const status = await invoke<AutoBreakStatus>("get_auto_break_status");
+      if (status.idle_seconds > 30 || status.defer_auto_break) return;
+
+      const note = await invoke<string | null>("pop_pending_note");
+      pendingReminderRef.current = false;
+      snoozedUntilRef.current = 0;
+      const text = note?.trim();
+      if (text) {
+        setReminderNotePinned(true);
+        setMessage(text);
+      } else {
+        setReminderNotePinned(false);
+        setMessage("");
+        setReminderPromptOpen(true);
+      }
+      playReminderAnimRef.current();
+    } catch (err) {
+      console.error("Failed to check whether a break reminder is timely:", err);
+    } finally {
+      reminderCheckInFlightRef.current = false;
+    }
+  }, [reminderPromptOpen]);
+
+  const snoozeReminder = useCallback(() => {
+    pendingReminderRef.current = true;
+    const snoozeMinutes = reminderSnoozeMinsRef.current;
+    snoozedUntilRef.current = Date.now() + snoozeMinutes * 60 * 1000;
+    setReminderPromptOpen(false);
+    setTransientMessage(`No rush. I'll check back in ${snoozeMinutes} minutes.`);
+  }, [setTransientMessage]);
+
+  useEffect(() => {
+    const id = setInterval(() => void deliverPendingReminder(), 10_000);
+    return () => clearInterval(id);
+  }, [deliverPendingReminder]);
 
   // Don't leave a pending reminder-restore timeout behind on unmount.
   useEffect(
@@ -288,12 +361,26 @@ function App() {
     });
   }, [beginOpenPanel]);
 
+  const openBreakGuide = useCallback(() => {
+    setReminderPromptOpen(false);
+    void beginOpenPanel(() => {
+      setSettingsOpen(false);
+      setSummaryOpen(false);
+      setNoteOpen(false);
+      setBreakGuideOpen(true);
+    });
+  }, [beginOpenPanel]);
+
   const closeSettings = useCallback(() => {
     void beginClosePanel(() => setSettingsOpen(false));
   }, [beginClosePanel]);
 
   const closeSummary = useCallback(() => {
     void beginClosePanel(() => setSummaryOpen(false));
+  }, [beginClosePanel]);
+
+  const closeBreakGuide = useCallback(() => {
+    void beginClosePanel(() => setBreakGuideOpen(false));
   }, [beginClosePanel]);
 
   const openReminderNotes = useCallback(() => {
@@ -342,6 +429,14 @@ function App() {
     void (async () => {
       const settings = await invoke<Settings>("get_settings");
       reminderIntervalRef.current = settings.reminder_interval_mins;
+      reminderSnoozeMinsRef.current = settings.reminder_snooze_mins ?? 10;
+      setCharacter(settings.character ?? "crab");
+      setCharacterSize(petSize(settings.character_size));
+      setPetMonitor(settings.monitor_index);
+      setPetSettingsLoaded(true);
+      if (!panelOpenRef.current) {
+        applyTheme(settings.theme ?? "bamboo");
+      }
       switch (settings.position) {
         case "bottom_left":
           setPosition("bl");
@@ -354,6 +449,9 @@ function App() {
           break;
         case "top_right":
           setPosition("tr");
+          break;
+        case "center":
+          setPosition("center");
           break;
         default:
           setPosition("bl");
@@ -369,6 +467,7 @@ function App() {
       invoke<Settings>("get_settings"),
     ]).then(([saved, settings]) => {
       reminderIntervalRef.current = settings.reminder_interval_mins;
+      reminderSnoozeMinsRef.current = settings.reminder_snooze_mins ?? 10;
       let savedStats = saved.stats;
       let savedHistory = saved.history ?? [];
       let savedTimePassed = saved.timePassed;
@@ -468,7 +567,8 @@ function App() {
           if (
             isDistractingCategory(key) &&
             !characterHiddenRef.current &&
-            !panelOpenRef.current
+            !panelOpenRef.current &&
+            !reminderPromptOpenRef.current
           ) {
             const firstNudge =
               lastDistractionNudgeAtRef.current === 0 &&
@@ -539,14 +639,15 @@ function App() {
       reminderAnimUntilRef.current = 0;
       breakTimeRef.current = 0;
       setTimeEvents(finalTier);
+      setBreakRoutine(null);
 
       if (progress >= 1) {
-        setTransientMessage("You are fully rested!");
+        setTransientMessage("Fully recharged. Glad you took a pause.");
       } else {
         setTransientMessage(
           interrupted
-            ? "Hey, get off your computer! Your break has ended early."
-            : "You didn't rest enough.",
+            ? "That was a short pause. You can take another when you’re ready."
+            : "A little rest goes a long way. Come back when you’re ready.",
         );
       }
 
@@ -565,19 +666,28 @@ function App() {
   );
 
   const startBreak = useCallback(
-    (options?: { auto?: boolean; sleep?: boolean }) => {
+    (options?: {
+      auto?: boolean;
+      sleep?: boolean;
+      routine?: BreakRoutine;
+    }) => {
       if (breakTimeRef.current !== 0) return;
       const { timePassed: workSeconds, timeEvents: events } =
         activityRef.current;
       const minutesWorked = workSeconds / 60;
       const startTier = Math.max(1, Math.abs(events));
       const now = Date.now();
+      const routine = options?.routine;
 
       clearReminderRestoreTimeout();
       suppressReminderUntilRef.current = Date.now() + 5000;
+      pendingReminderRef.current = false;
+      setReminderPromptOpen(false);
 
       const factor = events < 2 ? 0.2 : 0.4;
-      const restMinutes = Math.max(1, Math.round(minutesWorked * factor));
+      const restMinutes = routine
+        ? routine.durationSeconds / 60
+        : Math.max(1, Math.round(minutesWorked * factor));
 
       breakTimeRef.current = now;
       breakNeededRef.current = restMinutes;
@@ -585,14 +695,17 @@ function App() {
       setBreakTime(now);
       setbreakNeeded(restMinutes);
       setBreakStartTier(startTier);
+      setBreakRoutine(routine ?? null);
 
       if (options?.sleep) {
         setTransientMessage("Your Mac is sleeping — I'll keep your break going.");
       } else if (options?.auto) {
         setTransientMessage("Stepping away — catching some rest for you.");
+      } else if (routine) {
+        setTransientMessage(`${routine.title}: ${routine.instruction}`);
       } else {
         setTransientMessage(
-          `You need to rest ${restMinutes} minutes to fully recover`,
+          `About ${restMinutes} minute${restMinutes === 1 ? "" : "s"} of rest will refill your energy.`,
         );
       }
 
@@ -611,15 +724,36 @@ function App() {
     [clearReminderRestoreTimeout, setTransientMessage],
   );
 
+  const startGuidedBreak = useCallback(
+    (routine: BreakRoutine) => {
+      void beginClosePanel(() => {
+        setBreakGuideOpen(false);
+        startBreak({ routine });
+      });
+    },
+    [beginClosePanel, startBreak],
+  );
+
+  const [petRequest, setPetRequest] = useState<PetRequest>();
   const handleAction = useCallback(
     (action: string) => {
       switch (action) {
+        case "pet-play":
+        case "pet-treat":
+          setPetRequest(previous => ({
+            id: (previous?.id ?? 0) + 1,
+            kind: action === "pet-play"
+              ? chooseAdventure(character, "play", 5, previous ? [previous.kind] : [],
+                ["ball", "butterfly", "bubbles", "leaf", "peek"])
+              : "snack",
+          }));
+          break;
         case "settings":
           syncHideOverlay();
           openSettings();
           break;
         case "break":
-          startBreak();
+          openBreakGuide();
           break;
         case "endbreak":
           endBreak(false);
@@ -631,11 +765,12 @@ function App() {
       }
     },
     [
+      character,
       openSettings,
       openSummary,
+      openBreakGuide,
       syncHideOverlay,
       endBreak,
-      startBreak,
     ],
   );
 
@@ -693,6 +828,14 @@ function App() {
 
     const id = setInterval(() => {
       if (Date.now() - breakTime < GRACE_MS) return;
+      const timeRestedMs = Date.now() - breakTime;
+      if (breakRoutine) {
+        if (timeRestedMs >= breakRoutine.durationSeconds * 1000) {
+          endBreak(false);
+        }
+        return;
+      }
+
       invoke<number>("get_seconds_since_last_input")
         .then((idleSecs) => {
           if (idleSecs * 1000 < POLL_MS) endBreak(true);
@@ -704,9 +847,9 @@ function App() {
       if (now - lastRemainMsgTime >= REMAIN_MSG_INTERVAL_MS) {
         lastRemainMsgTime = now;
 
-        const timeRestedMs = now - breakTime;
+        const restedMs = now - breakTime;
         const restNeededMs = breakNeeded * 60 * 1000;
-        const remainingMs = restNeededMs - timeRestedMs;
+        const remainingMs = restNeededMs - restedMs;
         const remainingMins = Math.ceil(remainingMs / 60000);
 
         if (remainingMs > 0) {
@@ -727,7 +870,7 @@ function App() {
     }, POLL_MS);
 
     return () => clearInterval(id);
-  }, [breakTime, breakNeeded, endBreak, setTransientMessage]);
+  }, [breakTime, breakNeeded, breakRoutine, endBreak, setTransientMessage]);
 
   // 1s re-render while resting so the energy meter is live
   useEffect(() => {
@@ -739,11 +882,13 @@ function App() {
 
   const toggleNote = openReminderNotes;
 
-  const { hovered, barOpen, closeBar } = useCharacterInteraction(
+  const petAnchor = usePetLayout(position || "bl", overlayHidden || !petSettingsLoaded, characterSize, petMonitor);
+  const petFacingPosition = petAnchor ? (petAnchor.left + characterSize / 2 > innerWidth / 2 ? "br" : "bl") : position || "bl";
+  const { hovered, barOpen, closeBar, toggleBar, dragging, petted, attention, pet } = useCharacterInteraction(
     panelOpen,
     handleAction,
     toggleNote,
-    characterHidden,
+    characterHidden || overlaySuppressed,
   );
 
   // Transparent NSPanels can leave stale WebKit layers on some Macs when UI unmounts.
@@ -796,27 +941,8 @@ function App() {
       if (onBreakRef.current) return;
       if (characterHiddenRef.current) return;
       if (Date.now() < suppressReminderUntilRef.current) return;
-      const elapsed = activityRef.current.timePassed;
-      void invoke<string | null>("pop_pending_note")
-        .then((note) => {
-          const text = note?.trim();
-          if (text) {
-            setReminderNotePinned(true);
-            setMessage(text);
-          } else {
-            setReminderNotePinned(false);
-            setMessage(
-              `You've been on for ${Math.round(elapsed / 60)} minute${Math.round(elapsed / 60) === 1 ? "" : "s"}!`,
-            );
-          }
-        })
-        .catch(() => {
-          setReminderNotePinned(false);
-          setMessage(
-            `You've been on for ${Math.round(elapsed / 60)} minute${Math.round(elapsed / 60) === 1 ? "" : "s"}!`,
-          );
-        });
-      playReminderAnimRef.current();
+      pendingReminderRef.current = true;
+      void deliverPendingReminder();
     }).then((fn) => {
       if (cancelled) {
         fn();
@@ -829,7 +955,7 @@ function App() {
       cancelled = true;
       unlisten?.();
     };
-  }, []);
+  }, [deliverPendingReminder]);
 
   const clearOverlayMessageRef = useRef(clearOverlayMessage);
   clearOverlayMessageRef.current = clearOverlayMessage;
@@ -842,7 +968,14 @@ function App() {
       return;
     }
     // Don't don't interrupt a message that is still typing or being shown. instead, wait for the next tick
-    if (breakTime !== 0 || displayedMessage !== "" || !label) return;
+    if (
+      breakTime !== 0 ||
+      displayedMessage !== "" ||
+      reminderPromptOpen ||
+      !label
+    ) {
+      return;
+    }
 
     // get appropriate phrase based on current state and update the message.
     const tier = Math.min(5, Math.max(1, timeEvents));
@@ -945,6 +1078,46 @@ function App() {
         breakNeeded > 0 ? (nowTick - breakTime) / (breakNeeded * 60 * 1000) : 1,
       )
     : energyFromTier(timeEvents);
+  const characterName =
+    COMPANIONS.find((companion) => companion.id === character)?.name ??
+    "Panda";
+  const routineSecondsLeft = breakRoutine
+    ? Math.min(
+        breakRoutine.durationSeconds,
+        Math.max(
+          0,
+          Math.ceil(
+            (breakRoutine.durationSeconds * 1000 - (nowTick - breakTime)) /
+              1000,
+          ),
+        ),
+      )
+    : 0;
+  const routineProgress = breakRoutine
+    ? Math.min(
+        100,
+        Math.max(
+          0,
+          ((nowTick - breakTime) / (breakRoutine.durationSeconds * 1000)) *
+            100,
+        ),
+      )
+    : 0;
+  const reminderIntervalSeconds = reminderIntervalRef.current * 60;
+  const secondsToReminder = Math.max(
+    0,
+    reminderIntervalSeconds -
+      (reminderIntervalSeconds > 0 ? timePassed % reminderIntervalSeconds : 0),
+  );
+  const secondsToSnoozedReminder = snoozedUntilRef.current - Date.now();
+  const reminderCountdownMins = Math.max(
+    1,
+    Math.ceil(
+      (secondsToSnoozedReminder > 0
+        ? secondsToSnoozedReminder
+        : secondsToReminder * 1000) / 60000,
+    ),
+  );
 
   return (
     <>
@@ -964,17 +1137,87 @@ function App() {
           className={`character interactive pos-${position || "bl"} ${
             hovered ? "hovered" : ""
           }${characterHidden ? " character-hidden" : ""}`}
+          style={{ ...petAnchor, "--pet-size": `${characterSize}px` } as React.CSSProperties}
           data-character
         >
           {!overlayHidden && !characterHidden && (
             <RadialMenu
-              open={barOpen}
+              open={barOpen && !dragging}
               position={position || "bl"}
               break={breakTime}
+              onAction={handleAction} onNote={toggleNote} onClose={closeBar}
             />
           )}
-          {displayedMessage !== "" && !overlayHidden && !characterHidden && (
+          {reminderPromptOpen && !overlayHidden && !characterHidden && (
+            <section
+              className={`reminder-prompt reminder-prompt--${position || "bl"} interactive`}
+              data-pet-popover
+              aria-labelledby="reminder-prompt-title"
+            >
+              <span className="reminder-prompt-eyebrow">A gentle nudge</span>
+              <h2 id="reminder-prompt-title">Ready for a small pause?</h2>
+              <p>Choose something that fits, or ask me again in a little while.</p>
+              <div className="reminder-prompt-actions">
+                <button
+                  type="button"
+                  className="reminder-prompt-primary interactive"
+                  onClick={openBreakGuide}
+                >
+                  Choose a reset
+                </button>
+                <button
+                  type="button"
+                  className="reminder-prompt-later interactive"
+                  onClick={snoozeReminder}
+                >
+                  In {reminderSnoozeMinsRef.current} minutes
+                </button>
+              </div>
+            </section>
+          )}
+
+          {breakRoutine && onBreak && !overlayHidden && !characterHidden && (
+            <section
+              className={`break-coach break-coach--${position || "bl"} interactive`}
+              data-pet-popover
+              aria-labelledby="break-coach-title"
+            >
+              <header className="break-coach-header">
+                <div>
+                  <span className="break-coach-eyebrow">A moment for you</span>
+                  <h2 id="break-coach-title">{breakRoutine.title}</h2>
+                </div>
+                <output
+                  className="break-coach-time"
+                  aria-label={`${routineSecondsLeft} seconds remaining`}
+                >
+                  {routineSecondsLeft}s
+                </output>
+              </header>
+              <p>{breakRoutine.instruction}</p>
+              <div
+                className="break-coach-track"
+                role="progressbar"
+                aria-label="Reset progress"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(routineProgress)}
+              >
+                <span style={{ width: `${routineProgress}%` }} />
+              </div>
+              <button
+                type="button"
+                className="break-coach-finish interactive"
+                onClick={() => endBreak(false)}
+              >
+                Finish pause
+              </button>
+            </section>
+          )}
+
+          {!barOpen && !dragging && !reminderPromptOpen && !breakRoutine && displayedMessage !== "" && !overlayHidden && !characterHidden && (
             <p
+              data-pet-popover
               id="messages"
               className={`messages interactive${reminderNotePinned ? " messages--pinned" : ""}`}
             >
@@ -992,13 +1235,22 @@ function App() {
             </p>
           )}
 
-          {!barOpen && !overlayHidden && (
-            <div id="hoverInfo" style={{ display: "none" }}>
+          {!barOpen && !overlayHidden && !dragging && !displayedMessage && !reminderPromptOpen && !breakRoutine && hovered && (
+            <div id="hoverInfo" data-pet-popover>
               <p className="hoverInfo-stat">
                 <span className="hoverInfo-text">
                   {onBreak
-                    ? "zzz"
+                    ? "On a pause"
                     : formatDuration(stats.currentStretchSeconds)}
+                </span>
+                <span className="hoverInfo-next">
+                  {onBreak
+                    ? breakRoutine
+                      ? "A small reset"
+                      : "Take your time"
+                    : reminderPromptOpen
+                      ? "A pause is ready"
+                      : `Next nudge in ${reminderCountdownMins} min`}
                 </span>
               </p>
               <div className="energy-bars">
@@ -1013,12 +1265,10 @@ function App() {
           )}
 
           {!characterHidden && (
-            <div className="character-figure">
-              {/* No `key` here: remounting the <img> on state changes drops the
-                  decoded bitmap and paints a blank frame. Updating `src` on a
-                  stable element swaps atomically since frames are predecoded. */}
-              <img id="characterMain" src={characterSrc} alt="nudge character" />
-            </div>
+            <LivingPet character={character} size={characterSize} name={characterName} category={label}
+              request={petRequest} resting={onBreak} hovered={hovered} dragging={dragging} petted={petted}
+              attention={attention} busy={barOpen || overlayHidden || displayedMessage !== "" || reminderPromptOpen}
+              position={petFacingPosition} energy={energy} onMenu={toggleBar} onPet={pet} />
           )}
         </div>
       </main>
@@ -1038,6 +1288,16 @@ function App() {
       {noteOpen && !settingsOpen && !onboardingOpen && !summaryOpen && (
         <ReminderNotePanel onClose={closeReminderNotes} />
       )}
+      {breakGuideOpen &&
+        !settingsOpen &&
+        !onboardingOpen &&
+        !summaryOpen &&
+        !noteOpen && (
+          <BreakGuidePanel
+            onClose={closeBreakGuide}
+            onStart={startGuidedBreak}
+          />
+        )}
     </>
   );
 }

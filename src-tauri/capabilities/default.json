@@ -9,6 +9,7 @@
     "positioner:default",
     "autostart:default",
     "allow-set-click-through",
+    "allow-pet-drag",
     "allow-settings",
     "allow-activity",
     "allow-reminder",

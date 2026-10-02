@@ -12,6 +12,7 @@ import {
   POSITION_OPTIONS,
   shortcutFromKeyboardEvent,
 } from "../types/settings";
+import { CompanionPicker, ThemePicker } from "./AppearancePicker";
 import "./OnboardingPanel.css";
 
 interface OnboardingPanelProps {
@@ -20,6 +21,8 @@ interface OnboardingPanelProps {
 
 const STEPS = [
   "welcome",
+  "companion",
+  "appearance",
   "position",
   "shortcut",
   "reminder",
@@ -146,7 +149,23 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
       <div className="onboarding-panel" role="dialog" aria-labelledby="onboarding-title">
         <header className="onboarding-header">
           <div>
-            <h2 id="onboarding-title">Welcome to nudge</h2>
+            <h2 id="onboarding-title">
+              {stepId === "welcome"
+                ? "Welcome to Nudge"
+                : stepId === "companion"
+                  ? "Choose a companion"
+                  : stepId === "appearance"
+                    ? "Set the mood"
+                    : stepId === "position"
+                      ? "Choose a screen corner"
+                      : stepId === "shortcut"
+                        ? "Set a quick control"
+                        : stepId === "reminder"
+                          ? "Find your rhythm"
+                          : stepId === "categories"
+                            ? "Check your app list"
+                            : "You’re all set"}
+            </h2>
             <p className="onboarding-progress">
               Step {step + 1} of {STEPS.length}
             </p>
@@ -157,13 +176,40 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
           {stepId === "welcome" && (
             <>
               <p className="onboarding-lead">
-                Your little companion sits on screen, tracks how you spend time,
-                and nudges you to take breaks.
+                A small companion keeps your screen time in view and reminds
+                you to step away when you need a breather.
               </p>
               <p className="onboarding-hint">
-                Let&apos;s set up a few basics: position, shortcuts, and app
-                categories. You can change these anytime in Settings.
+                Click your companion to pick a quick eye, stretch, breathing,
+                or movement reset, or to see your activity and settings. Choose
+                a character and a look now; you can change both later.
               </p>
+            </>
+          )}
+
+          {stepId === "companion" && (
+            <>
+              <p className="onboarding-hint">
+                Each friend has its own little work, music, and rest animations.
+              </p>
+              <CompanionPicker
+                value={draft.character}
+                onChange={(character) => setDraft({ ...draft, character })}
+              />
+            </>
+          )}
+
+          {stepId === "appearance" && (
+            <>
+              <p className="onboarding-hint">
+                Choose a palette that feels comfortable beside your other
+                windows.
+              </p>
+              <ThemePicker
+                value={draft.theme}
+                previewChanges
+                onChange={(theme) => setDraft({ ...draft, theme })}
+              />
             </>
           )}
 
@@ -249,8 +295,8 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
           {stepId === "reminder" && (
             <>
               <p className="onboarding-hint">
-                How often should nudge remind you to take a break? Your
-                character&apos;s energy drains over time between reminders.
+                Choose a reminder rhythm and how long Nudge should wait before
+                starting a break when you step away.
               </p>
               <label className="onboarding-field">
                 <span>Reminder interval (minutes)</span>
@@ -268,6 +314,27 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
                     })
                   }
                 />
+              </label>
+              <label className="onboarding-field">
+                <span>Start a break after (minutes away)</span>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={draft.auto_idle_break_mins ?? 5}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      auto_idle_break_mins: Math.max(
+                        1,
+                        parseInt(e.target.value, 10) || 1,
+                      ),
+                    })
+                  }
+                />
+                <p className="onboarding-subhint">
+                  Nudge waits while music or video is playing.
+                </p>
               </label>
             </>
           )}
@@ -315,8 +382,8 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
             <>
               <p className="onboarding-lead">You&apos;re all set!</p>
               <p className="onboarding-hint">
-                Click your character to open the menu — take breaks, view
-                activity, add reminder notes, or open Settings.
+                Timed nudges wait until you return from an idle stretch. Choose
+                a reset when one fits, or snooze it for later from the nudge.
               </p>
             </>
           )}
