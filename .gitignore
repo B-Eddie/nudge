@@ -27,3 +27,6 @@ dist-ssr
 
 # Generated launch reel and local HyperFrames preview artifacts
 /brag-output/
+
+# Local Vitest reports
+.vitest/

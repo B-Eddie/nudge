@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://nudge-nine-flame.vercel.app/sitemap.xml

@@ -1,0 +1,923 @@
+{
+  "canvas": {
+    "width": 240,
+    "height": 240,
+    "floor": 216
+  },
+  "appCanvas": {
+    "width": 60,
+    "height": 60
+  },
+  "format": "lossless WebP",
+  "source": "src/assets/pets/pixel",
+  "poses": [
+    "idle",
+    "blink",
+    "happy",
+    "delighted",
+    "curious",
+    "lifted",
+    "yawn",
+    "sleep",
+    "walkA",
+    "walkB",
+    "stretch",
+    "groom",
+    "focus",
+    "read",
+    "music",
+    "play"
+  ],
+  "characters": {
+    "crab": {
+      "idle": {
+        "path": "crab/idle.webp",
+        "bytes": 5446,
+        "placement": {
+          "x": 12,
+          "y": 48,
+          "width": 216,
+          "height": 168
+        },
+        "mirrored": false
+      },
+      "blink": {
+        "path": "crab/blink.webp",
+        "bytes": 5254,
+        "placement": {
+          "x": 16,
+          "y": 52,
+          "width": 212,
+          "height": 164
+        },
+        "mirrored": false
+      },
+      "happy": {
+        "path": "crab/happy.webp",
+        "bytes": 5450,
+        "placement": {
+          "x": 16,
+          "y": 48,
+          "width": 212,
+          "height": 168
+        },
+        "mirrored": false
+      },
+      "delighted": {
+        "path": "crab/delighted.webp",
+        "bytes": 5816,
+        "placement": {
+          "x": 12,
+          "y": 40,
+          "width": 216,
+          "height": 176
+        },
+        "mirrored": false
+      },
+      "curious": {
+        "path": "crab/curious.webp",
+        "bytes": 5706,
+        "placement": {
+          "x": 16,
+          "y": 28,
+          "width": 212,
+          "height": 188
+        },
+        "mirrored": false
+      },
+      "lifted": {
+        "path": "crab/lifted.webp",
+        "bytes": 5160,
+        "placement": {
+          "x": 44,
+          "y": 8,
+          "width": 156,
+          "height": 208
+        },
+        "mirrored": false
+      },
+      "yawn": {
+        "path": "crab/yawn.webp",
+        "bytes": 6226,
+        "placement": {
+          "x": 12,
+          "y": 40,
+          "width": 216,
+          "height": 176
+        },
+        "mirrored": false
+      },
+      "sleep": {
+        "path": "crab/sleep.webp",
+        "bytes": 4546,
+        "placement": {
+          "x": 20,
+          "y": 52,
+          "width": 204,
+          "height": 164
+        },
+        "mirrored": false
+      },
+      "walkA": {
+        "path": "crab/walkA.webp",
+        "bytes": 5226,
+        "placement": {
+          "x": 20,
+          "y": 36,
+          "width": 204,
+          "height": 180
+        },
+        "mirrored": false
+      },
+      "walkB": {
+        "path": "crab/walkB.webp",
+        "bytes": 5182,
+        "placement": {
+          "x": 20,
+          "y": 40,
+          "width": 204,
+          "height": 176
+        },
+        "mirrored": false
+      },
+      "stretch": {
+        "path": "crab/stretch.webp",
+        "bytes": 5862,
+        "placement": {
+          "x": 12,
+          "y": 36,
+          "width": 216,
+          "height": 180
+        },
+        "mirrored": false
+      },
+      "groom": {
+        "path": "crab/groom.webp",
+        "bytes": 5354,
+        "placement": {
+          "x": 20,
+          "y": 52,
+          "width": 200,
+          "height": 164
+        },
+        "mirrored": false
+      },
+      "focus": {
+        "path": "crab/focus.webp",
+        "bytes": 5738,
+        "placement": {
+          "x": 12,
+          "y": 48,
+          "width": 216,
+          "height": 168
+        },
+        "mirrored": false
+      },
+      "read": {
+        "path": "crab/read.webp",
+        "bytes": 6072,
+        "placement": {
+          "x": 12,
+          "y": 48,
+          "width": 216,
+          "height": 168
+        },
+        "mirrored": false
+      },
+      "music": {
+        "path": "crab/music.webp",
+        "bytes": 6708,
+        "placement": {
+          "x": 12,
+          "y": 36,
+          "width": 216,
+          "height": 180
+        },
+        "mirrored": false
+      },
+      "play": {
+        "path": "crab/play.webp",
+        "bytes": 5650,
+        "placement": {
+          "x": 20,
+          "y": 44,
+          "width": 204,
+          "height": 172
+        },
+        "mirrored": false
+      }
+    },
+    "panda": {
+      "idle": {
+        "path": "panda/idle.webp",
+        "bytes": 4424,
+        "placement": {
+          "x": 44,
+          "y": 32,
+          "width": 152,
+          "height": 184
+        },
+        "mirrored": false
+      },
+      "blink": {
+        "path": "panda/blink.webp",
+        "bytes": 4318,
+        "placement": {
+          "x": 44,
+          "y": 32,
+          "width": 152,
+          "height": 184
+        },
+        "mirrored": false
+      },
+      "happy": {
+        "path": "panda/happy.webp",
+        "bytes": 4408,
+        "placement": {
+          "x": 44,
+          "y": 32,
+          "width": 156,
+          "height": 184
+        },
+        "mirrored": false
+      },
+      "delighted": {
+        "path": "panda/delighted.webp",
+        "bytes": 4836,
+        "placement": {
+          "x": 32,
+          "y": 32,
+          "width": 176,
+          "height": 184
+        },
+        "mirrored": false
+      },
+      "curious": {
+        "path": "panda/curious.webp",
+        "bytes": 4192,
+        "placement": {
+          "x": 44,
+          "y": 32,
+          "width": 156,
+          "height": 184
+        },
+        "mirrored": false
+      },
+      "lifted": {
+        "path": "panda/lifted.webp",
+        "bytes": 5068,
+        "placement": {
+          "x": 32,
+          "y": 24,
+          "width": 176,
+          "height": 192
+        },
+        "mirrored": false
+      },
+      "yawn": {
+        "path": "panda/yawn.webp",
+        "bytes": 4242,
+        "placement": {
+          "x": 44,
+          "y": 36,
+          "width": 152,
+          "height": 180
+        },
+        "mirrored": false
+      },
+      "sleep": {
+        "path": "panda/sleep.webp",
+        "bytes": 3554,
+        "placement": {
+          "x": 28,
+          "y": 80,
+          "width": 184,
+          "height": 136
+        },
+        "mirrored": false
+      },
+      "walkA": {
+        "path": "panda/walkA.webp",
+        "bytes": 4164,
+        "placement": {
+          "x": 48,
+          "y": 28,
+          "width": 144,
+          "height": 188
+        },
+        "mirrored": true
+      },
+      "walkB": {
+        "path": "panda/walkB.webp",
+        "bytes": 4180,
+        "placement": {
+          "x": 48,
+          "y": 28,
+          "width": 144,
+          "height": 188
+        },
+        "mirrored": true
+      },
+      "stretch": {
+        "path": "panda/stretch.webp",
+        "bytes": 4556,
+        "placement": {
+          "x": 36,
+          "y": 28,
+          "width": 172,
+          "height": 188
+        },
+        "mirrored": false
+      },
+      "groom": {
+        "path": "panda/groom.webp",
+        "bytes": 4132,
+        "placement": {
+          "x": 44,
+          "y": 40,
+          "width": 152,
+          "height": 176
+        },
+        "mirrored": false
+      },
+      "focus": {
+        "path": "panda/focus.webp",
+        "bytes": 4738,
+        "placement": {
+          "x": 40,
+          "y": 36,
+          "width": 164,
+          "height": 180
+        },
+        "mirrored": false
+      },
+      "read": {
+        "path": "panda/read.webp",
+        "bytes": 4654,
+        "placement": {
+          "x": 48,
+          "y": 36,
+          "width": 148,
+          "height": 180
+        },
+        "mirrored": false
+      },
+      "music": {
+        "path": "panda/music.webp",
+        "bytes": 4794,
+        "placement": {
+          "x": 32,
+          "y": 32,
+          "width": 176,
+          "height": 184
+        },
+        "mirrored": false
+      },
+      "play": {
+        "path": "panda/play.webp",
+        "bytes": 4486,
+        "placement": {
+          "x": 48,
+          "y": 36,
+          "width": 148,
+          "height": 180
+        },
+        "mirrored": false
+      }
+    },
+    "red_panda": {
+      "idle": {
+        "path": "red_panda/idle.webp",
+        "bytes": 6196,
+        "placement": {
+          "x": 28,
+          "y": 32,
+          "width": 188,
+          "height": 184
+        },
+        "mirrored": false
+      },
+      "blink": {
+        "path": "red_panda/blink.webp",
+        "bytes": 5760,
+        "placement": {
+          "x": 32,
+          "y": 40,
+          "width": 180,
+          "height": 176
+        },
+        "mirrored": false
+      },
+      "happy": {
+        "path": "red_panda/happy.webp",
+        "bytes": 6150,
+        "placement": {
+          "x": 28,
+          "y": 32,
+          "width": 188,
+          "height": 184
+        },
+        "mirrored": false
+      },
+      "delighted": {
+        "path": "red_panda/delighted.webp",
+        "bytes": 5964,
+        "placement": {
+          "x": 32,
+          "y": 20,
+          "width": 176,
+          "height": 196
+        },
+        "mirrored": false
+      },
+      "curious": {
+        "path": "red_panda/curious.webp",
+        "bytes": 5756,
+        "placement": {
+          "x": 32,
+          "y": 28,
+          "width": 180,
+          "height": 188
+        },
+        "mirrored": false
+      },
+      "lifted": {
+        "path": "red_panda/lifted.webp",
+        "bytes": 5262,
+        "placement": {
+          "x": 44,
+          "y": 16,
+          "width": 152,
+          "height": 200
+        },
+        "mirrored": false
+      },
+      "yawn": {
+        "path": "red_panda/yawn.webp",
+        "bytes": 5532,
+        "placement": {
+          "x": 28,
+          "y": 44,
+          "width": 184,
+          "height": 172
+        },
+        "mirrored": false
+      },
+      "sleep": {
+        "path": "red_panda/sleep.webp",
+        "bytes": 4440,
+        "placement": {
+          "x": 12,
+          "y": 92,
+          "width": 216,
+          "height": 124
+        },
+        "mirrored": false
+      },
+      "walkA": {
+        "path": "red_panda/walkA.webp",
+        "bytes": 5926,
+        "placement": {
+          "x": 20,
+          "y": 28,
+          "width": 200,
+          "height": 188
+        },
+        "mirrored": true
+      },
+      "walkB": {
+        "path": "red_panda/walkB.webp",
+        "bytes": 5514,
+        "placement": {
+          "x": 28,
+          "y": 28,
+          "width": 188,
+          "height": 188
+        },
+        "mirrored": false
+      },
+      "stretch": {
+        "path": "red_panda/stretch.webp",
+        "bytes": 5762,
+        "placement": {
+          "x": 32,
+          "y": 24,
+          "width": 180,
+          "height": 192
+        },
+        "mirrored": false
+      },
+      "groom": {
+        "path": "red_panda/groom.webp",
+        "bytes": 5450,
+        "placement": {
+          "x": 32,
+          "y": 36,
+          "width": 176,
+          "height": 180
+        },
+        "mirrored": false
+      },
+      "focus": {
+        "path": "red_panda/focus.webp",
+        "bytes": 5574,
+        "placement": {
+          "x": 20,
+          "y": 60,
+          "width": 204,
+          "height": 156
+        },
+        "mirrored": false
+      },
+      "read": {
+        "path": "red_panda/read.webp",
+        "bytes": 6080,
+        "placement": {
+          "x": 32,
+          "y": 32,
+          "width": 180,
+          "height": 184
+        },
+        "mirrored": false
+      },
+      "music": {
+        "path": "red_panda/music.webp",
+        "bytes": 5918,
+        "placement": {
+          "x": 24,
+          "y": 40,
+          "width": 196,
+          "height": 176
+        },
+        "mirrored": false
+      },
+      "play": {
+        "path": "red_panda/play.webp",
+        "bytes": 5978,
+        "placement": {
+          "x": 32,
+          "y": 36,
+          "width": 176,
+          "height": 180
+        },
+        "mirrored": false
+      }
+    },
+    "cat": {
+      "idle": {
+        "path": "cat/idle.webp",
+        "bytes": 4786,
+        "placement": {
+          "x": 32,
+          "y": 32,
+          "width": 176,
+          "height": 184
+        },
+        "mirrored": false
+      },
+      "blink": {
+        "path": "cat/blink.webp",
+        "bytes": 4758,
+        "placement": {
+          "x": 32,
+          "y": 32,
+          "width": 176,
+          "height": 184
+        },
+        "mirrored": false
+      },
+      "happy": {
+        "path": "cat/happy.webp",
+        "bytes": 4952,
+        "placement": {
+          "x": 36,
+          "y": 28,
+          "width": 172,
+          "height": 188
+        },
+        "mirrored": false
+      },
+      "delighted": {
+        "path": "cat/delighted.webp",
+        "bytes": 4660,
+        "placement": {
+          "x": 40,
+          "y": 28,
+          "width": 164,
+          "height": 188
+        },
+        "mirrored": false
+      },
+      "curious": {
+        "path": "cat/curious.webp",
+        "bytes": 5032,
+        "placement": {
+          "x": 40,
+          "y": 12,
+          "width": 160,
+          "height": 204
+        },
+        "mirrored": false
+      },
+      "lifted": {
+        "path": "cat/lifted.webp",
+        "bytes": 4292,
+        "placement": {
+          "x": 56,
+          "y": 8,
+          "width": 132,
+          "height": 208
+        },
+        "mirrored": false
+      },
+      "yawn": {
+        "path": "cat/yawn.webp",
+        "bytes": 4880,
+        "placement": {
+          "x": 32,
+          "y": 24,
+          "width": 176,
+          "height": 192
+        },
+        "mirrored": false
+      },
+      "sleep": {
+        "path": "cat/sleep.webp",
+        "bytes": 3746,
+        "placement": {
+          "x": 28,
+          "y": 84,
+          "width": 188,
+          "height": 132
+        },
+        "mirrored": false
+      },
+      "walkA": {
+        "path": "cat/walkA.webp",
+        "bytes": 4824,
+        "placement": {
+          "x": 32,
+          "y": 32,
+          "width": 176,
+          "height": 184
+        },
+        "mirrored": true
+      },
+      "walkB": {
+        "path": "cat/walkB.webp",
+        "bytes": 4844,
+        "placement": {
+          "x": 32,
+          "y": 32,
+          "width": 180,
+          "height": 184
+        },
+        "mirrored": false
+      },
+      "stretch": {
+        "path": "cat/stretch.webp",
+        "bytes": 5132,
+        "placement": {
+          "x": 28,
+          "y": 28,
+          "width": 184,
+          "height": 188
+        },
+        "mirrored": false
+      },
+      "groom": {
+        "path": "cat/groom.webp",
+        "bytes": 4670,
+        "placement": {
+          "x": 32,
+          "y": 32,
+          "width": 180,
+          "height": 184
+        },
+        "mirrored": false
+      },
+      "focus": {
+        "path": "cat/focus.webp",
+        "bytes": 5478,
+        "placement": {
+          "x": 16,
+          "y": 36,
+          "width": 208,
+          "height": 180
+        },
+        "mirrored": false
+      },
+      "read": {
+        "path": "cat/read.webp",
+        "bytes": 5662,
+        "placement": {
+          "x": 32,
+          "y": 20,
+          "width": 176,
+          "height": 196
+        },
+        "mirrored": false
+      },
+      "music": {
+        "path": "cat/music.webp",
+        "bytes": 5296,
+        "placement": {
+          "x": 28,
+          "y": 24,
+          "width": 184,
+          "height": 192
+        },
+        "mirrored": false
+      },
+      "play": {
+        "path": "cat/play.webp",
+        "bytes": 5360,
+        "placement": {
+          "x": 32,
+          "y": 24,
+          "width": 176,
+          "height": 192
+        },
+        "mirrored": false
+      }
+    },
+    "capybara": {
+      "idle": {
+        "path": "capybara/idle.webp",
+        "bytes": 5160,
+        "placement": {
+          "x": 32,
+          "y": 32,
+          "width": 180,
+          "height": 184
+        },
+        "mirrored": false
+      },
+      "blink": {
+        "path": "capybara/blink.webp",
+        "bytes": 5136,
+        "placement": {
+          "x": 32,
+          "y": 32,
+          "width": 180,
+          "height": 184
+        },
+        "mirrored": false
+      },
+      "happy": {
+        "path": "capybara/happy.webp",
+        "bytes": 5228,
+        "placement": {
+          "x": 32,
+          "y": 32,
+          "width": 180,
+          "height": 184
+        },
+        "mirrored": false
+      },
+      "delighted": {
+        "path": "capybara/delighted.webp",
+        "bytes": 5528,
+        "placement": {
+          "x": 32,
+          "y": 28,
+          "width": 176,
+          "height": 188
+        },
+        "mirrored": false
+      },
+      "curious": {
+        "path": "capybara/curious.webp",
+        "bytes": 5246,
+        "placement": {
+          "x": 40,
+          "y": 20,
+          "width": 160,
+          "height": 196
+        },
+        "mirrored": false
+      },
+      "lifted": {
+        "path": "capybara/lifted.webp",
+        "bytes": 5598,
+        "placement": {
+          "x": 36,
+          "y": 20,
+          "width": 172,
+          "height": 196
+        },
+        "mirrored": false
+      },
+      "yawn": {
+        "path": "capybara/yawn.webp",
+        "bytes": 5300,
+        "placement": {
+          "x": 28,
+          "y": 36,
+          "width": 184,
+          "height": 180
+        },
+        "mirrored": false
+      },
+      "sleep": {
+        "path": "capybara/sleep.webp",
+        "bytes": 4594,
+        "placement": {
+          "x": 20,
+          "y": 84,
+          "width": 204,
+          "height": 132
+        },
+        "mirrored": false
+      },
+      "walkA": {
+        "path": "capybara/walkA.webp",
+        "bytes": 5340,
+        "placement": {
+          "x": 24,
+          "y": 28,
+          "width": 192,
+          "height": 188
+        },
+        "mirrored": false
+      },
+      "walkB": {
+        "path": "capybara/walkB.webp",
+        "bytes": 5122,
+        "placement": {
+          "x": 32,
+          "y": 28,
+          "width": 180,
+          "height": 188
+        },
+        "mirrored": false
+      },
+      "stretch": {
+        "path": "capybara/stretch.webp",
+        "bytes": 5580,
+        "placement": {
+          "x": 24,
+          "y": 28,
+          "width": 196,
+          "height": 188
+        },
+        "mirrored": false
+      },
+      "groom": {
+        "path": "capybara/groom.webp",
+        "bytes": 5354,
+        "placement": {
+          "x": 36,
+          "y": 24,
+          "width": 168,
+          "height": 192
+        },
+        "mirrored": false
+      },
+      "focus": {
+        "path": "capybara/focus.webp",
+        "bytes": 5574,
+        "placement": {
+          "x": 20,
+          "y": 24,
+          "width": 204,
+          "height": 192
+        },
+        "mirrored": false
+      },
+      "read": {
+        "path": "capybara/read.webp",
+        "bytes": 5532,
+        "placement": {
+          "x": 28,
+          "y": 28,
+          "width": 188,
+          "height": 188
+        },
+        "mirrored": false
+      },
+      "music": {
+        "path": "capybara/music.webp",
+        "bytes": 5974,
+        "placement": {
+          "x": 24,
+          "y": 24,
+          "width": 192,
+          "height": 192
+        },
+        "mirrored": false
+      },
+      "play": {
+        "path": "capybara/play.webp",
+        "bytes": 5612,
+        "placement": {
+          "x": 28,
+          "y": 24,
+          "width": 184,
+          "height": 192
+        },
+        "mirrored": false
+      }
+    }
+  }
+}

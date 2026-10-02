@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Privacy at Nudge</title>
+    <meta name="description" content="How Nudge uses active-app categories and idle time for gentle break reminders, and keeps your activity summaries and settings on your Mac." />
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="canonical" href="https://nudge-nine-flame.vercel.app/privacy.html" />
+    <link rel="icon" type="image/png" href="assets/logo-96.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Nudge" />
+    <meta property="og:title" content="Privacy at Nudge" />
+    <meta property="og:description" content="Your activity summaries and settings stay on your Mac. See what the desktop companion reads and saves." />
+    <meta property="og:url" content="https://nudge-nine-flame.vercel.app/privacy.html" />
+    <meta property="og:image" content="https://nudge-nine-flame.vercel.app/assets/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Nudge, a gentle desktop companion with expressive pixel pets" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <style>
+      :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #222326; background: #fff; }
+      * { box-sizing: border-box; }
+      body { margin: 0; }
+      a { color: inherit; text-underline-offset: .22em; }
+      a:hover { color: #435d7d; }
+      a:focus-visible { outline: 3px solid #466d9f; outline-offset: 5px; border-radius: 4px; }
+      .skip { position: fixed; top: 12px; left: 12px; z-index: 10; padding: 12px 20px; background: #fff; border: 1px solid #222326; transform: translateY(-160%); }
+      .skip:focus { transform: translateY(0); }
+      header, footer { width: min(1120px, calc(100% - 48px)); margin-inline: auto; }
+      nav { display: flex; align-items: center; justify-content: space-between; min-height: 88px; gap: 20px; }
+      .brand { display: inline-flex; align-items: center; gap: 10px; font-size: 24px; font-weight: 650; letter-spacing: -.05em; text-decoration: none; }
+      .brand img { width: 36px; height: 36px; border-radius: 10px; }
+      .back { font-size: 14px; font-weight: 500; text-decoration: none; }
+      main { width: min(800px, calc(100% - 48px)); margin: 76px auto 100px; }
+      .eyebrow { margin: 0 0 20px; font-size: 14px; color: #64686d; }
+      h1 { margin: 0 0 28px; font-size: clamp(42px, 7vw, 64px); line-height: 1.04; font-weight: 600; letter-spacing: -.055em; }
+      .intro { max-width: 650px; margin: 0; font-size: 20px; line-height: 1.6; color: #64686d; }
+      .summary { margin: 44px 0 54px; padding: 28px 32px; border-radius: 28px; background: #ebf0f8; }
+      .summary p { margin: 0; font-size: 18px; line-height: 1.65; }
+      section { margin-top: 42px; }
+      h2 { margin: 0 0 16px; font-size: 25px; font-weight: 600; letter-spacing: -.035em; }
+      section p, li { font-size: 17px; line-height: 1.8; color: #64686d; }
+      section p { margin: 0 0 16px; }
+      ul { margin: 0 0 20px; padding-left: 24px; }
+      li + li { margin-top: 8px; }
+      code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .88em; overflow-wrap: anywhere; color: #222326; }
+      .button { display: inline-flex; justify-content: center; align-items: center; min-height: 48px; padding: 0 24px; border-radius: 999px; color: #fff; background: #1f2025; font-size: 15px; font-weight: 500; text-decoration: none; }
+      .button:hover { color: #fff; background: #35373e; }
+      footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 20px; padding: 30px 0; border-top: 1px solid #e8eaed; color: #64686d; font-size: 13px; }
+      footer p { margin: 0; }
+      @media (max-width: 600px) { main { margin-top: 44px; margin-bottom: 70px; } .summary { padding: 24px; } nav { min-height: 76px; } }
+    </style>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header>
+      <nav aria-label="Main navigation">
+        <a class="brand" href="./"><img src="assets/logo-96.webp" width="36" height="36" alt="" />nudge</a>
+        <a class="back" href="./">Back to Nudge <span aria-hidden="true">↗</span></a>
+      </nav>
+    </header>
+    <main id="main">
+      <p class="eyebrow">Privacy · Updated October 1, 2026</p>
+      <h1>Your day stays<br />on your Mac.</h1>
+      <p class="intro">A small companion should come with a clear explanation of what it can see. Here’s how the Nudge app and this website handle information.</p>
+      <div class="summary">
+        <p>Nudge keeps activity summaries, preferences, and reminder notes locally. The desktop app has no account system, advertising, or analytics service, and does not upload this information to a Nudge server.</p>
+      </div>
+      <section aria-labelledby="reads">
+        <h2 id="reads">What the desktop app reads</h2>
+        <ul>
+          <li>The name and identifier of the active app, and its category, to adapt the companion’s behavior and summarize time by category.</li>
+          <li>Time since keyboard, mouse-button, or scrolling activity, to recognize idle stretches and avoid interrupting a break. It does not record the keys you type or the content of your work.</li>
+          <li>Pointer position and mouse-button state for petting and dragging, plus window positions and sizes so the companion can perch on a window.</li>
+          <li>Installed app names, identifiers, locations, and category metadata to populate the app-category settings.</li>
+        </ul>
+        <p>Nudge does not take screenshots or read document text, messages, browser history, or page contents.</p>
+      </section>
+      <section aria-labelledby="saved">
+        <h2 id="saved">What it saves</h2>
+        <p>Activity summaries contain time by app category, breaks taken or interrupted, rest duration, and the longest work stretch. Nudge keeps the current session and up to 31 daily activity summaries. It also saves your preferences, custom app categories, and notes waiting for a reminder.</p>
+        <p>These live in <code>activity.json</code> and <code>settings.json</code> in the app’s local configuration folder. They are ordinary local files and may be included in backups you make of your Mac.</p>
+      </section>
+      <section aria-labelledby="control">
+        <h2 id="control">You’re in control</h2>
+        <p>You can change app categories, reminder timing, and launch-at-login behavior in Settings. Quit Nudge to stop its activity monitoring.</p>
+        <p>To remove saved activity, quit the app and remove <code>activity.json</code> from <code>~/Library/Application Support/com.eb.nudge/</code>. Removing <code>settings.json</code> also resets preferences, custom categories, and pending notes. The app creates fresh files when you next use it.</p>
+      </section>
+      <section aria-labelledby="website">
+        <h2 id="website">About this website</h2>
+        <p>The interactive demo runs in your browser. It cannot see which apps are open on your Mac or read your desktop activity. This site does not include analytics scripts, advertising trackers, account forms, or cookies set by Nudge.</p>
+        <p>Your selected demo companion and mood are saved in browser session storage for this tab. This preference contains no desktop activity and is cleared when the tab session ends.</p>
+        <p>The site is hosted by Vercel, which processes normal website requests and may receive technical information such as your IP address and browser details. See <a href="https://vercel.com/legal/privacy-notice" target="_blank" rel="noopener noreferrer">Vercel’s privacy notice</a> for its practices.</p>
+        <p>Downloads and source-code links take you to GitHub, where GitHub’s own privacy practices apply. If you submit a public issue, share only information you are comfortable making public.</p>
+      </section>
+      <section aria-labelledby="questions">
+        <h2 id="questions">Questions about privacy?</h2>
+        <p>The source is available to inspect. You can also raise a question through the project’s GitHub issues.</p>
+        <a class="button" href="https://github.com/B-Eddie/nudge/issues" target="_blank" rel="noopener noreferrer">Ask on GitHub <span aria-hidden="true">&nbsp;↗</span></a>
+      </section>
+    </main>
+    <footer>
+      <p>A little company. A little balance.</p>
+      <a href="./">Back to Nudge</a>
+    </footer>
+  </body>
+</html>
