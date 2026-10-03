@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { LuX } from "react-icons/lu";
+import { useDialogFocus } from "../hooks/useDialogFocus";
 import "./SummaryPanel.css";
 
 // stats from memory for current session
@@ -65,14 +66,14 @@ interface SummaryPanelProps {
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  "Developer Tools": "#7aa2f7",
-  Productivity: "#a2cc3a",
-  "Social Networking": "#f7768e",
-  Games: "#bb9af7",
-  Entertainment: "#ff9e64",
-  Video: "#e0af68",
-  Music: "#7dcfff",
-  Unknown: "#9aa0a6",
+  "Developer Tools": "#7998d8",
+  Productivity: "#8ca78b",
+  "Social Networking": "#c991a7",
+  Games: "#a398cb",
+  Entertainment: "#d7a080",
+  Video: "#c3a270",
+  Music: "#77a8b7",
+  Unknown: "#929aa6",
 };
 const FALLBACK_COLOR = "#9aa0a6";
 const BAR_CELLS = 14;
@@ -190,7 +191,8 @@ function CategoryBreakdown({
   if (entries.length === 0) {
     return (
       <p className="summary-hint">
-        Nothing tracked yet. Your stats will show here as you use computer.
+        Your day is just getting started. Activity appears here as you use
+        your computer.
       </p>
     );
   }
@@ -232,17 +234,8 @@ export function SummaryPanel({
   onClose,
 }: SummaryPanelProps) {
   const [tab, setTab] = useState<"today" | "week">("today");
-
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  const tabListRef = useRef<HTMLDivElement>(null);
+  const panelRef = useDialogFocus(onClose, ".summary-close");
 
   const categories = useMemo(() => {
     const entries = Object.entries(stats.categorySeconds).sort(
@@ -269,6 +262,15 @@ export function SummaryPanel({
     if (e.target === e.currentTarget) onClose();
   };
 
+  const handleTabKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+    e.preventDefault();
+    const nextTab = e.key === "Home" ? "today" : e.key === "End" ? "week"
+      : tab === "today" ? "week" : "today";
+    setTab(nextTab);
+    tabListRef.current?.querySelector<HTMLButtonElement>(`#summary-tab-${nextTab}`)?.focus();
+  };
+
   return (
     <div
       className="summary-backdrop interactive"
@@ -276,78 +278,65 @@ export function SummaryPanel({
       role="presentation"
     >
       <div
+        ref={panelRef}
         className="summary-panel"
         role="dialog"
+        aria-modal="true"
         aria-labelledby="summary-title"
+        tabIndex={-1}
       >
         <header className="summary-header">
-          <h2 id="summary-title">Activity Report</h2>
+          <div>
+            <p className="summary-eyebrow">Your time, in view</p>
+            <h2 id="summary-title">Activity</h2>
+          </div>
           <button
             type="button"
             className="summary-close"
             onClick={onClose}
             aria-label="Close activity report"
           >
-            <LuX size={15} />
+            <LuX size={18} aria-hidden="true" />
           </button>
         </header>
 
-        <div className="summary-tabs" role="tablist" aria-label="Report range">
+        <div ref={tabListRef} className="summary-tabs" role="tablist" aria-label="Report range" onKeyDown={handleTabKeyDown}>
           <button
             type="button"
             role="tab"
+            id="summary-tab-today"
             aria-selected={tab === "today"}
+            aria-controls="summary-content"
+            tabIndex={tab === "today" ? 0 : -1}
             className={`summary-tab ${tab === "today" ? "active" : ""}`}
             onClick={() => setTab("today")}
           >
-            today
+            Today
           </button>
           <button
             type="button"
             role="tab"
+            id="summary-tab-week"
             aria-selected={tab === "week"}
+            aria-controls="summary-content"
+            tabIndex={tab === "week" ? 0 : -1}
             className={`summary-tab ${tab === "week" ? "active" : ""}`}
             onClick={() => setTab("week")}
           >
-            week
+            Past week
           </button>
         </div>
 
         {tab === "today" ? (
-          <div className="summary-body">
+          <div className="summary-body" role="tabpanel" id="summary-content" aria-labelledby="summary-tab-today" tabIndex={0}>
             {categories.entries.length !== 0 ? (
               <>
-                <h3 className="summary-persona">
-                  {(() => {
-                    const [topCategory] = categories.entries[0] || [];
-                    // titles based on top category
-                    switch (topCategory) {
-                      case "Developer Tools":
-                        return "Bug Wrangler";
-                      case "Productivity":
-                        return "Locked In";
-                      case "Social Networking":
-                        return "Chronically Online";
-                      case "Games":
-                        return "Hardstuck addict";
-                      case "Entertainment":
-                        return "Binge Mode";
-                      case "Video":
-                        return "Autoplay Victim";
-                      case "Music":
-                        return "DJ of procrastination";
-                      case "Unknown":
-                        return "Mystery Explorer";
-                      default:
-                        return `${topCategory} Enjoyer`;
-                    }
-                  })()}
-                </h3>
+                <h3 className="summary-persona">Your day, at a glance</h3>
                 <div className="summary-persona-row">
                   <span className="summary-persona-chip">
                     {categories.entries[0] && categories.entries[0][0]}
                   </span>
-                  <span className="summary-persona-caption">top category</span>
+                  <span className="summary-persona-caption">Most used</span>
                 </div>
               </>
             ) : null}
@@ -362,7 +351,7 @@ export function SummaryPanel({
               <div className="summary-card">
                 <span className="summary-card-value">
                   {onBreak
-                    ? "zzz"
+                    ? "Resting"
                     : formatDuration(stats.currentStretchSeconds)}
                 </span>
                 <span className="summary-card-label">since break</span>
@@ -397,7 +386,7 @@ export function SummaryPanel({
                   ))}
                 </div>
                 <span className="energy-label">
-                  {onBreak ? "recharging..." : `${energy}/${ENERGY_CELLS}`}
+                  {onBreak ? "Recharging" : `${energy}/${ENERGY_CELLS}`}
                 </span>
               </div>
             </section>
@@ -411,21 +400,21 @@ export function SummaryPanel({
             </section>
 
             <section className="summary-section">
-              <h3 className="summary-section-title">Log</h3>
+              <h3 className="summary-section-title">Day details</h3>
               <ul className="summary-log">
-                <li>session started at {formatClock(stats.startedAt)}</li>
+                <li>Started at {formatClock(stats.startedAt)}</li>
                 {topCategory && activeSeconds > 0 && (
                   <li>
-                    top category: {topCategory[0].toLowerCase()} (
+                    Most used: {topCategory[0]} (
                     {Math.round((topCategory[1] / activeSeconds) * 100)}%)
                   </li>
                 )}
                 <li>
-                  longest focus streak:{" "}
+                  Longest active stretch:{" "}
                   {formatDuration(stats.longestStretchSeconds)}
                 </li>
                 <li>
-                  rested {formatDuration(stats.restSeconds)} across{" "}
+                  Rested {formatDuration(stats.restSeconds)} across{" "}
                   {stats.breaksTaken}{" "}
                   {stats.breaksTaken === 1 ? "break" : "breaks"}
                 </li>
@@ -433,14 +422,14 @@ export function SummaryPanel({
                   <li className="summary-log-warn">
                     {stats.breaksInterrupted}{" "}
                     {stats.breaksInterrupted === 1 ? "break" : "breaks"} cut
-                    short. stay off the keyboard next time!
+                    short when activity resumed.
                   </li>
                 )}
               </ul>
             </section>
           </div>
         ) : (
-          <div className="summary-body">
+          <div className="summary-body" role="tabpanel" id="summary-content" aria-labelledby="summary-tab-week" tabIndex={0}>
             <div className="summary-cards">
               <div className="summary-card">
                 <span className="summary-card-value">
@@ -492,7 +481,7 @@ export function SummaryPanel({
                       <span className="week-day-time">
                         {day.activeSeconds > 0
                           ? formatDuration(day.activeSeconds)
-                          : "—"}
+                          : "0m"}
                       </span>
                     </li>
                   );
@@ -506,24 +495,24 @@ export function SummaryPanel({
             </section>
 
             <section className="summary-section">
-              <h3 className="summary-section-title">Log</h3>
+              <h3 className="summary-section-title">Week details</h3>
               <ul className="summary-log">
-                <li>active on {week.activeDayCount} of the last 7 days</li>
+                <li>Active on {week.activeDayCount} of the last 7 days</li>
                 {week.bestDay && (
                   <li>
-                    busiest day:{" "}
+                    Most active day:{" "}
                     {week.bestDay.isToday ? "today" : week.bestDay.label} (
                     {formatDuration(week.bestDay.activeSeconds)})
                   </li>
                 )}
                 {week.activeDayCount > 0 && (
                   <li>
-                    daily average:{" "}
+                    Daily average:{" "}
                     {formatDuration(week.total / week.activeDayCount)}
                   </li>
                 )}
                 <li>
-                  longest focus streak:{" "}
+                  Longest active stretch:{" "}
                   {formatDuration(week.longestStretchSeconds)}
                 </li>
                 {week.breaksInterrupted > 0 && (

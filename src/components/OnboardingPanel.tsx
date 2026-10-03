@@ -1,5 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { PiArrowRightBold, PiCheckBold } from "react-icons/pi";
+import { useDialogFocus } from "../hooks/useDialogFocus";
 import type {
   CategoryOption,
   MonitorOption,
@@ -13,6 +15,7 @@ import {
   shortcutFromKeyboardEvent,
 } from "../types/settings";
 import { CompanionPicker, ThemePicker } from "./AppearancePicker";
+import { PixelPetSprite } from "./PixelPetSprite";
 import "./OnboardingPanel.css";
 
 interface OnboardingPanelProps {
@@ -39,11 +42,16 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
   const [pendingShortcut, setPendingShortcut] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const panelRef = useDialogFocus<HTMLDivElement>(undefined);
+  const titleRef = useRef<HTMLHeadingElement>(null);
   const pendingShortcutRef = useRef<string | null>(null);
   pendingShortcutRef.current = pendingShortcut;
 
   useEffect(() => {
     let cancelled = false;
+    setLoadError(null);
     void Promise.all([
       invoke<Settings>("get_settings"),
       fetchMonitorOptions(),
@@ -55,11 +63,20 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
         setMonitorOptions(monitors);
         setCategoryOptions(categories);
       })
-      .catch((err) => console.error("Failed to load onboarding data:", err));
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("Failed to load onboarding data:", err);
+        setLoadError("Couldn't load your setup. Please try again.");
+      });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadAttempt]);
+
+  const draftLoaded = draft !== null;
+  useEffect(() => {
+    if (draftLoaded) titleRef.current?.focus({ preventScroll: true });
+  }, [step, draftLoaded]);
 
   useEffect(() => {
     if (!recordingShortcut) return;
@@ -139,17 +156,44 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
     setStep((s) => Math.max(0, s - 1));
   }, []);
 
-  if (!draft) return null;
+  if (!draft) {
+    return (
+      <div className="onboarding-backdrop interactive" role="presentation">
+        <div ref={panelRef} className="onboarding-panel" role="dialog" aria-modal="true" aria-labelledby="onboarding-title" tabIndex={-1}>
+          <header className="onboarding-header">
+            <p className="onboarding-eyebrow">A little company</p>
+            <h2 id="onboarding-title">Welcome to Nudge</h2>
+          </header>
+          <div className="onboarding-body">
+            {loadError ? (
+              <p className="onboarding-error" role="alert">{loadError}</p>
+            ) : (
+              <p className="onboarding-hint" role="status">Getting your setup ready…</p>
+            )}
+          </div>
+          {loadError && (
+            <footer className="onboarding-footer">
+              <button type="button" className="onboarding-btn primary" onClick={() => setLoadAttempt(attempt => attempt + 1)}>Try again</button>
+            </footer>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   const stepId = STEPS[step];
   const isLast = step === STEPS.length - 1;
 
   return (
     <div className="onboarding-backdrop interactive" role="presentation">
-      <div className="onboarding-panel" role="dialog" aria-labelledby="onboarding-title">
+      <div ref={panelRef} className="onboarding-panel" role="dialog" aria-modal="true" aria-labelledby="onboarding-title" tabIndex={-1}>
         <header className="onboarding-header">
           <div>
-            <h2 id="onboarding-title">
+            <div className="onboarding-heading-meta">
+              <p className="onboarding-eyebrow">Make yourself at home</p>
+              <p className="onboarding-progress">{step + 1} / {STEPS.length}</p>
+            </div>
+            <h2 ref={titleRef} id="onboarding-title" tabIndex={-1}>
               {stepId === "welcome"
                 ? "Welcome to Nudge"
                 : stepId === "companion"
@@ -164,17 +208,21 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
                           ? "Find your rhythm"
                           : stepId === "categories"
                             ? "Check your app list"
-                            : "You’re all set"}
+                            : "Ready when you are"}
             </h2>
-            <p className="onboarding-progress">
-              Step {step + 1} of {STEPS.length}
-            </p>
+            <div className="onboarding-progress-track" role="progressbar" aria-label="Setup progress" aria-valuemin={0} aria-valuemax={STEPS.length} aria-valuenow={step + 1} aria-valuetext={`Step ${step + 1} of ${STEPS.length}`}>
+              {STEPS.map((id, index) => <span key={id} className={index <= step ? "complete" : undefined} />)}
+            </div>
           </div>
         </header>
 
         <div className="onboarding-body">
           {stepId === "welcome" && (
             <>
+              <div className="onboarding-companion-scene" aria-hidden="true">
+                <PixelPetSprite character={draft.character ?? "crab"} pose="happy" />
+                <span>A little company. A better workday.</span>
+              </div>
               <p className="onboarding-lead">
                 A small companion keeps your screen time in view and reminds
                 you to step away when you need a breather.
@@ -266,6 +314,9 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
                 <button
                   type="button"
                   className={`onboarding-shortcut ${recordingShortcut ? "recording" : ""}`}
+                  aria-label="Record hide character shortcut"
+                  aria-pressed={recordingShortcut}
+                  aria-describedby="onboarding-shortcut-hint"
                   onClick={() => {
                     if (!recordingShortcut) {
                       setPendingShortcut(null);
@@ -283,7 +334,7 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
                       : "Hold a key combo…"
                     : formatShortcut(draft.pause_shortcut)}
                 </button>
-                <p className="onboarding-subhint">
+                <p className="onboarding-subhint" id="onboarding-shortcut-hint">
                   {recordingShortcut
                     ? "Hold your combo, then press Esc to keep it."
                     : "Click the box, hold a combo, then press Esc."}
@@ -352,13 +403,13 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
                 <ul className="onboarding-app-list">
                   {sortedApps.slice(0, 8).map(([bundleId, entry]) => (
                     <li key={bundleId} className="onboarding-app-row">
-                      <span className="onboarding-app-name">{entry.name}</span>
+                      <span className="onboarding-app-name">{entry.name.trim() || bundleId}</span>
                       <select
                         value={entry.category}
                         onChange={(e) =>
                           setAppCategory(bundleId, e.target.value)
                         }
-                        aria-label={`Category for ${entry.name}`}
+                        aria-label={`Category for ${entry.name.trim() || bundleId}`}
                       >
                         {categoryOptions.map((opt) => (
                           <option key={opt.value} value={opt.value}>
@@ -380,7 +431,10 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
 
           {stepId === "done" && (
             <>
-              <p className="onboarding-lead">You&apos;re all set!</p>
+              <div className="onboarding-companion-scene" aria-hidden="true">
+                <PixelPetSprite character={draft.character ?? "crab"} pose="delighted" />
+                <span>Your companion is ready.</span>
+              </div>
               <p className="onboarding-hint">
                 Timed nudges wait until you return from an idle stretch. Choose
                 a reset when one fits, or snooze it for later from the nudge.
@@ -395,11 +449,12 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
               {saveError}
             </p>
           )}
-          {step > 0 && !isLast && (
+          {step > 0 && (
             <button
               type="button"
               className="onboarding-btn secondary"
               onClick={back}
+              disabled={saving}
             >
               Back
             </button>
@@ -411,6 +466,7 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
             disabled={saving}
           >
             {isLast ? (saving ? "Starting…" : "Get started") : "Continue"}
+            {isLast ? <PiCheckBold size={14} aria-hidden="true" /> : <PiArrowRightBold size={14} aria-hidden="true" />}
           </button>
         </footer>
       </div>

@@ -7,6 +7,7 @@ import {
 } from "react-icons/lu";
 import type { IconType } from "react-icons";
 import { BREAK_ROUTINES, type BreakRoutine } from "../types/breakRoutines";
+import { useDialogFocus } from "../hooks/useDialogFocus";
 import "./BreakGuidePanel.css";
 
 interface BreakGuidePanelProps {
@@ -26,13 +27,19 @@ function durationLabel(seconds: number): string {
 }
 
 export function BreakGuidePanel({ onClose, onStart }: BreakGuidePanelProps) {
+  const dialogRef = useDialogFocus<HTMLElement>(onClose, ".break-guide-close");
   return (
-    <div className="break-guide-backdrop">
+    <div className="break-guide-backdrop interactive" onClick={event => {
+      if (event.target === event.currentTarget) onClose();
+    }}>
       <section
+        ref={dialogRef}
         className="break-guide-panel"
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="break-guide-title"
+        aria-describedby="break-guide-intro"
       >
         <header className="break-guide-header">
           <div>
@@ -49,9 +56,8 @@ export function BreakGuidePanel({ onClose, onStart }: BreakGuidePanelProps) {
           </button>
         </header>
 
-        <p className="break-guide-intro">
-          Pick what feels useful right now. These are gentle suggestions, not
-          another checklist.
+        <p id="break-guide-intro" className="break-guide-intro">
+          Pick a pause that feels useful. Your companion will keep you company.
         </p>
 
         <div className="break-routine-list">

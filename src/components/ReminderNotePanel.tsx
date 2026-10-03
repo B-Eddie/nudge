@@ -2,12 +2,14 @@ import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useState } from "react";
 import { LuX } from "react-icons/lu";
 import "./SettingsPanel.css";
+import { useDialogFocus } from "../hooks/useDialogFocus";
 
 interface ReminderNotePanelProps {
   onClose: () => void;
 }
 
 export function ReminderNotePanel({ onClose }: ReminderNotePanelProps) {
+  const dialogRef = useDialogFocus(onClose, '[aria-label="New reminder note"]');
   const [noteInput, setNoteInput] = useState("");
   const [queued, setQueued] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -28,17 +30,6 @@ export function ReminderNotePanel({ onClose }: ReminderNotePanelProps) {
   useEffect(() => {
     refresh();
   }, [refresh]);
-
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
 
   const addNote = useCallback(async () => {
     const text = noteInput.trim();
@@ -82,8 +73,11 @@ export function ReminderNotePanel({ onClose }: ReminderNotePanelProps) {
       role="presentation"
     >
       <div
+        ref={dialogRef}
         className="settings-panel"
+        tabIndex={-1}
         role="dialog"
+        aria-modal="true"
         aria-labelledby="reminder-note-title"
       >
         <header className="settings-header">
@@ -104,7 +98,7 @@ export function ReminderNotePanel({ onClose }: ReminderNotePanelProps) {
             then move on to the one after that.
           </p>
 
-          {error && <p className="settings-hint settings-error">{error}</p>}
+          {error && <p className="settings-hint settings-error" role="alert">{error}</p>}
 
           <div className="settings-note-add">
             <input

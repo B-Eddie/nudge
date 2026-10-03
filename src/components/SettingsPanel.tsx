@@ -282,7 +282,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
           <section className="settings-section settings-appearance">
             <h3 className="settings-section-title">Appearance</h3>
             <p className="settings-hint">
-              Soft paper for daytime or a quiet forest after dark.
+                Clean whites and soft blues, or a quieter look after dark.
             </p>
             <ThemePicker
               value={draft.theme}

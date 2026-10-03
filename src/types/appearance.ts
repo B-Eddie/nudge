@@ -50,13 +50,13 @@ export const COMPANIONS: CompanionOption[] = [
 export const THEMES: { id: ThemeId; name: string; description: string }[] = [
   {
     id: "bamboo",
-    name: "Bamboo day",
-    description: "Warm paper and soft moss",
+    name: "Cloud day",
+    description: "Clean whites and soft sky blue",
   },
   {
     id: "night_garden",
-    name: "Forest night",
-    description: "Deep green with quiet sage",
+    name: "Quiet night",
+    description: "Cool charcoal and gentle blue",
   },
 ];
 

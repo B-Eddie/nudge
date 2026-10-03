@@ -5,22 +5,24 @@
   display: grid;
   place-items: center;
   padding: 16px;
-  background: rgba(31, 34, 27, 0.16);
+  background: transparent;
 }
 
 .break-guide-panel {
   width: min(460px, 100%);
-  max-height: min(88dvh, 620px);
+  max-height: calc(100dvh - 32px);
   display: flex;
   flex-direction: column;
   overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--panel-border) transparent;
   padding: 20px;
   color: var(--text);
   font-family: var(--font-body);
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
-  border-radius: 16px;
-  box-shadow: var(--panel-shadow);
+  border-radius: var(--panel-radius);
+  box-shadow: none;
   animation: panel-in 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -32,40 +34,48 @@
 }
 
 .break-guide-eyebrow {
-  color: var(--accent-strong);
-  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-size: 0.81rem;
   font-weight: 650;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
 }
 
 .break-guide-header h2 {
-  margin: 4px 0 0;
+  margin: 7px 0 0;
   color: var(--text-strong);
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 1.55rem;
-  line-height: 1.12;
+  font-weight: 650;
+  letter-spacing: -0.045em;
+  line-height: 1.15;
 }
 
 .break-guide-close {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   display: grid;
   place-items: center;
   flex: 0 0 auto;
   padding: 0;
   color: var(--text-dim);
-  background: var(--surface-raised);
-  border: 1px solid var(--panel-border);
-  border-radius: 9px;
+  background: var(--surface);
+  border: 1px solid transparent;
+  border-radius: 50%;
   cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.break-guide-close:hover {
+  color: var(--text-strong);
+  background: var(--surface-raised);
 }
 
 .break-guide-intro {
   max-width: 42ch;
-  margin: 11px 0 16px;
+  margin: 12px 0 16px;
   color: var(--text-dim);
-  font-size: 0.9rem;
-  line-height: 1.45;
+  font-size: 0.875rem;
+  line-height: 1.5;
 }
 
 .break-routine-list {
@@ -75,17 +85,18 @@
 
 .break-routine-option {
   min-width: 0;
+  min-height: 72px;
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr) auto;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 11px;
-  padding: 11px 12px;
+  gap: 10px;
+  padding: 12px;
   color: var(--text);
   text-align: left;
   font: inherit;
   background: var(--surface);
-  border: 1px solid var(--panel-border);
-  border-radius: 11px;
+  border: 1px solid transparent;
+  border-radius: 18px;
   cursor: pointer;
   transition:
     background-color 140ms ease,
@@ -103,13 +114,13 @@
 }
 
 .break-routine-icon {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   display: grid;
   place-items: center;
   color: var(--accent-strong);
-  background: color-mix(in srgb, var(--accent) 15%, var(--panel-bg));
-  border-radius: 9px;
+  background: var(--panel-bg);
+  border-radius: 50%;
 }
 
 .break-routine-copy {
@@ -121,34 +132,34 @@
 
 .break-routine-title {
   color: var(--text-strong);
-  font-size: 0.92rem;
+  font-size: 0.9rem;
   font-weight: 650;
 }
 
 .break-routine-description {
-  color: var(--text-muted);
-  font-size: 0.78rem;
-  line-height: 1.35;
+  color: var(--text-dim);
+  font-size: 0.81rem;
+  line-height: 1.4;
 }
 
 .break-routine-duration {
-  align-self: start;
-  padding: 3px 6px;
+  align-self: center;
+  padding: 5px 9px;
   color: var(--text-dim);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  background: var(--surface-raised);
-  border-radius: 5px;
+  background: var(--panel-bg);
+  border-radius: 999px;
 }
 
 .break-guide-footer {
   display: flex;
   align-items: center;
   gap: 7px;
-  margin-top: 14px;
+  margin-top: 16px;
   color: var(--text-muted);
-  font-size: 0.78rem;
+  font-size: 0.81rem;
 }
 
 .break-guide-footer span {
@@ -158,6 +169,12 @@
 .break-guide-panel :focus-visible {
   outline: 2px solid var(--focus-border);
   outline-offset: 2px;
+}
+
+.break-guide-panel::-webkit-scrollbar { width: 6px; }
+.break-guide-panel::-webkit-scrollbar-thumb {
+  background: var(--panel-border);
+  border-radius: 999px;
 }
 
 @media (max-width: 380px) {

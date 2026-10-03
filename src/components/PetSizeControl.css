@@ -1,10 +1,12 @@
-.pet-size-control { margin-top: 16px; }
-.pet-size-heading { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.pet-size-control { margin-top: 6px; }
+.pet-size-heading { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 13px; }
 .pet-size-heading label { flex: 1; font-weight: 600; }
-.pet-size-heading output { color: var(--text-dim); font-variant-numeric: tabular-nums; }
-.pet-size-heading button { min-height: 26px; padding: 3px 8px; border: 1px solid var(--panel-border); border-radius: 6px; background: var(--surface-raised); color: var(--text); font: 12px var(--font-body); cursor: pointer; }
+.pet-size-heading output { color: var(--text-dim); font-size: 12px; font-variant-numeric: tabular-nums; }
+.pet-size-heading button { min-height: 30px; padding: 5px 10px; border: none; border-radius: 999px; background: var(--surface-raised); color: var(--text); font: 500 11px var(--font-body); cursor: pointer; transition: background .16s; }
+.pet-size-heading button:hover:not(:disabled) { background: var(--surface-raised-hover); }
 .pet-size-heading button:disabled { opacity: .45; cursor: default; }
-.pet-size-preview { display: flex; justify-content: center; align-items: flex-end; height: 190px; margin: 8px 0; border-radius: 10px; background: var(--surface-raised); }
+.pet-size-preview { display: flex; justify-content: center; align-items: flex-end; height: 190px; margin: 10px 0 5px; border-radius: 18px; background: var(--surface-raised); }
 .pet-size-preview .pixel-pet-sprite { width: 100%; height: 100%; }
-.pet-size-control input[type="range"] { display: block; width: 100%; min-height: 26px; margin: 0; accent-color: var(--accent-strong); cursor: ew-resize; }
-.pet-size-scale { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-dim); }
+.pet-size-control input[type="range"] { display: block; width: 100%; min-height: 32px; margin: 0; accent-color: var(--accent-strong); cursor: ew-resize; }
+.pet-size-heading button:focus-visible, .pet-size-control input:focus-visible { outline: 2px solid var(--focus-border); outline-offset: 3px; }
+.pet-size-scale { display: flex; justify-content: space-between; margin-bottom: 9px; font-size: 11px; color: var(--text-dim); }

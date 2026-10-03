@@ -1,4 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { isDesktopRuntime } from "../types/runtime";
 import "./ErrorBoundary.css";
 
 interface ErrorBoundaryProps {
@@ -25,6 +27,9 @@ export class ErrorBoundary extends Component<
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("nudge crashed:", error, info.componentStack);
+    if (isDesktopRuntime()) {
+      void invoke("set_click_through", { passThrough: false }).catch(console.error);
+    }
   }
 
   private handleReload = () => {
@@ -35,9 +40,9 @@ export class ErrorBoundary extends Component<
     if (!this.state.error) return this.props.children;
 
     return (
-      <div className="crash-backdrop interactive" role="alertdialog">
+      <div className="crash-backdrop interactive" role="alertdialog" aria-labelledby="crash-title">
         <div className="crash-panel">
-          <h2 className="crash-title">nudge hit a snag</h2>
+          <h2 id="crash-title" className="crash-title">nudge hit a snag</h2>
           <p className="crash-message">
             Something went wrong while drawing your companion. Your activity
             data is safe — reloading usually fixes it.

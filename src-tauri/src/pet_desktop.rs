@@ -317,7 +317,7 @@ pub fn pet_drag(
     let window = app
         .get_webview_window("main")
         .ok_or("main window missing")?;
-    if *app.state::<crate::AppState>().settings_open.lock().unwrap() {
+    if phase != "cancel" && *app.state::<crate::AppState>().settings_open.lock().unwrap() {
         return Ok(());
     }
     #[cfg(target_os = "macos")]
@@ -325,6 +325,13 @@ pub fn pet_drag(
         let w = window.clone();
         window
             .run_on_main_thread(move || {
+                // A pet command queued before opening a dialog must not move it.
+                // Cancellation still runs so a drag cannot resume after closing.
+                if phase != "cancel"
+                    && *w.app_handle().state::<crate::AppState>().settings_open.lock().unwrap()
+                {
+                    return;
+                }
                 mac::drag(
                     &w,
                     &phase,

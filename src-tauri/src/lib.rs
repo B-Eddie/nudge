@@ -56,11 +56,15 @@ fn set_click_through(app: tauri::AppHandle, pass_through: bool) -> Result<(), St
     let window = app
         .get_webview_window("main")
         .ok_or_else(|| "main window not found".to_string())?;
+    let generation = app.state::<AppState>().next_input_request();
 
     let w = window.clone();
     window
         .run_on_main_thread(move || {
-            set_ignores_mouse_events(&w, pass_through);
+            let input = w.app_handle().state::<AppState>();
+            if let Some(ignore) = input.queued_click_through(generation, pass_through) {
+                set_ignores_mouse_events(&w, ignore);
+            }
         })
         .map_err(|e| e.to_string())?;
     Ok(())

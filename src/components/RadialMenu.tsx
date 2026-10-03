@@ -1,6 +1,4 @@
-import { FaPause, FaChartSimple, FaNoteSticky, FaCookieBite, FaFutbol } from "react-icons/fa6";
-import { FaPlay } from "react-icons/fa";
-import { IoMdSettings } from "react-icons/io";
+import { PiPause, PiChartBar, PiNotePencil, PiCookie, PiSoccerBall, PiPlay, PiGear } from "react-icons/pi";
 import { useEffect, useRef } from "react";
 
 interface RadialMenuProps {
@@ -22,14 +20,25 @@ export function RadialMenu({ position, break: resting, open, onAction, onNote, o
   }, [open]);
   if (!open) return null;
   const actions = [
-    { action: "pet-play", Icon: FaFutbol, label: "Play with pet" },
-    { action: "pet-treat", Icon: FaCookieBite, label: "Give a treat" },
-    { action: resting ? "endbreak" : "break", Icon: resting ? FaPlay : FaPause, label: resting ? "End break" : "Take a break" },
-    { action: "summary", Icon: FaChartSimple, label: "Activity summary" },
-    { action: "settings", Icon: IoMdSettings, label: "Settings" },
-    { action: "note", Icon: FaNoteSticky, label: "Reminder note" },
+    { action: "pet-play", Icon: PiSoccerBall, label: "Play with pet" },
+    { action: "pet-treat", Icon: PiCookie, label: "Give a treat" },
+    { action: resting ? "endbreak" : "break", Icon: resting ? PiPlay : PiPause, label: resting ? "End break" : "Take a break" },
+    { action: "summary", Icon: PiChartBar, label: "Activity summary" },
+    { action: "settings", Icon: PiGear, label: "Settings" },
+    { action: "note", Icon: PiNotePencil, label: "Reminder note" },
   ];
-  return <div ref={menu} className={`pet-actions pet-actions-${position} interactive`} data-pet-popover role="group" aria-label="Companion actions" onKeyDown={e => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); onClose(); } }}>
-    {actions.map(({ action, Icon, label }) => <button key={action} onClick={() => { onClose(); if (action === "note") onNote(); else onAction(action); }}><Icon aria-hidden="true" size={13}/><span>{label}</span></button>)}
+  return <div ref={menu} className={`pet-actions pet-actions-${position} interactive`} data-pet-popover role="group" aria-label="Companion actions" onKeyDown={e => {
+    if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); onClose(); return; }
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) return;
+    const controls = [...e.currentTarget.querySelectorAll<HTMLButtonElement>("button")];
+    const current = controls.indexOf(document.activeElement as HTMLButtonElement);
+    if (current < 0) return;
+    e.preventDefault();
+    const next = e.key === "Home" ? 0 : e.key === "End" ? controls.length - 1
+      : (current + (e.key === "ArrowUp" ? -1 : 1) + controls.length) % controls.length;
+    controls[next]?.focus();
+  }}>
+    <span className="pet-actions-label">Your companion</span>
+    {actions.map(({ action, Icon, label }) => <button type="button" key={action} onClick={() => { onClose(); if (action === "note") onNote(); else onAction(action); }}><Icon aria-hidden="true" size={17}/><span>{label}</span></button>)}
   </div>;
 }

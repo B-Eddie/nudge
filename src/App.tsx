@@ -321,7 +321,14 @@ function App() {
       syncHideOverlay();
       try {
         await invoke("open_settings");
-        markOpen();
+        flushSync(() => {
+          setSettingsOpen(false);
+          setSummaryOpen(false);
+          setBreakGuideOpen(false);
+          setOnboardingOpen(false);
+          setNoteOpen(false);
+          markOpen();
+        });
       } catch (err) {
         console.error(err);
       } finally {
@@ -885,7 +892,7 @@ function App() {
   const petAnchor = usePetLayout(position || "bl", overlayHidden || !petSettingsLoaded, characterSize, petMonitor);
   const petFacingPosition = petAnchor ? (petAnchor.left + characterSize / 2 > innerWidth / 2 ? "br" : "bl") : position || "bl";
   const { hovered, barOpen, closeBar, toggleBar, dragging, petted, attention, pet } = useCharacterInteraction(
-    panelOpen,
+    panelOpen || overlaySuppressed,
     handleAction,
     toggleNote,
     characterHidden || overlaySuppressed,

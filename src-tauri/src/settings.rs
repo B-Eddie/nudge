@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
@@ -42,6 +43,29 @@ fn default_reminder_snooze_mins() -> u32 {
 pub struct AppState {
     pub settings_open: Mutex<bool>,
     pub pet_position: Mutex<Option<PhysicalPosition<i32>>>,
+    input_request_generation: AtomicU64,
+}
+
+impl AppState {
+    pub(crate) fn set_panel_open(&self, open: bool) {
+        let mut panel_open = self.settings_open.lock().unwrap();
+        *panel_open = open;
+        // A panel transition supersedes cursor events already queued on AppKit.
+        self.input_request_generation.fetch_add(1, Ordering::SeqCst);
+    }
+
+    pub(crate) fn next_input_request(&self) -> u64 {
+        self.input_request_generation.fetch_add(1, Ordering::SeqCst) + 1
+    }
+
+    pub(crate) fn queued_click_through(&self, generation: u64, requested: bool) -> Option<bool> {
+        let panel_open = self.settings_open.lock().unwrap();
+        if generation != self.input_request_generation.load(Ordering::SeqCst) {
+            return None;
+        }
+        // Recheck at execution time: old pet hit tests must never disable a dialog.
+        Some(requested && !*panel_open)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -344,7 +368,7 @@ pub fn open_settings(app: AppHandle, state: State<AppState>) -> Result<(), Strin
     if !*state.settings_open.lock().unwrap() {
         *state.pet_position.lock().unwrap() = window.outer_position().ok();
     }
-    *state.settings_open.lock().unwrap() = true;
+    state.set_panel_open(true);
 
     #[cfg(target_os = "macos")]
     super::set_ignores_mouse_events(&window, false);
@@ -375,7 +399,7 @@ pub fn close_settings(app: AppHandle, state: State<AppState>) -> Result<(), Stri
         .get_webview_window("main")
         .ok_or_else(|| "main window not found".to_string())?;
 
-    *state.settings_open.lock().unwrap() = false;
+    state.set_panel_open(false);
 
     window
         .set_size(LogicalSize::new(OVERLAY_WIDTH, OVERLAY_HEIGHT))
@@ -444,7 +468,41 @@ pub fn pop_pending_note(app: AppHandle) -> Result<Option<String>, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::Settings;
+    use super::{AppState, Settings};
+
+    #[test]
+    fn opening_a_panel_discards_queued_pet_click_through() {
+        let state = AppState::default();
+        let before_open = state.next_input_request();
+        state.set_panel_open(true);
+        assert_eq!(state.queued_click_through(before_open, true), None);
+
+        let during_panel = state.next_input_request();
+        assert_eq!(state.queued_click_through(during_panel, true), Some(false));
+    }
+
+    #[test]
+    fn latest_cursor_request_supersedes_a_stale_queued_request() {
+        let state = AppState::default();
+        let older = state.next_input_request();
+        let latest = state.next_input_request();
+        assert_eq!(state.queued_click_through(older, true), None);
+        assert_eq!(state.queued_click_through(latest, false), Some(false));
+    }
+
+    #[test]
+    fn closing_a_panel_restores_pet_hit_testing_without_old_capture_requests() {
+        let state = AppState::default();
+        state.set_panel_open(true);
+        let during_panel = state.next_input_request();
+        state.set_panel_open(false);
+        assert_eq!(state.queued_click_through(during_panel, false), None);
+
+        let outside_pet = state.next_input_request();
+        assert_eq!(state.queued_click_through(outside_pet, true), Some(true));
+        let over_pet = state.next_input_request();
+        assert_eq!(state.queued_click_through(over_pet, false), Some(false));
+    }
 
     #[test]
     fn legacy_settings_keep_default_size_and_saved_sizes_round_trip() {
