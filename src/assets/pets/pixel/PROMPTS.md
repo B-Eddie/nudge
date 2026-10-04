@@ -1,6 +1,10 @@
 # Pixel companion sprite sheets
 
-Generated using the built-in ImageGen tool. Each transparent atlas contains sixteen expressions and activity poses. Original PNGs are preserved; the app samples atlas cells onto a 60-pixel canvas with nearest-neighbor rendering and a shared baseline.
+Generated using the built-in ImageGen tool. Each transparent atlas contains sixteen expressions and activity poses. Original PNGs are preserved; the app isolates each silhouette and normalizes it onto a 60-pixel canvas with nearest-neighbor rendering and a shared baseline.
+
+Runtime animation is articulated in code rather than requiring another atlas for each action. `petRig.ts` calibrates head, visible forepaws, props, and eye anchors for each companion and pose. `petMotion.ts` supplies repeatable activity loops with short pauses: typing, reading/page turns, music, controller presses, phone taps, breathing, and smaller expressions. `petRenderer.ts` composes those parts and keeps the eyes' catchlights visible at display resolution, including the curious panda's smaller eye.
+
+`PixelPetSprite` decodes artwork once and keeps its activity clock independent of pointer updates. Static picker previews, paused motion, hidden windows, and Reduce Motion do not keep animation loops running. Global native cursor coordinates drive eased head and eye attention even outside the overlay; nearby attention remains separate from tracking and never captures clicks by itself. Mirrored walking and sniffing invert horizontal gaze before rendering.
 
 ## crab
 

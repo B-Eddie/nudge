@@ -14,6 +14,7 @@ interface Props {
   character: CompanionId; name: string; category?: string; resting: boolean;
   hovered: boolean; dragging: boolean; petted: number; attention: PetAttention;
   request?: PetRequest;
+  motionPaused?: boolean;
   busy: boolean; position: string; energy: number; onMenu: () => void; onPet: () => void;
 }
 export function LivingPet(p: Props) {
@@ -42,8 +43,6 @@ export function LivingPet(p: Props) {
   const walking = outing === "walk" || outing === "home";
   const facing = outing === "home" ? -direction : direction;
   const style = {
-    "--gaze-x": `${p.attention.near && !reduced ? Math.round(p.attention.x) * 2 : 0}px`,
-    "--gaze-y": `${p.attention.near && !reduced ? Math.round(p.attention.y) * 2 : 0}px`,
     "--object-x": direction === 1 ? "110px" : "-22px",
     "--sniff-x": `${direction * 2}px`,
     "--walk-x": `${reduced ? 0 : direction * 32}px`,
@@ -59,7 +58,10 @@ export function LivingPet(p: Props) {
       <span className="pet-shadow" aria-hidden="true" />
       <span className="pet-rig"><span className="pet-breath"><span className="pet-attention">
         <span className={walking || outing === "sniff" ? (facing < 0 ? "pet-facing-left" : "pet-facing-right") : ""}>
-          <PixelPetSprite character={p.character} pose={pose} phone={!adventure && activity === "social" && pose === "curious" && !p.hovered && !p.dragging} />
+          <PixelPetSprite character={p.character} pose={pose}
+            animated paused={p.motionPaused ?? p.busy} reducedMotion={reduced}
+            attention={{ ...p.attention, x: (walking || outing === "sniff") && facing < 0 ? -p.attention.x : p.attention.x }}
+            phone={!adventure && activity === "social" && pose === "curious" && !p.hovered && !p.dragging} />
         </span>
       </span></span></span>
       <svg className="pet-heart" viewBox="0 0 9 8" shapeRendering="crispEdges" aria-hidden="true"><path d="M1 0H3V1H6V0H8V1H9V4H8V5H7V6H6V7H5V8H4V7H3V6H2V5H1V4H0V1H1Z" fill="#c87f7c"/><path d="M1 1H3V2H1Z" fill="#f1b9a4"/></svg>

@@ -56,10 +56,12 @@ export function usePetExpression(c: ExpressionContext) {
     return () => timers.forEach(clearTimeout);
   }, [c.character, c.activity, c.outing, c.reducedMotion, c.dragging, c.hovered, c.busy, c.transitioning, c.energy, reaction]);
   useEffect(() => {
-    if (c.reducedMotion || (c.outing !== "walk" && c.outing !== "home")) return;
+    setStep(false);
+    if (c.reducedMotion || c.dragging || c.hovered || c.busy || c.transitioning || reaction
+      || (c.outing !== "walk" && c.outing !== "home")) return;
     const timer = setInterval(() => setStep(value => !value), 260);
     return () => clearInterval(timer);
-  }, [c.outing, c.reducedMotion]);
+  }, [c.outing, c.reducedMotion, c.dragging, c.hovered, c.busy, c.transitioning, reaction]);
 
   let pose: PetPose;
   if (c.dragging) pose = "lifted";

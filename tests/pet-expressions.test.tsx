@@ -49,6 +49,23 @@ describe("expressive companion behavior", () => {
     render({ hovered: true }); expect(expression.pose).toBe("curious");
     tick(10000); expect(expression.pose).toBe("curious");
   });
+  it("resumes a fresh walking cadence after attention or a menu instead of skipping hidden steps", () => {
+    render({ outing: "walk" }); const restingStep = expression.pose;
+    tick(260); expect(expression.pose).not.toBe(restingStep);
+    render({ outing: "walk", hovered: true }); tick(3500);
+    render({ outing: "walk" }); expect(expression.pose).toBe(restingStep);
+    tick(259); expect(expression.pose).toBe(restingStep);
+    tick(1); expect(expression.pose).not.toBe(restingStep);
+    render({ outing: "walk", busy: true }); expect(expression.pose).toBe(restingStep);
+    tick(3000); expect(expression.pose).toBe(restingStep);
+    render({ outing: "walk" }); tick(260); expect(expression.pose).not.toBe(restingStep);
+  });
+  it("cancels every expression timer when the companion unmounts", () => {
+    render({ outing: "walk", petted: 1 });
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
+    act(() => root.render(null));
+    expect(vi.getTimerCount()).toBe(0);
+  });
   it("varies idle habits without repeating the last action", () => {
     render(); tick(16000); expect(expression.pose).toBe("groom");
     tick(2600); expect(expression.pose).toBe("idle");

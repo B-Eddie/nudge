@@ -1275,6 +1275,7 @@ function App() {
             <LivingPet character={character} size={characterSize} name={characterName} category={label}
               request={petRequest} resting={onBreak} hovered={hovered} dragging={dragging} petted={petted}
               attention={attention} busy={barOpen || overlayHidden || displayedMessage !== "" || reminderPromptOpen}
+              motionPaused={barOpen || overlayHidden || reminderPromptOpen}
               position={petFacingPosition} energy={energy} onMenu={toggleBar} onPet={pet} />
           )}
         </div>
