@@ -5,6 +5,8 @@
 # Nudge
 A gentle desktop companion for a more balanced day at your screen.
 
+📸 Follow the pet: [@the_nudge_app](https://www.instagram.com/the_nudge_app/)
+
 ## The problem
 It's easy to stay at a computer longer than intended. A timer alone can be easy to ignore, especially when it interrupts at the wrong moment or offers nothing useful to do.
 
