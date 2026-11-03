@@ -1,7 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 (unsigned beta)
 - MIT license added.
+- Welcome step explains what nudge reads, and has a Skip setup button.
 - Activity history is written atomically, keeps a backup, and refuses to overwrite unreadable history.
 - Day rollover and restart handling moved into a tested module.
 - CI for frontend tests/build and native tests; tag-triggered release workflow publishes a universal unsigned DMG with checksums.

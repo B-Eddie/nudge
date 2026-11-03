@@ -32,6 +32,8 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+          body: |
+            **Unsigned beta.** This build is not signed or notarized by Apple, so macOS will warn the first time you open it. Open nudge from Applications, then go to System Settings > Privacy & Security and choose **Open Anyway** for nudge. Compare the download with `SHA256SUMS.txt`. Universal build for Apple silicon and Intel; only the Apple silicon slice has been run in automated tests.
           files: |
             src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
             src-tauri/target/universal-apple-darwin/release/bundle/dmg/SHA256SUMS.txt
