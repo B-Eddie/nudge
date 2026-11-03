@@ -1,0 +1,8 @@
+name: Idea
+description: Suggest a feature or a new companion
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes: {label: What would make Nudge better for your workday?}
+    validations: {required: true}
