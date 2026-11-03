@@ -455,6 +455,16 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
               {saveError}
             </p>
           )}
+          {step === 0 && (
+            <button
+              type="button"
+              className="onboarding-btn secondary"
+              onClick={() => void finish()}
+              disabled={saving}
+            >
+              Skip setup
+            </button>
+          )}
           {step > 0 && (
             <button
               type="button"
