@@ -232,6 +232,12 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
                 or movement reset, or to see your activity and settings. Choose
                 a character and a look now; you can change both later.
               </p>
+              <p className="onboarding-hint" data-testid="onboarding-privacy">
+                To adapt to your work, nudge notices which app is in front and
+                how long since you last used the keyboard or mouse. It never
+                records what you type or take screenshots, and everything
+                stays on this Mac.
+              </p>
             </>
           )}
 
@@ -448,6 +454,16 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
             <p className="onboarding-error" role="alert">
               {saveError}
             </p>
+          )}
+          {step === 0 && (
+            <button
+              type="button"
+              className="onboarding-btn secondary"
+              onClick={() => void finish()}
+              disabled={saving}
+            >
+              Skip setup
+            </button>
           )}
           {step > 0 && (
             <button

@@ -34,6 +34,18 @@ describe("Activity and onboarding keyboard navigation", () => {
     act(() => week.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })));
     expect(close).toHaveBeenCalledOnce();
   });
+  it("explains what nudge reads, and that it stays local, on the welcome step", async () => {
+    await act(async () => root.render(<OnboardingPanel onComplete={close} />));
+    const note = host.querySelector('[data-testid="onboarding-privacy"]')?.textContent ?? "";
+    expect(note).toContain("never records what you type");
+    expect(note).toContain("stays on this Mac");
+  });
+  it("lets a new user skip setup and start with the defaults", async () => {
+    await act(async () => root.render(<OnboardingPanel onComplete={close} />));
+    await click("Skip setup");
+    expect(bridge.invoke).toHaveBeenCalledWith("save_settings", { settings: expect.objectContaining({ onboarding_complete: true }) });
+    expect(close).toHaveBeenCalledOnce();
+  });
   it("shows an initial load failure and retries without completing setup", async () => {
     bridge.invoke.mockImplementation((command: string) => command === "get_settings" ? Promise.reject(new Error("Unavailable")) : result(command));
     await act(async () => root.render(<OnboardingPanel onComplete={close} />));

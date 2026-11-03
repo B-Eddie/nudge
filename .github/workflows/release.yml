@@ -1,0 +1,39 @@
+name: Release
+# Pushing a tag like v0.3.0 builds a universal (Apple silicon + Intel) unsigned DMG
+# and attaches it, with checksums, to a GitHub Release.
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  macos-universal:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - run: npm ci
+      - run: npm run check:release -- ${{ github.ref_name }}
+      - run: npm test
+      - run: npm run tauri build -- --target universal-apple-darwin --bundles dmg
+        env:
+          CI: true
+      - name: Checksums
+        run: |
+          cd src-tauri/target/universal-apple-darwin/release/bundle/dmg
+          shasum -a 256 *.dmg > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          body: |
+            **Unsigned beta.** This build is not signed or notarized by Apple, so macOS will warn the first time you open it. Open nudge from Applications, then go to System Settings > Privacy & Security and choose **Open Anyway** for nudge. Compare the download with `SHA256SUMS.txt`. Universal build for Apple silicon and Intel; only the Apple silicon slice has been run in automated tests.
+          files: |
+            src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            src-tauri/target/universal-apple-darwin/release/bundle/dmg/SHA256SUMS.txt
