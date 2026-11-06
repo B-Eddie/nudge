@@ -7,6 +7,12 @@ A gentle desktop companion for a more balanced day at your screen.
 
 📸 Follow the pet: [@the_nudge_app](https://www.instagram.com/the_nudge_app/)
 
+## See it in motion
+<p align="center">
+  <img src="docs/demo-playground.gif" alt="Nudge web playground demo: the pixel companion greets you, reacts to pets, listens to music, and plays" width="700" />
+</p>
+A quick loop from the interactive web playground on the <a href="https://nudge-nine-flame.vercel.app/">Nudge site</a> - a browser preview of the same companion engine that runs in the macOS app.
+
 ## The problem
 It's easy to stay at a computer longer than intended. A timer alone can be easy to ignore, especially when it interrupts at the wrong moment or offers nothing useful to do.
 
