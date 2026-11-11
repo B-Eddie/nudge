@@ -1,8 +1,10 @@
 [package]
 name = "nudge"
 version = "0.3.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "A gentle desktop companion for a more balanced day at your screen"
+authors = ["B-Eddie"]
+license = "MIT"
+repository = "https://github.com/B-Eddie/nudge"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -18,7 +20,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["macos-private-api"] }
+tauri = { version = "2", features = ["macos-private-api", "tray-icon"] }
 tauri-plugin-opener = "2"
 tauri-plugin-positioner = "2"
 tauri-plugin-global-shortcut = "2"
@@ -35,3 +37,7 @@ objc2-foundation = { version = "0.2", features = ["NSArray", "NSString", "NSBund
 
 [target.'cfg(target_os = "macos")'.dependencies]
 tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", branch = "v2" }
+
+[lints.rust]
+# The `objc` 0.2 msg_send! macro checks `cfg(feature = "cargo-clippy")`.
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("cargo-clippy"))'] }

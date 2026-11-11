@@ -136,7 +136,7 @@ fn app_from_bundle(bundle_path: &Path) -> Option<DiscoveredApp> {
     }
     let name = ["CFBundleDisplayName", "CFBundleName"]
         .iter()
-        .filter_map(|key| dict.get(*key)?.as_string())
+        .filter_map(|key| dict.get(key)?.as_string())
         .map(str::trim)
         .find(|name| !name.is_empty())
         .or_else(|| bundle_path.file_stem()?.to_str())
@@ -346,7 +346,7 @@ pub fn discover_running_apps() -> Vec<DiscoveredApp> {
         }
 
         let mut apps: Vec<_> = seen.into_values().collect();
-        apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+        apps.sort_by_key(|a| a.name.to_lowercase());
         apps
     })
 }

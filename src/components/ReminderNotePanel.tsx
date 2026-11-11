@@ -81,7 +81,7 @@ export function ReminderNotePanel({ onClose }: ReminderNotePanelProps) {
         aria-labelledby="reminder-note-title"
       >
         <header className="settings-header">
-          <h2 id="reminder-note-title">Reminder note</h2>
+          <h2 id="reminder-note-title">Reminder notes</h2>
           <button
             type="button"
             className="settings-close"
@@ -94,8 +94,8 @@ export function ReminderNotePanel({ onClose }: ReminderNotePanelProps) {
 
         <div className="settings-body">
           <p className="settings-hint">
-            Your character will say the next queued note at the next reminder,
-            then move on to the one after that.
+            Leave yourself a note. Your companion says one at each nudge,
+            oldest first.
           </p>
 
           {error && <p className="settings-hint settings-error" role="alert">{error}</p>}
@@ -138,7 +138,7 @@ export function ReminderNotePanel({ onClose }: ReminderNotePanelProps) {
               ))}
             </ul>
           ) : (
-            <p className="settings-hint">No notes queued yet.</p>
+            <p className="settings-hint">No notes yet. Add one and your companion will say it at your next nudge.</p>
           )}
         </div>
       </div>

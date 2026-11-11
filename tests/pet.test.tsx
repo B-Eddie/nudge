@@ -127,11 +127,11 @@ describe("global desktop gestures", () => {
   it("tracks direction outside the overlay using local coordinates, without engaging a distant cursor", async () => {
     await setup();
     act(() => bridge.cursor?.({ payload: { x: -240, y: -300, screen_x: 1450, screen_y: 970, inside: false, pressed: false } }));
-    expect(interaction.attention).toEqual({ x: -1, y: -1, near: false, tracking: true });
+    expect(interaction.attention).toEqual({ x: -.62, y: -.78, near: false, tracking: true });
     expect(interaction.hovered).toBe(false);
     expect(interaction.petted).toBe(0);
     act(() => bridge.cursor?.({ payload: { x: 420, y: 100, screen_x: -1450, screen_y: -970, inside: false, pressed: false } }));
-    expect(interaction.attention).toEqual({ x: 1, y: 0, near: false, tracking: true });
+    expect(interaction.attention).toEqual({ x: 1, y: 0, near: true, tracking: true });
     expect(bridge.invoke).not.toHaveBeenCalledWith("pet_drag", expect.anything());
     expect(bridge.invoke).toHaveBeenLastCalledWith("set_click_through", { passThrough: true });
   });
@@ -164,9 +164,9 @@ describe("global desktop gestures", () => {
     expect(interaction.attention).toEqual({ x: 0, y: 0, near: false, tracking: false });
   });
   it("keeps native gaze active when another application has focus", async () => {
-    await setup(); cursor(-200, false, false);
+    await setup(); cursor(-600, false, false);
     act(() => window.dispatchEvent(new Event("blur")));
-    expect(interaction.attention).toEqual({ x: -1, y: -.33, near: false, tracking: true });
+    expect(interaction.attention).toEqual({ x: -1, y: -.04, near: false, tracking: true });
     cursor(400, false, false);
     expect(interaction.attention.x).toBe(1);
   });

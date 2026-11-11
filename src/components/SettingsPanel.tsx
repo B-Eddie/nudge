@@ -16,6 +16,7 @@ import { isHelperApp } from "../types/appVisibility";
 import { PetSizeControl } from "./PetSizeControl";
 import { applyTheme, type ThemeId } from "../types/appearance";
 import { CompanionPicker, ThemePicker } from "./AppearancePicker";
+import { MinutesField } from "./MinutesField";
 import "./SettingsPanel.css";
 import { LuSearch, LuX } from "react-icons/lu";
 
@@ -33,11 +34,9 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [appSearch, setAppSearch] = useState("");
   const [recordingShortcut, setRecordingShortcut] = useState(false);
-  const [pendingShortcut, setPendingShortcut] = useState<string | null>(null);
   const initialThemeRef = useRef<ThemeId>("bamboo");
+  const loadedRef = useRef<string | null>(null);
   const themeLoadedRef = useRef(false);
-  const pendingShortcutRef = useRef<string | null>(null);
-  pendingShortcutRef.current = pendingShortcut;
 
   useEffect(() => {
     const panel = panelRef.current;
@@ -61,7 +60,8 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     };
   }, []);
 
-  // capture key presses - escape closesing settings shortcut
+  // Shortcut recorder, as in System Settings: the first valid combo (a key plus at
+  // least one modifier) is kept immediately; Esc cancels and keeps the old one.
   useEffect(() => {
     if (!recordingShortcut) return;
 
@@ -70,19 +70,15 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
       e.stopPropagation();
 
       if (e.code === "Escape") {
-        const pending = pendingShortcutRef.current;
-        if (pending) {
-          setDraft((prev) =>
-            prev ? { ...prev, pause_shortcut: pending } : prev,
-          );
-        }
         setRecordingShortcut(false);
-        setPendingShortcut(null);
         return;
       }
 
       const shortcut = shortcutFromKeyboardEvent(e);
-      if (shortcut) setPendingShortcut(shortcut);
+      if (shortcut) {
+        setDraft((prev) => (prev ? { ...prev, pause_shortcut: shortcut } : prev));
+        setRecordingShortcut(false);
+      }
     };
 
     window.addEventListener("keydown", onKeyDown, true);
@@ -92,7 +88,6 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   // reset variables at start
   const stopRecordingShortcut = useCallback(() => {
     setRecordingShortcut(false);
-    setPendingShortcut(null);
   }, []);
 
   // set setting options
@@ -107,6 +102,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
       .then(([settings, monitors, categories]) => {
         if (cancelled) return;
         setDraft(settings);
+        loadedRef.current = JSON.stringify(settings);
         initialThemeRef.current = settings.theme ?? "bamboo";
         themeLoadedRef.current = true;
         applyTheme(initialThemeRef.current);
@@ -194,8 +190,11 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     onClose();
   };
 
+  const dirty = draft !== null && loadedRef.current !== null && JSON.stringify(draft) !== loadedRef.current;
+  // Clicking outside the card closes it only when there is nothing to lose. With
+  // unsaved edits, closing takes an explicit Cancel (or Esc).
   const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) closeWithoutSaving();
+    if (e.target === e.currentTarget && !dirty) closeWithoutSaving();
   };
 
   // Render the panel chrome immediately so opening settings never shows a
@@ -267,10 +266,6 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
         <div className="settings-body">
           <section className="settings-section settings-appearance">
             <h3 className="settings-section-title">Your companion</h3>
-            <p className="settings-hint">
-              Pick who keeps you company. Each one has its own work, rest, and
-              energy animations.
-            </p>
             <CompanionPicker
               value={draft.character}
               onChange={(character) => setDraft({ ...draft, character })}
@@ -281,9 +276,6 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
           <section className="settings-section settings-appearance">
             <h3 className="settings-section-title">Appearance</h3>
-            <p className="settings-hint">
-                Clean whites and soft blues, or a quieter look after dark.
-            </p>
             <ThemePicker
               value={draft.theme}
               previewChanges
@@ -291,155 +283,125 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             />
           </section>
 
-          <label className="settings-field">
-            <span>Monitor</span>
-            <select
-              value={draft.monitor_index}
-              onChange={(e) =>
-                setDraft({
-                  ...draft,
-                  monitor_index: parseInt(e.target.value, 10),
-                })
-              }
-            >
-              {monitorOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="settings-field">
-            <span>Reminder interval (minutes)</span>
-            <input
-              type="number"
-              min={1}
+          <section className="settings-section">
+            <h3 className="settings-section-title">Reminders</h3>
+            <MinutesField
+              label="Nudge me every"
               value={draft.reminder_interval_mins}
-              onChange={(e) =>
-                setDraft({
-                  ...draft,
-                  reminder_interval_mins: Math.max(
-                    1,
-                    parseInt(e.target.value, 10) || 1,
-                  ),
-                })
-              }
+              min={1}
+              max={240}
+              onChange={(reminder_interval_mins) => setDraft({ ...draft, reminder_interval_mins })}
             />
-          </label>
-
-          <label className="settings-field">
-            <span>Remind me again after (minutes)</span>
-            <input
-              type="number"
+            <MinutesField
+              label="When I say “later”, ask again in"
+              value={draft.reminder_snooze_mins ?? 10}
               min={1}
               max={90}
-              step={1}
-              value={draft.reminder_snooze_mins ?? 10}
-              onChange={(e) =>
-                setDraft({
-                  ...draft,
-                  reminder_snooze_mins: Math.min(
-                    90,
-                    Math.max(1, parseInt(e.target.value, 10) || 1),
-                  ),
-                })
-              }
+              onChange={(reminder_snooze_mins) => setDraft({ ...draft, reminder_snooze_mins })}
             />
-            <span className="settings-hint">
-              Used when you ask Nudge to check back later.
-            </span>
-          </label>
-
-          <label className="settings-field">
-            <span>Start a break after you step away</span>
-            <input
-              type="number"
-              min={1}
-              step={1}
+            <MinutesField
+              label="Count it as a break after I step away for"
               value={draft.auto_idle_break_mins ?? 5}
-              onChange={(e) =>
-                setDraft({
-                  ...draft,
-                  auto_idle_break_mins: Math.max(
-                    1,
-                    parseInt(e.target.value, 10) || 1,
-                  ),
-                })
-              }
-              aria-label="Minutes without keyboard or mouse input before an automatic break"
+              min={1}
+              max={60}
+              hint="No keyboard or mouse for this long. Music and video don’t count as stepping away."
+              onChange={(auto_idle_break_mins) => setDraft({ ...draft, auto_idle_break_mins })}
             />
-            <span className="settings-hint">
-              Minutes without keyboard or mouse input. Nudge waits while music
-              or video is playing.
-            </span>
-          </label>
+          </section>
 
-          <label className="settings-field">
-            <span>Screen position</span>
-            <select
-              value={draft.position}
-              onChange={(e) => setDraft({ ...draft, position: e.target.value })}
-            >
-              {POSITION_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <section className="settings-section">
+            <h3 className="settings-section-title">Placement</h3>
+            <label className="settings-field">
+              <span>Screen position</span>
+              <select
+                value={draft.position}
+                onChange={(e) => setDraft({ ...draft, position: e.target.value })}
+              >
+                {POSITION_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {monitorOptions.length > 1 && (
+              <label className="settings-field">
+                <span>Display</span>
+                <select
+                  value={draft.monitor_index}
+                  onChange={(e) =>
+                    setDraft({ ...draft, monitor_index: Number(e.target.value) })
+                  }
+                >
+                  {monitorOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <p className="settings-hint">You can also drag your companion anywhere, even onto the top of a window.</p>
+          </section>
 
-          <div className="settings-field">
-            <span>Hide character shortcut</span>
-            <button
-              type="button"
-              className={`settings-shortcut ${recordingShortcut ? "recording" : ""}`}
-              onClick={() => {
-                if (!recordingShortcut) {
-                  setPendingShortcut(null);
-                  setRecordingShortcut(true);
+          <section className="settings-section">
+            <h3 className="settings-section-title">General</h3>
+            <div className="settings-field">
+              <span id="shortcut-label">Show or hide companion</span>
+              <button
+                type="button"
+                className={`settings-shortcut ${recordingShortcut ? "recording" : ""}`}
+                onClick={() => {
+                  if (!recordingShortcut) {
+                    setRecordingShortcut(true);
+                  }
+                }}
+                onBlur={stopRecordingShortcut}
+                aria-labelledby="shortcut-label"
+                aria-describedby="shortcut-hint"
+                aria-pressed={recordingShortcut}
+              >
+                {recordingShortcut
+                  ? "Press a new shortcut…"
+                  : formatShortcut(draft.pause_shortcut)}
+              </button>
+              <p className="settings-hint" id="shortcut-hint">
+                {recordingShortcut
+                  ? "Use a key with ⌘, ⌥, ⌃ or ⇧. Press Esc to keep the current one."
+                  : "Click to change. Tracking and reminders keep running while it’s hidden."}
+              </p>
+            </div>
+
+            <label className="settings-field settings-toggle">
+              <span>Open nudge at login</span>
+              <input
+                type="checkbox"
+                role="switch"
+                checked={draft.launch_at_login ?? false}
+                onChange={(e) =>
+                  setDraft({ ...draft, launch_at_login: e.target.checked })
                 }
-              }}
-              onBlur={stopRecordingShortcut}
-              aria-label="Hide character shortcut"
-            >
-              {recordingShortcut
-                ? pendingShortcut
-                  ? formatShortcut(pendingShortcut)
-                  : "Hold a key combo…"
-                : formatShortcut(draft.pause_shortcut)}
-            </button>
-            <p className="settings-hint">
-              {recordingShortcut
-                ? "Hold your new combo, then press Esc to keep it."
-                : "Hides only the character; tracking and reminders keep running. Press it again to show the character. Click the box, hold a combo, then press Esc to rebind."}
-            </p>
-          </div>
-
-          <label className="settings-field settings-toggle">
-            <span>Launch at login</span>
-            <input
-              type="checkbox"
-              checked={draft.launch_at_login ?? false}
-              onChange={(e) =>
-                setDraft({ ...draft, launch_at_login: e.target.checked })
-              }
-              aria-label="Launch at login"
-            />
-            <span className="settings-toggle-slider" />
-          </label>
+              />
+              <span className="settings-toggle-slider" />
+            </label>
+          </section>
 
           <section className="settings-section">
             <h3 className="settings-section-title">App categories</h3>
             <p className="settings-hint">
-              Installed apps are refreshed on every launch and when you open
-              Settings. Deleted apps are removed; your category choices are kept.
+              Your companion reacts to what kind of app you’re using. Fix any that
+              look wrong; your choices are kept.
             </p>
-            <button type="button" className="settings-helper-toggle"
-              aria-pressed={draft.hide_helper_apps ?? false}
-              onClick={() => setDraft({ ...draft, hide_helper_apps: !draft.hide_helper_apps })}>
-              {draft.hide_helper_apps ? "✓ " : ""}Hide helper apps & processes
-            </button>
+            <label className="settings-field settings-toggle">
+              <span>Hide helper apps and background processes</span>
+              <input
+                type="checkbox"
+                role="switch"
+                checked={draft.hide_helper_apps ?? false}
+                onChange={(e) => setDraft({ ...draft, hide_helper_apps: e.target.checked })}
+              />
+              <span className="settings-toggle-slider" />
+            </label>
             {sortedApps.length > 0 && (
               <label className="settings-app-search">
                 <LuSearch size={14} aria-hidden />

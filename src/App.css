@@ -36,6 +36,8 @@
   --focus-border: #415eee;
   --focus-ring: 0 0 0 3px rgb(65 94 238 / 18%);
   --menu-surface: #fff;
+  /* Compact so it isn't clipped by the overlay window (cards sit ~8px from its edge). */
+  --popover-shadow: 0 1px 2px rgb(16 22 34 / 8%), 0 3px 9px rgb(16 22 34 / 10%);
   --menu-stroke: #e4e8ee;
   --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 12 12'%3E%3Cpath fill='%2360656c' d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
 }
@@ -65,6 +67,7 @@
   --focus-border: #9eb1ff;
   --focus-ring: 0 0 0 3px rgb(158 177 255 / 25%);
   --menu-surface: #24262c;
+  --popover-shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 3px 9px rgb(0 0 0 / 32%);
   --menu-stroke: #40434d;
   --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 12 12'%3E%3Cpath fill='%23bcc3d0' d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
 }
@@ -103,6 +106,12 @@ button { -webkit-tap-highlight-color: transparent; }
 button:disabled { cursor: default; }
 :focus-visible { outline: 2px solid var(--focus-border); outline-offset: 3px; }
 
+/* Whole-minute fields: the unit sits inside the field, like System Settings. */
+.minutes-input { position: relative; display: flex; }
+.minutes-input input { flex: 1; padding-right: 44px; font-variant-numeric: tabular-nums; }
+.minutes-unit { position: absolute; right: 13px; top: 50%; transform: translateY(-50%); color: var(--text-dim); font-size: 13px; font-weight: 400; pointer-events: none; }
+
+
 /* Only the cards have a surface; transparent window chrome stays unpainted. */
 .reminder-prompt, .break-coach {
   position: fixed;
@@ -113,7 +122,7 @@ button:disabled { cursor: default; }
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
   border-radius: 20px;
-  box-shadow: none;
+  box-shadow: var(--popover-shadow);
   font: 13px/1.5 var(--font-body);
   animation: panel-in .18s cubic-bezier(.22, 1, .36, 1);
 }
@@ -157,14 +166,14 @@ button:disabled { cursor: default; }
   max-height: calc(100vh - 16px);
   overflow: auto;
 }
-.messages { position: relative; width: 210px; padding: 12px 14px; color: var(--text); background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 16px; font: 12px/1.5 var(--font-body); white-space: pre-line; overflow-wrap: anywhere; }
+.messages { position: relative; width: 210px; padding: 12px 14px; color: var(--text); background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 16px; box-shadow: var(--popover-shadow); font: 12px/1.5 var(--font-body); white-space: pre-line; overflow-wrap: anywhere; }
 #messages { z-index: 10; pointer-events: auto; }
 .messages--pinned { padding-top: 32px; }
 .messages-close { position: absolute; top: 5px; right: 5px; display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%; color: var(--text-dim); background: var(--surface-raised); cursor: pointer; }
 .messages-close:hover { color: var(--text); background: var(--surface-raised-hover); }
 .messages-text { display: block; }
 
-#hoverInfo { display: flex; flex-direction: column; gap: 12px; width: 170px; padding: 14px; color: var(--text); background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 18px; z-index: 20; opacity: 0; pointer-events: none !important; }
+#hoverInfo { display: flex; flex-direction: column; gap: 12px; width: 170px; padding: 14px; color: var(--text); background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 18px; box-shadow: var(--popover-shadow); z-index: 20; opacity: 0; pointer-events: none !important; }
 #hoverInfo * { pointer-events: none !important; }
 .character.hovered #hoverInfo { animation: pet-info-in .2s .65s forwards; }
 @keyframes pet-info-in { to { opacity: 1; } }

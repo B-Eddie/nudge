@@ -1,5 +1,7 @@
 import { useMemo, useRef, useState } from "react";
-import { LuX } from "react-icons/lu";
+import { invoke } from "@tauri-apps/api/core";
+import { LuDownload, LuX } from "react-icons/lu";
+import { activityCsv, exportFileName } from "../lib/activityExport";
 import { useDialogFocus } from "../hooks/useDialogFocus";
 import "./SummaryPanel.css";
 
@@ -234,8 +236,27 @@ export function SummaryPanel({
   onClose,
 }: SummaryPanelProps) {
   const [tab, setTab] = useState<"today" | "week">("today");
+  const [exportStatus, setExportStatus] = useState<{ ok: boolean; text: string } | null>(null);
+  const [exporting, setExporting] = useState(false);
+
+  const exportCsv = async () => {
+    setExporting(true);
+    setExportStatus(null);
+    try {
+      await invoke<string>("export_activity_csv", {
+        fileName: exportFileName(),
+        contents: activityCsv(stats, history),
+      });
+      setExportStatus({ ok: true, text: "Saved to Downloads." });
+    } catch (err) {
+      console.error("Failed to export activity:", err);
+      setExportStatus({ ok: false, text: "Couldn't save the export. Please try again." });
+    } finally {
+      setExporting(false);
+    }
+  };
   const tabListRef = useRef<HTMLDivElement>(null);
-  const panelRef = useDialogFocus(onClose, ".summary-close");
+  const panelRef = useDialogFocus(onClose, ".summary-dismiss");
 
   const categories = useMemo(() => {
     const entries = Object.entries(stats.categorySeconds).sort(
@@ -290,15 +311,36 @@ export function SummaryPanel({
             <p className="summary-eyebrow">Your time, in view</p>
             <h2 id="summary-title">Activity</h2>
           </div>
-          <button
-            type="button"
-            className="summary-close"
-            onClick={onClose}
-            aria-label="Close activity report"
-          >
-            <LuX size={18} aria-hidden="true" />
-          </button>
+          <div className="summary-header-actions">
+            <button
+              type="button"
+              className="summary-close"
+              onClick={() => void exportCsv()}
+              disabled={exporting}
+              aria-label="Export activity as CSV"
+              title="Export as CSV"
+            >
+              <LuDownload size={17} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className="summary-close summary-dismiss"
+              onClick={onClose}
+              aria-label="Close activity report"
+            >
+              <LuX size={18} aria-hidden="true" />
+            </button>
+          </div>
         </header>
+
+        {exportStatus && (
+          <p
+            className={`summary-export-status${exportStatus.ok ? "" : " summary-export-status--error"}`}
+            role={exportStatus.ok ? "status" : "alert"}
+          >
+            {exportStatus.text}
+          </p>
+        )}
 
         <div ref={tabListRef} className="summary-tabs" role="tablist" aria-label="Report range" onKeyDown={handleTabKeyDown}>
           <button

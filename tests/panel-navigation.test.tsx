@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SummaryPanel, emptySessionStats } from "../src/components/SummaryPanel";
 import { OnboardingPanel } from "../src/components/OnboardingPanel";
+import { SettingsPanel } from "../src/components/SettingsPanel";
 import type { Settings } from "../src/types/settings";
 const bridge = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: bridge.invoke }));
@@ -22,6 +23,11 @@ beforeEach(() => {
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.restoreAllMocks(); });
 const button = (text: string) => [...host.querySelectorAll<HTMLButtonElement>("button")].find(b => b.textContent === text)!;
 const click = async (text: string) => act(async () => button(text).click());
+/** Sets an input's value the way typing does, so React's onChange fires. */
+function setValue(input: HTMLInputElement, value: string) {
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
 describe("Activity and onboarding keyboard navigation", () => {
   it("navigates report tabs with the keyboard and closes Escape once", async () => {
     await act(async () => root.render(<SummaryPanel stats={{ ...emptySessionStats(), categorySeconds: { Games: 900 } }} history={[]} energy={4} onBreak={false} onClose={close} />));
@@ -63,24 +69,30 @@ describe("Activity and onboarding keyboard navigation", () => {
     expect(document.activeElement).toBe(button("Continue"));
     expect(close).not.toHaveBeenCalled();
   });
-  it("commits a recorded shortcut on Escape, allows final review and saves once", async () => {
+  it("walks five short steps, keeps typed minutes, allows going back, and saves once", async () => {
     await act(async () => root.render(<OnboardingPanel onComplete={close} />));
-    for (let i = 0; i < 4; i++) await click("Continue");
-    const shortcut = host.querySelector<HTMLButtonElement>('.onboarding-shortcut')!;
-    act(() => { shortcut.focus(); shortcut.click(); });
-    act(() => shortcut.dispatchEvent(new KeyboardEvent("keydown", { key: "K", code: "KeyK", metaKey: true, shiftKey: true, bubbles: true, cancelable: true })));
-    act(() => shortcut.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true, cancelable: true })));
-    expect(shortcut.getAttribute("aria-pressed")).toBe("false"); expect(shortcut.textContent).toContain("K");
+    expect(host.querySelector(".onboarding-progress")?.textContent).toBe("1 / 5");
     for (let i = 0; i < 3; i++) await click("Continue");
-    expect(button("Back")).toBeDefined(); await click("Back");
-    expect(host.querySelector('[aria-label="Category for com.test.app"]')).not.toBeNull();
+    const every = [...host.querySelectorAll("label")].find(l => l.textContent === "Nudge me every")!;
+    const input = host.querySelector<HTMLInputElement>(`#${CSS.escape(every.htmlFor)}`)!;
+    // Clearing the field must not snap to 1 (which used to turn "45" into "145").
+    act(() => { input.focus(); setValue(input, ""); });
+    expect(input.value).toBe("");
+    act(() => setValue(input, "45"));
+    act(() => input.blur());
+    expect(input.value).toBe("45");
+    await click("Continue");
+    expect(host.textContent).toContain("menu bar");
+    await click("Back");
+    const again = [...host.querySelectorAll("label")].find(l => l.textContent === "Nudge me every")!;
+    expect(host.querySelector<HTMLInputElement>(`#${CSS.escape(again.htmlFor)}`)?.value).toBe("45");
     await click("Continue"); await click("Get started");
-    expect(bridge.invoke).toHaveBeenCalledWith("save_settings", { settings: expect.objectContaining({ onboarding_complete: true, pause_shortcut: "Shift+Cmd+KeyK" }) });
+    expect(bridge.invoke).toHaveBeenCalledWith("save_settings", { settings: expect.objectContaining({ onboarding_complete: true, reminder_interval_mins: 45 }) });
     expect(close).toHaveBeenCalledOnce();
   });
   it("keeps setup and its chosen values available after a failed save", async () => {
     await act(async () => root.render(<OnboardingPanel onComplete={close} />));
-    for (let i = 0; i < 7; i++) await click("Continue");
+    for (let i = 0; i < 4; i++) await click("Continue");
     bridge.invoke.mockRejectedValueOnce(new Error("Disk full"));
     await click("Get started");
     expect(close).not.toHaveBeenCalled();
@@ -90,5 +102,87 @@ describe("Activity and onboarding keyboard navigation", () => {
     await click("Get started");
     expect(close).toHaveBeenCalledOnce();
     expect(bridge.invoke.mock.calls.filter(([command]) => command === "save_settings")).toHaveLength(2);
+  });
+});
+
+describe("Activity export", () => {
+  it("exports a CSV of today's activity to Downloads and confirms it", async () => {
+    await act(async () => root.render(<SummaryPanel stats={{ ...emptySessionStats(), categorySeconds: { Games: 900 } }} history={[]} energy={4} onBreak={false} onClose={close} />));
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Close activity report");
+    await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="Export activity as CSV"]')!.click());
+    expect(bridge.invoke).toHaveBeenCalledWith("export_activity_csv", {
+      fileName: expect.stringMatching(/^nudge-activity-\d{4}-\d{2}-\d{2}\.csv$/),
+      contents: expect.stringContaining("Games (minutes)"),
+    });
+    expect(host.querySelector('[role="status"]')?.textContent).toBe("Saved to Downloads.");
+  });
+  it("reports a failed export without closing the panel", async () => {
+    bridge.invoke.mockImplementation((command: string) => command === "export_activity_csv" ? Promise.reject(new Error("disk full")) : result(command));
+    await act(async () => root.render(<SummaryPanel stats={emptySessionStats()} history={[]} energy={4} onBreak={false} onClose={close} />));
+    await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="Export activity as CSV"]')!.click());
+    expect(host.querySelector('[role="alert"]')?.textContent).toContain("Couldn't save the export");
+    expect(close).not.toHaveBeenCalled();
+  });
+});
+
+describe("Settings behaves like a Mac settings window", () => {
+  const field = (label: string) => {
+    const element = [...host.querySelectorAll("label")].find(l => l.textContent === label)!;
+    return host.querySelector<HTMLInputElement>(`#${CSS.escape(element.htmlFor)}`)!;
+  };
+  const shortcut = () => host.querySelector<HTMLButtonElement>(".settings-shortcut")!;
+  const key = (init: KeyboardEventInit) => act(() => { window.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init })); });
+
+  it("keeps a shortcut as soon as a valid combo is pressed", async () => {
+    await act(async () => root.render(<SettingsPanel onClose={close} />));
+    act(() => { shortcut().focus(); shortcut().click(); });
+    expect(shortcut().textContent).toContain("Press a new shortcut");
+    await key({ key: "Shift" , code: "ShiftLeft", shiftKey: true }); // a lone modifier is not a shortcut
+    expect(shortcut().getAttribute("aria-pressed")).toBe("true");
+    await key({ key: "k", code: "KeyK", metaKey: true, shiftKey: true });
+    expect(shortcut().getAttribute("aria-pressed")).toBe("false");
+    expect(shortcut().textContent).toContain("K");
+    await click("Save");
+    expect(bridge.invoke).toHaveBeenCalledWith("save_settings", { settings: expect.objectContaining({ pause_shortcut: "Shift+Cmd+KeyK" }) });
+  });
+
+  it("cancels shortcut recording with Esc and keeps the old one", async () => {
+    await act(async () => root.render(<SettingsPanel onClose={close} />));
+    act(() => { shortcut().focus(); shortcut().click(); });
+    await key({ key: "Escape", code: "Escape" });
+    expect(shortcut().getAttribute("aria-pressed")).toBe("false");
+    expect(shortcut().textContent).toContain("P");
+  });
+
+  it("lets you clear a minutes field and type a new value, clamping only when you leave it", async () => {
+    await act(async () => root.render(<SettingsPanel onClose={close} />));
+    const input = field("Nudge me every");
+    act(() => { input.focus(); setValue(input, ""); });
+    act(() => setValue(input, "45"));
+    act(() => input.blur());
+    expect(input.value).toBe("45");
+    act(() => { input.focus(); setValue(input, "9999"); });
+    expect(input.value).toBe("999");
+    act(() => input.blur());
+    expect(input.value).toBe("240");
+    act(() => { input.focus(); setValue(input, ""); input.blur(); });
+    expect(input.value).toBe("240");
+  });
+
+  it("does not throw away edits when you click outside the card", async () => {
+    await act(async () => root.render(<SettingsPanel onClose={close} />));
+    const backdrop = host.querySelector<HTMLDivElement>(".settings-backdrop")!;
+    const input = field("Nudge me every");
+    act(() => { input.focus(); setValue(input, "50"); input.blur(); });
+    act(() => backdrop.click());
+    expect(close).not.toHaveBeenCalled();
+    await click("Cancel");
+    expect(close).toHaveBeenCalledOnce();
+  });
+
+  it("closes on an outside click when nothing changed", async () => {
+    await act(async () => root.render(<SettingsPanel onClose={close} />));
+    act(() => host.querySelector<HTMLDivElement>(".settings-backdrop")!.click());
+    expect(close).toHaveBeenCalledOnce();
   });
 });

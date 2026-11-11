@@ -53,8 +53,7 @@ fn our_bundle_id() -> Option<String> {
     use objc2_foundation::NSBundle;
 
     autoreleasepool(|pool| {
-        unsafe { NSBundle::mainBundle().bundleIdentifier() }
-            .map(|id| id.as_str(pool).to_owned())
+        unsafe { NSBundle::mainBundle().bundleIdentifier() }.map(|id| id.as_str(pool).to_owned())
     })
 }
 
@@ -127,8 +126,7 @@ fn audible_media_processes() -> Vec<(i32, String)> {
             if !process_is_audible(pid) {
                 continue;
             }
-            let bundle_id = unsafe { app.bundleIdentifier() }
-                .map(|id| id.as_str(pool).to_owned());
+            let bundle_id = unsafe { app.bundleIdentifier() }.map(|id| id.as_str(pool).to_owned());
             if bundle_id.as_deref() == our_bundle.as_deref() {
                 continue;
             }
@@ -160,7 +158,10 @@ pub fn defer_reason(
 
     if let Some(category) = frontmost_category {
         if category_is_passive_media(category) {
-            return Some(format!("{} app in front", crate::app_categories::category_label(category)));
+            return Some(format!(
+                "{} app in front",
+                crate::app_categories::category_label(category)
+            ));
         }
     }
 
@@ -185,8 +186,7 @@ pub fn evaluate_auto_break(
     let idle_threshold_seconds = idle_threshold_seconds(settings);
     let defer_reason = defer_reason(app, frontmost_bundle_id, frontmost_category);
     let defer_auto_break = defer_reason.is_some();
-    let should_auto_break =
-        !defer_auto_break && idle_seconds >= idle_threshold_seconds as f64;
+    let should_auto_break = !defer_auto_break && idle_seconds >= idle_threshold_seconds as f64;
 
     AutoBreakStatus {
         idle_seconds,

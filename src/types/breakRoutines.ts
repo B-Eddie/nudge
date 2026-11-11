@@ -11,7 +11,7 @@ export const BREAK_ROUTINES: BreakRoutine[] = [
     id: "far-focus",
     title: "Rest your eyes",
     durationSeconds: 20,
-    description: "A screen-free moment for your eyes.",
+    description: "Look at something far away.",
     instruction: "Look across the room or out a window. Let your eyes rest on something far away.",
   },
   {
@@ -32,7 +32,7 @@ export const BREAK_ROUTINES: BreakRoutine[] = [
     id: "move",
     title: "Stand and stretch",
     durationSeconds: 120,
-    description: "Get out of your chair for a minute.",
+    description: "Get up, move around, maybe refill your water.",
     instruction: "Stand, stretch in a way that feels good, or refill your water. Come back whenever you like.",
   },
 ];

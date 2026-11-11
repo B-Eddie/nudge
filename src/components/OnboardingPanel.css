@@ -184,3 +184,9 @@
   .onboarding-panel { animation: none; }
   .onboarding-btn, .onboarding-field input, .onboarding-field select, .onboarding-shortcut, .onboarding-app-row select { transition: none; }
 }
+
+/* "Say hello": the three things people otherwise never discover. */
+.onboarding-tips { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.onboarding-tips li { position: relative; padding: 11px 14px 11px 34px; border-radius: 14px; background: var(--surface); color: var(--text-dim); font-size: 0.8125rem; line-height: 1.45; }
+.onboarding-tips li::before { content: ""; position: absolute; left: 15px; top: 18px; width: 7px; height: 7px; border-radius: 2px; background: var(--accent); }
+.onboarding-tips strong { color: var(--text-strong); font-weight: 600; }

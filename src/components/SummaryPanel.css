@@ -68,6 +68,16 @@
 
 .summary-close:hover { background: var(--surface-raised-hover); color: var(--text-strong); }
 .summary-close:active { transform: scale(0.96); }
+.summary-close:disabled { opacity: 0.55; cursor: progress; }
+
+.summary-header-actions { display: flex; gap: 8px; }
+
+.summary-export-status {
+  margin: -6px 24px 10px;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+.summary-export-status--error { color: var(--danger); }
 
 .summary-tabs {
   display: flex;
@@ -202,7 +212,8 @@
   line-height: 1.5;
   font-variant-numeric: tabular-nums;
 }
-.summary-log li.summary-log-warn { color: var(--danger); }
+/* Informational, not a failure: nudge is gentle about breaks that end early. */
+.summary-log li.summary-log-warn { color: var(--warn); }
 
 @media (max-width: 360px) {
   .summary-backdrop { padding: 10px; }

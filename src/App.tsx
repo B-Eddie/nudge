@@ -84,6 +84,10 @@ function tierFromWorkSeconds(
   return Math.min(5, 1 + Math.floor(workSeconds / intervalSecs));
 }
 
+function formatClockTime(timestamp: number): string {
+  return new Date(timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
 function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
@@ -164,6 +168,11 @@ function App() {
   const lastDistractionNudgeAtRef = useRef(0);
   const pendingReminderRef = useRef(false);
   const snoozedUntilRef = useRef(0);
+  // "Quiet nudges" from the menu bar: reminders queue until this time; chatter and
+  // distraction nudges are skipped. Reminders are delivered once it ends.
+  const [quietUntil, setQuietUntil] = useState(0);
+  const quietUntilRef = useRef(0);
+  quietUntilRef.current = quietUntil;
   const reminderCheckInFlightRef = useRef(false);
 
   const [activityHydrated, setActivityHydrated] = useState(false);
@@ -227,6 +236,7 @@ function App() {
   const deliverPendingReminder = useCallback(async () => {
     if (!pendingReminderRef.current) return;
     if (Date.now() < snoozedUntilRef.current) return;
+    if (Date.now() < quietUntilRef.current) return;
     if (
       breakTimeRef.current !== 0 ||
       panelOpenRef.current ||
@@ -552,6 +562,7 @@ function App() {
 
           if (
             isDistractingCategory(key) &&
+            Date.now() >= quietUntilRef.current &&
             !characterHiddenRef.current &&
             !panelOpenRef.current &&
             !reminderPromptOpenRef.current
@@ -898,6 +909,57 @@ function App() {
   }, [closeBar, clearOverlayMessage]);
   usePauseTrackingShortcut(toggleCharacterHidden);
 
+  const quietNudges = useCallback((minutes: number) => {
+    const until = Date.now() + minutes * 60_000;
+    quietUntilRef.current = until;
+    setQuietUntil(until);
+    setReminderPromptOpen(false);
+    setTransientMessage(`Quiet until ${formatClockTime(until)}. I'll keep track for you.`);
+  }, [setTransientMessage]);
+
+  const resumeNudges = useCallback(() => {
+    quietUntilRef.current = 0;
+    setQuietUntil(0);
+    setTransientMessage("I'm back. I'll nudge you when it's time.");
+    void deliverPendingReminder();
+  }, [deliverPendingReminder, setTransientMessage]);
+
+  // Clear quiet mode when it lapses so the hover status and queued reminder catch up.
+  useEffect(() => {
+    if (quietUntil === 0) return;
+    const id = setTimeout(() => {
+      setQuietUntil(0);
+      void deliverPendingReminder();
+    }, Math.max(0, quietUntil - Date.now()));
+    return () => clearTimeout(id);
+  }, [quietUntil, deliverPendingReminder]);
+
+  // Menu-bar item actions (see src-tauri/src/tray.rs).
+  const trayActionRef = useRef<(action: string) => void>(() => {});
+  trayActionRef.current = (action: string) => {
+    switch (action) {
+      case "toggle-companion": toggleCharacterHidden(); break;
+      case "quiet-hour": quietNudges(60); break;
+      case "resume-nudges": resumeNudges(); break;
+      case "break": case "summary": case "settings":
+        if (characterHiddenRef.current) toggleCharacterHidden();
+        handleAction(action);
+        break;
+    }
+  };
+  useEffect(() => {
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+    void listen<string>("tray-action", (event) => trayActionRef.current(event.payload)).then((stop) => {
+      if (cancelled) stop();
+      else unlisten = stop;
+    });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, []);
+
   // updating focused app
   useEffect(() => {
     let cancelled = false;
@@ -957,6 +1019,7 @@ function App() {
     // Don't don't interrupt a message that is still typing or being shown. instead, wait for the next tick
     if (
       breakTime !== 0 ||
+      Date.now() < quietUntil ||
       displayedMessage !== "" ||
       reminderPromptOpen ||
       !label
@@ -1242,7 +1305,9 @@ function App() {
                       : "Take your time"
                     : reminderPromptOpen
                       ? "A pause is ready"
-                      : `Next nudge in ${reminderCountdownMins} min`}
+                      : quietUntil > Date.now()
+                        ? `Quiet until ${formatClockTime(quietUntil)}`
+                        : `Next nudge in ${reminderCountdownMins} min`}
                 </span>
               </p>
               <div className="energy-bars">

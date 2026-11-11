@@ -1,10 +1,11 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { isolateAtlas, framePixels } from "../lib/spriteAtlas";
 import type { CompanionId } from "../types/appearance";
 import type { PetAttention } from "../lib/petAttention";
 import { getPetRig } from "../lib/petRig";
 import { prepareSpritePixels, renderSpritePixels, type SpriteLayers } from "../lib/petRenderer";
 import { samplePetMotion } from "../lib/petMotion";
+import { resampleFrame, spriteResolution } from "../lib/spriteResample";
 import { PET_POSES, PIXEL_PETS, spritePlacement, mirrorWalkingFrame, type PetPose } from "../types/pixelPets";
 
 interface SpriteProps {
@@ -15,12 +16,28 @@ interface SpriteProps {
   paused?: boolean;
   reducedMotion?: boolean;
   attention?: PetAttention;
+  /** CSS pixels the sprite is shown at; picks the art resolution. */
+  displaySize?: number;
 }
 interface PreparedAtlas { poses: Record<PetPose, SpriteLayers> }
-const atlases = new Map<CompanionId, Promise<PreparedAtlas>>();
+const atlases = new Map<string, Promise<PreparedAtlas>>();
 
-function loadSprite(character: CompanionId) {
-  let promise = atlases.get(character);
+/** Tracks devicePixelRatio, which changes when the pet moves to another display. */
+function useDevicePixelRatio() {
+  const [ratio, setRatio] = useState(() => window.devicePixelRatio || 1);
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const media = window.matchMedia(`(resolution: ${ratio}dppx)`);
+    const update = () => setRatio(window.devicePixelRatio || 1);
+    media.addEventListener?.("change", update);
+    return () => media.removeEventListener?.("change", update);
+  }, [ratio]);
+  return ratio;
+}
+
+function loadSprite(character: CompanionId, scale: number) {
+  const key = `${character}@${scale}`;
+  let promise = atlases.get(key);
   if (!promise) {
     promise = new Promise<PreparedAtlas>((resolve, reject) => {
       const image = new Image();
@@ -37,33 +54,26 @@ function loadSprite(character: CompanionId) {
           const poses = {} as Record<PetPose, SpriteLayers>;
           for (const [pose, index] of Object.entries(PET_POSES) as [PetPose, number][]) {
             const source = frames[index];
-            const destination = spritePlacement(source, frames[0]);
-            const isolated = document.createElement("canvas");
-            isolated.width = source.width;
-            isolated.height = source.height;
-            isolated.getContext("2d")?.putImageData(
-              new ImageData(framePixels(rgba, atlas.width, labels, source), source.width, source.height), 0, 0,
-            );
-            const normalized = document.createElement("canvas");
-            normalized.width = normalized.height = 60;
-            const draw = normalized.getContext("2d");
-            if (!draw) throw new Error("Companion canvas unavailable");
-            draw.imageSmoothingEnabled = false;
-            if (mirrorWalkingFrame(character, pose)) { draw.translate(60, 0); draw.scale(-1, 1); }
-            draw.drawImage(isolated, 0, 0, source.width, source.height,
-              destination.x, destination.y, destination.width, destination.height);
-            poses[pose] = prepareSpritePixels(draw.getImageData(0, 0, 60, 60).data, getPetRig(character, pose));
+            const placement = spritePlacement(source, frames[0]);
+            const size = 60 * scale;
+            const normalized = new Uint8ClampedArray(size * size * 4);
+            resampleFrame(framePixels(rgba, atlas.width, labels, source), source.width, source.height,
+              normalized, size, {
+                x: placement.x * scale, y: placement.y * scale,
+                width: placement.width * scale, height: placement.height * scale,
+              }, mirrorWalkingFrame(character, pose));
+            poses[pose] = prepareSpritePixels(normalized, getPetRig(character, pose), scale);
           }
           resolve({ poses });
-        } catch (error) { atlases.delete(character); reject(error); }
+        } catch (error) { atlases.delete(key); reject(error); }
       };
       image.onerror = () => {
-        atlases.delete(character);
+        atlases.delete(key);
         reject(new Error(`Cannot load companion artwork: ${PIXEL_PETS[character]}`));
       };
       image.src = PIXEL_PETS[character];
     });
-    atlases.set(character, promise);
+    atlases.set(key, promise);
   }
   return promise;
 }
@@ -71,7 +81,9 @@ function loadSprite(character: CompanionId) {
 // Decode once. Pointer updates change the articulated face without resetting its
 // activity clock, remounting the canvas, or replacing unrelated expression art.
 export function PixelPetSprite({ character, pose = "idle", phone = false, animated = false,
-  paused = false, reducedMotion = false, attention }: SpriteProps) {
+  paused = false, reducedMotion = false, attention, displaySize = 120 }: SpriteProps) {
+  const scale = spriteResolution(displaySize, useDevicePixelRatio());
+  const size = 60 * scale;
   const canvas = useRef<HTMLCanvasElement>(null);
   const inputs = useRef({ pose, phone, animated, paused, reducedMotion, attention });
   inputs.current = { pose, phone, animated, paused, reducedMotion, attention };
@@ -87,7 +99,7 @@ export function PixelPetSprite({ character, pose = "idle", phone = false, animat
     let gazeX = 0;
     let gazeY = 0;
 
-    void loadSprite(character).then(atlas => {
+    void loadSprite(character, scale).then(atlas => {
       if (disposed) return;
       const ctx = canvas.current?.getContext("2d");
       if (!ctx) return;
@@ -126,7 +138,7 @@ export function PixelPetSprite({ character, pose = "idle", phone = false, animat
           const key = JSON.stringify([current.pose, current.phone, motion, gaze]);
           if (key !== previousKey) {
             const pixels = renderSpritePixels(atlas.poses[current.pose], motion, gaze, current.phone);
-            ctx.putImageData(new ImageData(pixels, 60, 60), 0, 0);
+            ctx.putImageData(new ImageData(pixels, size, size), 0, 0);
             previousKey = key;
           }
           lastDraw = now;
@@ -150,9 +162,9 @@ export function PixelPetSprite({ character, pose = "idle", phone = false, animat
       requestDraw.current = () => {};
       document.removeEventListener("visibilitychange", visibility);
     };
-  }, [character]);
+  }, [character, scale, size]);
 
   useEffect(() => { requestDraw.current(); }, [pose, phone, animated, paused, reducedMotion,
     attention?.x, attention?.y, attention?.near, attention?.tracking]);
-  return <canvas ref={canvas} className="pixel-pet-sprite" width={60} height={60} aria-hidden="true" />;
+  return <canvas ref={canvas} className="pixel-pet-sprite" width={size} height={size} aria-hidden="true" />;
 }

@@ -13,7 +13,7 @@ export function PetSizeControl({ character, value, onChange }: { character: Comp
       <button type="button" onClick={() => onChange(DEFAULT_PET_SIZE)} disabled={size === DEFAULT_PET_SIZE}>Reset</button>
     </div>
     <div className="pet-size-preview" aria-hidden="true">
-      <div style={{ width: size, height: size }}><PixelPetSprite character={character} /></div>
+      <div style={{ width: size, height: size }}><PixelPetSprite character={character} displaySize={size} /></div>
     </div>
     <input id="pet-size" type="range" min={50} max={150} step={10} value={percent}
       aria-valuetext={`${percent} percent`} onChange={e => onChange(Number(e.target.value) / 100 * DEFAULT_PET_SIZE)} />

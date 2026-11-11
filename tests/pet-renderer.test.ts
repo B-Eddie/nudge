@@ -220,3 +220,39 @@ describe("pixel companion compositor", () => {
     expect(pixel(tapping, 43, 46)[3]).toBe(255);
   });
 });
+
+describe("fine-raster rendering", () => {
+  const upscale = (source: Uint8ClampedArray, k: number) => {
+    const n = 60 * k, out = new Uint8ClampedArray(n * n * 4);
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+      const from = (Math.floor(y / k) * 60 + Math.floor(x / k)) * 4;
+      out.set(source.subarray(from, from + 4), (y * n + x) * 4);
+    }
+    return out;
+  };
+  const frames: [string, PetMotionFrame, { x: number; y: number }, boolean][] = [
+    ["still", still(), { x: 0, y: 0 }, false],
+    ["head and paws moved", { ...still(), head: { x: 1, y: -1 }, leftPaw: { x: 0, y: 2 }, rightPaw: { x: -1, y: 1 } }, { x: 0, y: 0 }, false],
+    ["looking aside", still(), { x: 1, y: -1 }, false],
+    ["blinking", { ...still(), blink: true }, { x: 0, y: 0 }, false],
+    ["body bob with props", { ...still(), body: { x: 0, y: 1 }, prop: { x: 1, y: 0 }, pageTurn: true, screenPulse: true }, { x: 0, y: 0 }, false],
+    ["holding a phone", { ...still(), screenPulse: true, rightPaw: { x: -1, y: 1 } }, { x: -1, y: 0 }, true],
+  ];
+  it.each(frames)("scale 2 matches the logical render pixel for pixel (%s)", (_name, motion, gaze, phone) => {
+    const { pixels, geometry } = fixture([eye()]);
+    const logical = renderSpritePixels(prepareSpritePixels(pixels, geometry), motion, gaze, phone);
+    const fine = renderSpritePixels(prepareSpritePixels(upscale(pixels, 2), geometry, 2), motion, gaze, phone);
+    expect(fine).toEqual(upscale(logical, 2));
+  });
+  it("keeps every character pose inside the fine raster at scale 3", () => {
+    const { pixels, geometry } = fixture([eye()]);
+    const layers = prepareSpritePixels(upscale(pixels, 3), geometry, 3);
+    const out = renderSpritePixels(layers, { ...still(), head: { x: 1, y: 1 } }, { x: 1, y: 1 });
+    expect(out.length).toBe(180 * 180 * 4);
+    expect(out.some((value, index) => index % 4 === 3 && value === 255)).toBe(true);
+  });
+  it("rejects artwork whose size does not match the requested scale", () => {
+    const { pixels, geometry } = fixture();
+    expect(() => prepareSpritePixels(pixels, geometry, 2)).toThrow("120×120");
+  });
+});

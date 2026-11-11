@@ -49,9 +49,14 @@ mod mac {
         let v = get(dict, key);
         msg_send![v, doubleValue]
     }
-    unsafe fn surfaces() -> Vec<Surface> {
+    unsafe fn surfaces(target: Option<u32>) -> Vec<Surface> {
         // On-screen, non-desktop windows. Bounds do not require screen-recording access.
-        let list = CGWindowListCopyWindowInfo(1 | 16, 0);
+        // During following, query only the attached window instead of scanning
+        // every application at display cadence. IncludingWindow = 1 << 3.
+        let list = match target {
+            Some(number) => CGWindowListCopyWindowInfo(8, number),
+            None => CGWindowListCopyWindowInfo(1 | 16, 0),
+        };
         if list == nil {
             return vec![];
         }
@@ -62,6 +67,10 @@ mod mac {
             if number(entry, "kCGWindowLayer") != 0.0
                 || number(entry, "kCGWindowOwnerPID") == std::process::id() as f64
             {
+                continue;
+            }
+            // A direct query can still return a minimized window.
+            if target.is_some() && number(entry, "kCGWindowIsOnscreen") != 1.0 {
                 continue;
             }
             let bounds = get(entry, "kCGWindowBounds");
@@ -198,7 +207,11 @@ mod mac {
                     );
                     let mut origin = frame.origin;
                     // Only attach when deliberately dropped close to an edge; never jump to a new app.
-                    for surface in if phase == "end" { surfaces() } else { Vec::new() } {
+                    for surface in if phase == "end" {
+                        surfaces(None)
+                    } else {
+                        Vec::new()
+                    } {
                         if foot.x >= surface.x + 45.0
                             && foot.x <= surface.x + surface.width - 45.0
                             && (foot.y - surface.y).abs() < 24.0
@@ -215,16 +228,21 @@ mod mac {
                     }
                     let origin = clamp_origin(origin, frame.size, foot_x, foot_y, body_size);
                     // Leave room for a readable menu on either side at every pet size.
-                    let canvas_size = cocoa::foundation::NSSize::new(body_size + 332.0, (body_size + 232.0).max(300.0));
+                    let canvas_size = cocoa::foundation::NSSize::new(
+                        body_size + 332.0,
+                        (body_size + 232.0).max(300.0),
+                    );
                     // Changing the canvas must preserve the pet's global foot point.
-                    let adjusted = NSPoint::new(origin.x, origin.y + frame.size.height - canvas_size.height);
+                    let adjusted =
+                        NSPoint::new(origin.x, origin.y + frame.size.height - canvas_size.height);
                     let (canvas, local_x, local_y) =
                         arrange_canvas(adjusted, canvas_size, foot_x, foot_y, body_size);
                     if let Some(perch) = state.perch.as_mut() {
                         perch.foot_x = local_x;
                         perch.foot_y = local_y;
                     }
-                    let _: () = msg_send![ns, setFrame:NSRect::new(canvas, canvas_size) display:true];
+                    let _: () =
+                        msg_send![ns, setFrame:NSRect::new(canvas, canvas_size) display:true];
                     let _ = window.emit(
                         "pet://layout",
                         crate::pet_desktop::PetLayout {
@@ -264,7 +282,10 @@ mod mac {
             return;
         };
         unsafe {
-            let Some(surface) = surfaces().into_iter().find(|s| s.number == perch.window) else {
+            let Some(surface) = surfaces(Some(perch.window))
+                .into_iter()
+                .find(|s| s.number == perch.window)
+            else {
                 state.perch = None;
                 return;
             };
@@ -274,9 +295,20 @@ mod mac {
                 surface.x + perch.offset.min(surface.width - 45.0) - perch.foot_x,
                 primary_height() - surface.y - frame.size.height + perch.foot_y,
             );
-            let origin = clamp_origin(origin, frame.size, perch.foot_x, perch.foot_y, state.body_size);
-            let (origin, foot_x, foot_y) =
-                arrange_canvas(origin, frame.size, perch.foot_x, perch.foot_y, state.body_size);
+            let origin = clamp_origin(
+                origin,
+                frame.size,
+                perch.foot_x,
+                perch.foot_y,
+                state.body_size,
+            );
+            let (origin, foot_x, foot_y) = arrange_canvas(
+                origin,
+                frame.size,
+                perch.foot_x,
+                perch.foot_y,
+                state.body_size,
+            );
             if (foot_x - perch.foot_x).abs() > 0.5 || (foot_y - perch.foot_y).abs() > 0.5 {
                 state.perch = Some(Perch {
                     foot_x,
@@ -328,7 +360,12 @@ pub fn pet_drag(
                 // A pet command queued before opening a dialog must not move it.
                 // Cancellation still runs so a drag cannot resume after closing.
                 if phase != "cancel"
-                    && *w.app_handle().state::<crate::AppState>().settings_open.lock().unwrap()
+                    && *w
+                        .app_handle()
+                        .state::<crate::AppState>()
+                        .settings_open
+                        .lock()
+                        .unwrap()
                 {
                     return;
                 }
@@ -392,7 +429,12 @@ pub fn tick(window: &tauri::WebviewWindow) {
 }
 
 // Coordinates are Cocoa points throughout, including negative/stacked displays.
-fn canvas_origin(foot: (f64, f64), size: (f64, f64), bounds: (f64, f64, f64, f64), body_size: f64) -> (f64, f64) {
+fn canvas_origin(
+    foot: (f64, f64),
+    size: (f64, f64),
+    bounds: (f64, f64, f64, f64),
+    body_size: f64,
+) -> (f64, f64) {
     (
         (foot.0 - body_size / 2.0).clamp(bounds.0, bounds.0 + (bounds.2 - size.0).max(0.0)),
         (foot.1 - body_size * 0.1 - 14.0).clamp(bounds.1, bounds.1 + (bounds.3 - size.1).max(0.0)),
@@ -405,30 +447,30 @@ mod tests {
     #[test]
     fn canvas_fits_negative_and_stacked_displays_without_moving_the_pet() {
         for body in [60.0_f64, 120.0, 180.0] {
-          let size = (body + 332.0, (body + 232.0).max(300.0));
-          for bounds in [
-            (-1920.0, 0.0, 1920.0, 1080.0),
-            (0.0, 900.0, 1440.0, 900.0),
-            (1440.0, -400.0, 1920.0, 1080.0),
-        ] {
-            for offset in [
-                (body / 2.0 + 4.0, body * 0.1 + 8.0),
-                (720.0, 450.0),
-                (bounds.2 - body / 2.0 - 4.0, bounds.3 - body * 0.9 - 12.0),
+            let size = (body + 332.0, (body + 232.0).max(300.0));
+            for bounds in [
+                (-1920.0, 0.0, 1920.0, 1080.0),
+                (0.0, 900.0, 1440.0, 900.0),
+                (1440.0, -400.0, 1920.0, 1080.0),
             ] {
-                let foot = (bounds.0 + offset.0, bounds.1 + offset.1);
-                let origin = canvas_origin(foot, size, bounds, body);
-                assert!(origin.0 >= bounds.0 && origin.0 + size.0 <= bounds.0 + bounds.2);
-                assert!(origin.1 >= bounds.1 && origin.1 + size.1 <= bounds.1 + bounds.3);
-                let local_foot = (foot.0 - origin.0, size.1 - (foot.1 - origin.1));
-                assert!(local_foot.0 >= body / 2.0 && local_foot.0 + body / 2.0 <= size.0);
-                assert!(local_foot.1 >= body * 0.9 && local_foot.1 + body * 0.1 <= size.1);
-                assert_eq!(
-                    (origin.0 + local_foot.0, origin.1 + size.1 - local_foot.1),
-                    foot
-                );
+                for offset in [
+                    (body / 2.0 + 4.0, body * 0.1 + 8.0),
+                    (720.0, 450.0),
+                    (bounds.2 - body / 2.0 - 4.0, bounds.3 - body * 0.9 - 12.0),
+                ] {
+                    let foot = (bounds.0 + offset.0, bounds.1 + offset.1);
+                    let origin = canvas_origin(foot, size, bounds, body);
+                    assert!(origin.0 >= bounds.0 && origin.0 + size.0 <= bounds.0 + bounds.2);
+                    assert!(origin.1 >= bounds.1 && origin.1 + size.1 <= bounds.1 + bounds.3);
+                    let local_foot = (foot.0 - origin.0, size.1 - (foot.1 - origin.1));
+                    assert!(local_foot.0 >= body / 2.0 && local_foot.0 + body / 2.0 <= size.0);
+                    assert!(local_foot.1 >= body * 0.9 && local_foot.1 + body * 0.1 <= size.1);
+                    assert_eq!(
+                        (origin.0 + local_foot.0, origin.1 + size.1 - local_foot.1),
+                        foot
+                    );
+                }
             }
-        }
         }
     }
 }

@@ -7,20 +7,22 @@ use tauri_plugin_autostart::MacosLauncher;
 mod activity;
 mod app_categories;
 mod auto_break;
-mod settings;
 mod pet_desktop;
-pub use activity::{get_activity, persist_activity, save_activity, ActivityStore};
+mod settings;
+mod storage;
+mod tray;
+pub use activity::{
+    export_activity_csv, get_activity, persist_activity, save_activity, ActivityStore,
+};
 pub use app_categories::get_app_category_options;
 pub use settings::{
-    get_settings, get_monitor_options, save_settings, close_settings, open_settings,
-    move_to_settings_monitor, register_pause_shortcut, pop_pending_note, add_pending_note,
-    get_pending_notes, remove_pending_note,
-    AppState, MonitorOption, Settings,
+    add_pending_note, close_settings, get_monitor_options, get_pending_notes, get_settings,
+    move_to_settings_monitor, open_settings, pop_pending_note, register_pause_shortcut,
+    remove_pending_note, save_settings, AppState, MonitorOption, Settings, SettingsStore,
 };
 
-
 #[cfg(target_os = "macos")]
-use cocoa::appkit::{NSEvent, NSColor, NSWindow};
+use cocoa::appkit::{NSColor, NSEvent, NSWindow};
 #[cfg(target_os = "macos")]
 use cocoa::base::{id, nil, BOOL, NO, YES};
 #[cfg(target_os = "macos")]
@@ -162,10 +164,13 @@ unsafe fn invalidate_view_display(view: id) {
 }
 
 #[cfg(target_os = "macos")]
-pub(crate) fn configure_macos_overlay_window(window: &tauri::WebviewWindow, app: &tauri::AppHandle) {
-    use tauri_nspanel::{
-        cocoa::appkit::NSWindowCollectionBehavior, ManagerExt, WebviewWindowExt,
-    };
+// tauri-nspanel v2 only accepts the deprecated cocoa collection-behaviour type.
+#[allow(deprecated)]
+pub(crate) fn configure_macos_overlay_window(
+    window: &tauri::WebviewWindow,
+    app: &tauri::AppHandle,
+) {
+    use tauri_nspanel::{cocoa::appkit::NSWindowCollectionBehavior, ManagerExt, WebviewWindowExt};
 
     const NS_NONACTIVATING_PANEL_MASK: i32 = 1 << 7;
     const NS_STATUS_WINDOW_LEVEL: i32 = 25;
@@ -217,7 +222,7 @@ fn ensure_overlay_on_active_space(window: &tauri::WebviewWindow) {
         let ns_window = ns_window_ptr as id;
         let on_active_space: BOOL = msg_send![ns_window, isOnActiveSpace];
         if on_active_space == NO {
-            configure_macos_overlay_window(window, &app);
+            configure_macos_overlay_window(window, app);
         }
     }
 }
@@ -272,19 +277,33 @@ fn emit_cursor_position(window: &tauri::WebviewWindow) {
 fn start_cursor_monitor(window: tauri::WebviewWindow) {
     std::thread::spawn(move || {
         let mut ticks: u64 = 0;
+        // Do not accumulate stale positions while AppKit is busy.
+        let pending = Arc::new(AtomicBool::new(false));
         loop {
             std::thread::sleep(Duration::from_millis(16));
+            if pending.swap(true, Ordering::AcqRel) {
+                continue;
+            }
             ticks += 1;
+            let queued = pending.clone();
             let w = window.clone();
             let w2 = w.clone();
-            let _ = w.run_on_main_thread(move || {
+            if w.run_on_main_thread(move || {
                 pet_desktop::tick(&w2);
+                // Follow at the same cadence as dragging (~60 Hz), not every
+                // twelfth tick (~5 Hz). Emit cursor coordinates after moving.
+                pet_desktop::follow(&w2);
                 emit_cursor_position(&w2);
-                if ticks % 12 == 0 { pet_desktop::follow(&w2); }
-                if ticks % 60 == 0 {
+                if ticks.is_multiple_of(60) {
                     ensure_overlay_on_active_space(&w2);
                 }
-            });
+                queued.store(false, Ordering::Release);
+            })
+            .is_err()
+            {
+                pending.store(false, Ordering::Release);
+                break;
+            }
         }
     });
 }
@@ -422,7 +441,7 @@ fn get_seconds_since_last_input() -> f64 {
     unsafe {
         // kCGEventSourceStateCombinedSessionState = 0
         const STATE: i32 = 0;
-        // CGEventType values treating as the user being active. 
+        // CGEventType values treating as the user being active.
         // Mouse-moved (5) and dragged variants (6/7) not considered
         const EVENT_TYPES: [u32; 7] = [
             1,  // kCGEventLeftMouseDown
@@ -473,8 +492,8 @@ fn frontmost_app() -> Option<FrontmostApp> {
 
         let from_running_app = |app: &NSRunningApplication| -> Option<FrontmostApp> {
             let name = unsafe { app.localizedName()? }.as_str(pool).to_owned();
-            let bundle_id = unsafe { app.bundleIdentifier() }
-                .map(|bid| bid.as_str(pool).to_owned());
+            let bundle_id =
+                unsafe { app.bundleIdentifier() }.map(|bid| bid.as_str(pool).to_owned());
             Some(FrontmostApp {
                 name,
                 bundle_id,
@@ -494,14 +513,14 @@ fn frontmost_app() -> Option<FrontmostApp> {
         // use the active regular app underneath since overlay is at the front frontmost
         let running = unsafe { workspace.runningApplications() };
         for app in &*running {
-            if is_our_app(&app) {
+            if is_our_app(app) {
                 continue;
             }
             let active = unsafe { app.isActive() };
             let regular =
                 unsafe { app.activationPolicy() } == NSApplicationActivationPolicy::Regular;
             if active && regular {
-                return from_running_app(&app);
+                return from_running_app(app);
             }
         }
 
@@ -509,31 +528,36 @@ fn frontmost_app() -> Option<FrontmostApp> {
     })
 }
 
+/// Bundles already looked up by a running-app scan this session. Without this, an app
+/// that discovery never registers would trigger a scan and a disk write on every poll.
+#[derive(Default)]
+struct DiscoveryAttempts(std::sync::Mutex<std::collections::HashSet<String>>);
+
 #[tauri::command]
-fn get_frontmost_app(app: tauri::AppHandle) -> Result<Option<FrontmostApp>, String> {
+fn get_frontmost_app(
+    store: tauri::State<SettingsStore>,
+    attempts: tauri::State<DiscoveryAttempts>,
+) -> Result<Option<FrontmostApp>, String> {
     #[cfg(target_os = "macos")]
     {
         let mut front = frontmost_app();
-        if let Some(ref info) = front {
-            let mut settings = Settings::load(&app).unwrap_or_default();
-            if info
-                .bundle_id
-                .as_ref()
-                .is_some_and(|bid| !settings.app_categories.contains_key(bid))
-            {
-                settings.sync_app_categories();
-                let _ = settings.save(&app);
+        if let Some(info) = front.as_mut() {
+            if let Some(bid) = info.bundle_id.as_deref() {
+                let known = store.read(|s| s.app_categories.contains_key(bid));
+                if !known && attempts.0.lock().unwrap().insert(bid.to_owned()) {
+                    if let Err(e) = store.update(|s| s.sync_app_categories()) {
+                        eprintln!("failed to save newly discovered apps: {e}");
+                    }
+                }
             }
-            if let Some(ref mut info) = front {
-                info.category = settings.category_for_bundle(info.bundle_id.as_deref());
-                info.category_label = app_categories::category_label(&info.category);
-            }
+            info.category = store.read(|s| s.category_for_bundle(info.bundle_id.as_deref()));
+            info.category_label = app_categories::category_label(&info.category);
         }
         Ok(front)
     }
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = app;
+        let _ = (store, attempts);
         Ok(None)
     }
 }
@@ -548,19 +572,18 @@ struct AutoBreakStatus {
 }
 
 #[tauri::command]
-fn get_auto_break_status(app: tauri::AppHandle) -> Result<AutoBreakStatus, String> {
+fn get_auto_break_status(
+    app: tauri::AppHandle,
+    store: tauri::State<SettingsStore>,
+    attempts: tauri::State<DiscoveryAttempts>,
+) -> Result<AutoBreakStatus, String> {
     let idle_seconds = get_seconds_since_last_input();
-    let settings = Settings::load(&app)?;
-    let front = get_frontmost_app(app.clone())?;
+    let front = get_frontmost_app(store.clone(), attempts)?;
     let bundle_id = front.as_ref().and_then(|info| info.bundle_id.as_deref());
     let category = front.as_ref().map(|info| info.category.as_str());
-    let status = auto_break::evaluate_auto_break(
-        &app,
-        idle_seconds,
-        &settings,
-        bundle_id,
-        category,
-    );
+    let status = store.read(|settings| {
+        auto_break::evaluate_auto_break(&app, idle_seconds, settings, bundle_id, category)
+    });
     Ok(AutoBreakStatus {
         idle_seconds: status.idle_seconds,
         idle_threshold_seconds: status.idle_threshold_seconds,
@@ -592,6 +615,7 @@ pub fn run() {
             Some(vec!["--autostarted"]),
         ))
         .manage(AppState::default())
+        .manage(DiscoveryAttempts::default())
         .invoke_handler(tauri::generate_handler![
             set_click_through,
             pet_desktop::pet_drag,
@@ -606,6 +630,7 @@ pub fn run() {
             get_auto_break_status,
             get_activity,
             save_activity,
+            export_activity_csv,
             reset_reminder_timer,
             pop_pending_note,
             add_pending_note,
@@ -616,8 +641,18 @@ pub fn run() {
         .setup(|app| {
             app.manage(ActivityStore::load(app.handle()));
 
-            let window = app.get_webview_window("main").unwrap();
-            let settings = Settings::load_synced_and_save(app.handle()).unwrap_or_default();
+            let store = SettingsStore::load(app.handle());
+            settings::refresh_installed_apps(&store);
+            let settings = store.get();
+            app.manage(store);
+
+            if let Err(e) = tray::install(app.handle()) {
+                eprintln!("failed to create menu-bar item: {e}");
+            }
+
+            let window = app
+                .get_webview_window("main")
+                .ok_or("main window missing from tauri.conf.json")?;
 
             // Sync autostart state with saved setting
             if let Some(autostart) = app.try_state::<tauri_plugin_autostart::AutoLaunchManager>() {
@@ -673,23 +708,26 @@ pub fn run() {
 
             let app_handle = app.handle().clone();
             std::thread::spawn(move || {
-                let mut settings = Settings::load(&app_handle).unwrap_or_default();
-                let mut target_interval_secs = settings.reminder_interval_mins as u64 * 60;
+                let interval_mins = || {
+                    app_handle
+                        .state::<SettingsStore>()
+                        .read(|s| s.reminder_interval_mins)
+                };
+                let mut current_interval_mins = interval_mins();
 
                 loop {
                     std::thread::sleep(Duration::from_secs(1));
                     let seconds_passed = reminder_elapsed.fetch_add(1, Ordering::SeqCst) + 1;
                     let _ = app_handle.emit("time-passed", ()); // emits every second
 
-                    // check if setting's changed
-                    if let Ok(latest_settings) = Settings::load(&app_handle) {
-                        if latest_settings.reminder_interval_mins != settings.reminder_interval_mins {
-                            settings = latest_settings;
-                            target_interval_secs = settings.reminder_interval_mins as u64 * 60;
-                            reminder_elapsed.store(0, Ordering::SeqCst);
-                            continue;
-                        }
+                    // A new interval restarts the countdown.
+                    let latest = interval_mins();
+                    if latest != current_interval_mins {
+                        current_interval_mins = latest;
+                        reminder_elapsed.store(0, Ordering::SeqCst);
+                        continue;
                     }
+                    let target_interval_secs = current_interval_mins as u64 * 60;
 
                     if target_interval_secs > 0 && seconds_passed >= target_interval_secs {
                         let _ = app_handle.emit("show-reminder", ());

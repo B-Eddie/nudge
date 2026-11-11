@@ -6,10 +6,12 @@
 .pet-rig { transform-origin: 60px 108px; transition: transform .25s steps(2, end); }
 .pet-breath, .pet-attention { transform: none; }
 .pet-facing-left { transform: scaleX(-1); }
-.pet-shadow { position: absolute; left: 30px; bottom: 10px; width: 60px; height: 4px; border-radius: 50%; background: #222a371f; }
+/* Grounding: a soft contact shadow under the feet, readable on light and dark windows. */
+.pet-shadow { position: absolute; left: 24px; bottom: 8px; width: 72px; height: 9px; border-radius: 50%; background: radial-gradient(closest-side, rgb(12 15 22 / .38), rgb(12 15 22 / .16) 62%, transparent); transition: transform .3s ease, opacity .3s ease; }
+.mood-sleep .pet-shadow { transform: scaleX(1.12); }
 .mood-lifted .pet-body { cursor: grabbing; }
 .mood-lifted .pet-rig { transform: translateY(-8px); }
-.mood-lifted .pet-shadow { opacity: .25; }
+.mood-lifted .pet-shadow { opacity: .45; transform: scale(.72); }
 .mood-happy .pet-rig { animation: pet-hop .8s steps(3, end) 2; }
 .pet-changing .pet-rig { transform: translateY(2px); }
 .outing-walk .pet-body, .adventure-travels.outing-sniff .pet-body { transform: translateX(var(--walk-x)); }
@@ -26,7 +28,7 @@
 @keyframes pet-dream { 50% { opacity: .7; transform: translateY(-6px); } 100% { transform: translateY(-12px); } }
 @keyframes flower-nuzzle { 50% { transform: translateX(2px); } }
 @media (prefers-reduced-motion: reduce) { .living-pet *, .living-pet *::before { animation: none !important; transition: none !important; } .pet-attention { transform: none; } .mood-sleep .pet-zzz { opacity: .7; } }
-.pet-actions { position: absolute; left: 128px; bottom: 0; width: 190px; padding: 7px; z-index: 30; box-sizing: border-box; background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 18px; box-shadow: none; }
+.pet-actions { position: absolute; left: 128px; bottom: 0; width: 190px; padding: 7px; z-index: 30; box-sizing: border-box; background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 18px; box-shadow: var(--popover-shadow); }
 .pet-actions-br, .pet-actions-tr { left: auto; right: 128px; }
 .pet-actions-center { left: 0; bottom: 100%; }
 .pet-actions-label { display: block; padding: 4px 8px 6px; color: var(--text-dim); font: 500 10px/1.3 var(--font-body); letter-spacing: .015em; }
@@ -101,3 +103,22 @@
 .pet-plaything { width: 44px; height: 44px; display: grid; place-items: center; }
 .pet-plaything.plaything-garden { height: 44px; }
 .pet-menu-button:focus-visible, .pet-actions button:focus-visible { outline: 2px solid var(--focus-border); outline-offset: 2px; }
+
+/* Desktop lighting. A thin edge keeps the silhouette distinct on bright pages; in Dark
+ * Mode a faint rim does the same against dark windows and the sprite dims slightly. In
+ * the evening it warms and dims a touch, the way the screen around it does. */
+.pet-stage { --pet-edge: drop-shadow(0 .5px 0 rgb(10 12 18 / .3)) drop-shadow(0 0 .5px rgb(10 12 18 / .22)); --pet-light: brightness(1); }
+.pet-stage[data-ambient="dusk"] { --pet-light: sepia(.08) brightness(.97); }
+.pet-stage[data-ambient="night"] { --pet-light: sepia(.14) brightness(.9) saturate(.95); }
+@media (prefers-color-scheme: dark) {
+  .pet-stage { --pet-edge: drop-shadow(0 0 .75px rgb(255 246 230 / .3)) brightness(.96); }
+  .pet-stage .pet-shadow { background: radial-gradient(closest-side, rgb(0 0 0 / .5), rgb(0 0 0 / .22) 62%, transparent); }
+}
+.pet-stage .pixel-pet-sprite { filter: var(--pet-edge) var(--pet-light); }
+
+/* Put down: squash on contact, then settle. Origin at the feet so it lands, not shrinks. */
+.pet-landing .pet-breath { transform-origin: 60px 108px; animation: pet-land .42s cubic-bezier(.3, 1.6, .5, 1) both; }
+.pet-landing .pet-shadow { animation: pet-land-shadow .42s ease-out both; }
+@keyframes pet-land { 0% { transform: scale(1.06, .9); } 55% { transform: scale(.97, 1.04); } 100% { transform: none; } }
+@keyframes pet-land-shadow { 0% { transform: scale(1.15); opacity: 1; } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .pet-landing .pet-breath, .pet-landing .pet-shadow { animation: none; } }

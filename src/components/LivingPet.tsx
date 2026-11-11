@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { CompanionId } from "../types/appearance";
 import type { PetAttention } from "../hooks/useCharacterInteraction";
 import { usePetBehavior } from "../hooks/usePetBehavior";
@@ -7,6 +7,7 @@ import { PetPlaything } from "./PetPlaything";
 import { petSize } from "../types/petSize";
 import { ADVENTURES, type PetRequest } from "../hooks/usePetLife";
 import { PixelPetSprite } from "./PixelPetSprite";
+import { useAmbientLight } from "../hooks/useAmbientLight";
 import "./LivingPet.css";
 
 interface Props {
@@ -33,6 +34,18 @@ export function LivingPet(p: Props) {
     const timeout = setTimeout(() => setHappy(false), 2200);
     return () => clearTimeout(timeout);
   }, [p.petted]);
+  // A short squash-and-settle when the pet is put down, so it lands on the desktop.
+  const [landing, setLanding] = useState(false);
+  const wasDragging = useRef(p.dragging);
+  useEffect(() => {
+    const dropped = wasDragging.current && !p.dragging;
+    wasDragging.current = p.dragging;
+    if (!dropped || reduced) return;
+    setLanding(true);
+    const timeout = setTimeout(() => setLanding(false), 420);
+    return () => clearTimeout(timeout);
+  }, [p.dragging, reduced]);
+  const ambient = useAmbientLight();
   const behavior = usePetBehavior(p.category, p.resting, p.busy || p.dragging || happy, reduced, p.character, p.energy, p.request, p.hovered);
   const { activity, transitioning, outing, adventure, touches, responding, interact } = behavior;
   const { pose, reacting } = usePetExpression({
@@ -48,7 +61,7 @@ export function LivingPet(p: Props) {
     "--walk-x": `${reduced ? 0 : direction * 32}px`,
   } as CSSProperties;
   const mood = p.dragging ? "lifted" : reacting ? "happy" : p.hovered ? "curious" : outing === "sniff" ? "sniff" : activity;
-  return <div className={`pet-stage${p.attention.near ? " pet-pointer-near" : ""}`} style={{ "--pet-size": `${size}px`, "--pet-scale": size / 120 } as CSSProperties}
+  return <div className={`pet-stage${p.attention.near ? " pet-pointer-near" : ""}${landing ? " pet-landing" : ""}`} data-ambient={ambient} style={{ "--pet-size": `${size}px`, "--pet-scale": size / 120 } as CSSProperties}
     onContextMenu={e => { e.preventDefault(); p.onMenu(); }}>
     <div className={`living-pet outing-${outing} mood-${mood} ${adventure ? `adventure-${adventure.kind} adventure-${adventure.phase} ${ADVENTURES[adventure.kind].travels ? "adventure-travels" : ""}` : ""} ${transitioning ? "pet-changing" : ""} ${p.energy <= 2 ? "pet-tired" : ""} ${p.hovered ? "pet-attended" : ""}`} style={style} data-pet-pose={pose} data-pet-adventure={adventure?.kind} data-pet-phase={adventure?.phase}>
     {adventure && <PetPlaything kind={adventure.kind} phase={adventure.phase} touches={touches} responding={responding} onInteract={interact} />}
@@ -58,7 +71,7 @@ export function LivingPet(p: Props) {
       <span className="pet-shadow" aria-hidden="true" />
       <span className="pet-rig"><span className="pet-breath"><span className="pet-attention">
         <span className={walking || outing === "sniff" ? (facing < 0 ? "pet-facing-left" : "pet-facing-right") : ""}>
-          <PixelPetSprite character={p.character} pose={pose}
+          <PixelPetSprite character={p.character} pose={pose} displaySize={size}
             animated paused={p.motionPaused ?? p.busy} reducedMotion={reduced}
             attention={{ ...p.attention, x: (walking || outing === "sniff") && facing < 0 ? -p.attention.x : p.attention.x }}
             phone={!adventure && activity === "social" && pose === "curious" && !p.hovered && !p.dragging} />

@@ -44,7 +44,7 @@ export function CompanionPicker({ value, onChange }: CompanionPickerProps) {
           onClick={() => onChange(companion.id)}
         >
           <span className="companion-option-art">
-            <PixelPetSprite character={companion.id} />
+            <PixelPetSprite character={companion.id} displaySize={60} />
           </span>
           <span className="companion-option-name">{companion.name}</span>
           <span className="companion-option-description">{companion.description}</span>
@@ -83,6 +83,7 @@ export function ThemePicker({
           tabIndex={selected === theme.id ? 0 : -1}
           className={`theme-option theme-option--${theme.id}${selected === theme.id ? " selected" : ""}`}
           onClick={() => choose(theme.id)}
+          title={theme.description}
         >
           <span className="theme-option-swatch" aria-hidden="true">
             <i />

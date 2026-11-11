@@ -22,12 +22,13 @@ Nudge makes screen time tangible with a desktop companion that gets tired as you
 - Visual progression: character animation depends on time spent on computer without a break
 - Taking a break will restore the character: resting long enough to compensate for time spent without break will recover the companion
 - Choose a crab, panda, red panda, tuxedo cat, or capybara, with detailed pixel-art sprites and expressive movement
-- Pick a warm bamboo or dark forest appearance; resize your pet from 50% to 150% in Settings
+- Light, Dark, or Match Mac appearance (follows Light and Dark Mode live); resize your pet from 50% to 150% in Settings
 - App awareness: waits for a stable category, puts the old activity away, and eases into the next
 - Looks toward your pointer, enjoys strokes and clicks, and can be picked up and dragged
 - Drop near a window’s top edge to perch there; the pet follows that window without activating it
 - Takes short walks to sniff a growing flower, with longer quiet stretches during focused work
 - Respects Reduce Motion and pauses wandering during interaction, reminders, and breaks
+- Sits on your desktop rather than floating over it: a soft contact shadow, a fine edge that keeps it distinct on bright pages and a faint rim in Dark Mode, a warmer, dimmer tone in the evening, and a little squash when you put it down
 - Context-aware phrases: says phrases based on what you're doing (coding, gaming, social, etc.) and how tired the companion is
 - Configurable reminder rhythm, ten-minute snooze, automatic-break threshold, screen position, monitor, and per-app categories
 - Refreshes installed apps on every launch and when Settings opens, removes deleted apps, and preserves custom categories for apps you still have
@@ -37,6 +38,9 @@ Nudge makes screen time tangible with a desktop companion that gets tired as you
 - Launch at login and a customizable global shortcut for hiding the companion
 - Personal reminder notes that your companion can say at the next reminder
 - A small hover status shows the current stretch and time until the next reminder
+- Menu-bar item: show or hide the companion, take a break, open your summary or Settings, quiet nudges for an hour, and quit
+- Quiet hour: reminders wait until it ends (or until you resume) instead of being dropped; chatter and distraction nudges stay silent
+- Export your full activity history as a CSV (one row per day, a column per category) from the Activity panel; the file goes to Downloads
 
 ## Challenges
 - Overlay window that stays out of the way: ignoring mouse events until you hover or click on character
@@ -82,9 +86,13 @@ idle, blink, pleased, delighted, curious, lifted, yawning, sleeping, two walking
 stretching, grooming, coding, reading, listening to music, and gaming.
 
 Generation used the built-in ImageGen tool; full prompts are recorded in
-`src/assets/pets/pixel/PROMPTS.md`. The original atlases stay intact. The renderer samples
-isolated pose artwork onto a 60-pixel canvas with nearest-neighbor scaling, stable body
-scale, and a shared floor. Pose bounds follow the actual connected artwork rather than
+`src/assets/pets/pixel/PROMPTS.md`. The original atlases stay intact. The renderer
+area-averages each isolated pose onto a pixel grid sized so one art pixel covers about two
+physical pixels (120×120 for the default size on a Retina display), with stable body
+scale and a shared floor. Every output pixel is fully opaque or fully clear, and colour
+ignores the sheets' pale anti-aliased fringe, so there's no halo on dark or light windows.
+Articulation (head, paws, eyes, props) is calibrated on a 60-unit grid and scaled to the
+render grid, so poses line up identically at every resolution. Pose bounds follow the actual connected artwork rather than
 fixed grid lines, preventing clipped ears and neighboring-frame fragments. Walking
 frames are normalized to one facing direction. App changes still wait for a stable
 category and a neutral settling pose.
@@ -108,19 +116,20 @@ Position is retained while opening panels; a new launch uses the corner selected
 Perching uses macOS window bounds only, without screenshots or controlling other apps.
 If the window closes or leaves the current Space, the pet stays where it was.
 
-Run `npm test` for gesture and behavior timing regression tests and `npm run build` for the frontend check.
-
 
 ## Data and development
 Activity and settings are stored locally in the application's configuration directory.
-Activity writes are atomic and keep the previous valid snapshot as `activity.json.bak`.
-If both files cannot be read, nudge will refuse to overwrite the existing history.
 No account or cloud sync is required.
 
-Run `npm test` for the activity rollover tests and `npm run build` for the
-TypeScript/frontend build. On a Mac with Rust and Tauri prerequisites installed,
-run `cargo test --manifest-path src-tauri/Cargo.toml --locked` for the native
-persistence tests. Pull requests run these checks in CI. The unsigned macOS
+- Activity writes are atomic and keep the previous valid snapshot as `activity.json.bak`.
+  If both files cannot be read, nudge will refuse to overwrite the existing history.
+- Settings live in memory and every change is written atomically, so a crash can't leave a
+  half-written file and concurrent changes can't undo each other. An unreadable
+  `settings.json` is moved aside as `settings.json.corrupt-<timestamp>` rather than replaced.
+
+`npm run check` runs everything CI runs: the TypeScript typecheck, frontend tests,
+`rustfmt`, `clippy -D warnings`, and the native tests (the native steps need a Mac with
+Rust and the Tauri prerequisites). Pull requests run these checks in CI. The unsigned macOS
 release may require a manual Gatekeeper exception; do not disable quarantine
 on software you do not trust.
 

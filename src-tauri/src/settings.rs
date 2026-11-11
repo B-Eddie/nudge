@@ -29,10 +29,13 @@ fn default_character() -> String {
     "crab".to_string()
 }
 
-fn default_character_size() -> u32 { 120 }
+fn default_character_size() -> u32 {
+    120
+}
 
+/// New installs follow the macOS appearance; saved choices are kept as they are.
 fn default_theme() -> String {
-    "bamboo".to_string()
+    "system".to_string()
 }
 
 fn default_reminder_snooze_mins() -> u32 {
@@ -141,48 +144,14 @@ impl Settings {
         UNKNOWN_CATEGORY.to_string()
     }
 
-    fn path(app: &AppHandle) -> Result<PathBuf, String> {
-        let dir = app
-            .path()
-            .app_config_dir()
-            .map_err(|e| e.to_string())?;
-        Ok(dir.join("settings.json"))
-    }
-
-    pub fn load(app: &AppHandle) -> Result<Self, String> {
-        let path = Self::path(app)?;
-        if !path.exists() {
-            return Ok(Self::default());
-        }
-        let data = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
-        let mut settings: Settings = serde_json::from_str(&data).map_err(|e| e.to_string())?;
-        // Existing installs without this field already completed setup implicitly.
+    /// Parses a settings file. Installs that predate onboarding already finished it.
+    pub fn from_json(data: &str) -> Result<Self, String> {
+        let mut settings: Settings = serde_json::from_str(data).map_err(|e| e.to_string())?;
         if !data.contains("onboarding_complete") {
             settings.onboarding_complete = true;
         }
-        Ok(settings)
-    }
-
-    pub fn load_synced(app: &AppHandle) -> Result<Self, String> {
-        let mut settings = Self::load(app)?;
         settings.character_size = settings.character_size.clamp(60, 180);
-        refresh_app_categories(&mut settings.app_categories);
         Ok(settings)
-    }
-
-    pub fn load_synced_and_save(app: &AppHandle) -> Result<Self, String> {
-        let settings = Self::load_synced(app)?;
-        settings.save(app)?;
-        Ok(settings)
-    }
-
-    pub fn save(&self, app: &AppHandle) -> Result<(), String> {
-        let path = Self::path(app)?;
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-        }
-        let json = serde_json::to_string_pretty(self).map_err(|e| e.to_string())?;
-        std::fs::write(path, json).map_err(|e| e.to_string())
     }
 
     pub fn window_position(&self) -> Position {
@@ -194,6 +163,87 @@ impl Settings {
             "center" => Position::Center,
             _ => Position::BottomLeft,
         }
+    }
+}
+
+/// The single owner of `settings.json`.
+///
+/// Every reader shares one in-memory copy, and every change goes through
+/// [`SettingsStore::update`], which holds the lock across modify-and-write. Previously
+/// several commands (including a 500 ms frontmost-app poll) each loaded the file,
+/// changed it and wrote it back, so a concurrent save could silently undo another.
+pub struct SettingsStore {
+    path: Option<PathBuf>,
+    inner: Mutex<Settings>,
+}
+
+impl SettingsStore {
+    pub fn load(app: &AppHandle) -> Self {
+        match app.path().app_config_dir() {
+            Ok(dir) => Self::open(dir.join("settings.json")),
+            Err(e) => {
+                eprintln!("settings directory unavailable; using defaults in memory: {e}");
+                Self {
+                    path: None,
+                    inner: Mutex::new(Settings::default()),
+                }
+            }
+        }
+    }
+
+    /// Opens the store at `path`. An unreadable file is moved aside rather than overwritten.
+    pub fn open(path: PathBuf) -> Self {
+        let settings = match std::fs::read_to_string(&path) {
+            Ok(data) => match Settings::from_json(&data) {
+                Ok(settings) => settings,
+                Err(error) => {
+                    match crate::storage::quarantine(&path) {
+                        Ok(moved) => eprintln!(
+                            "settings.json is unreadable ({error}); moved to {} and using defaults",
+                            moved.display()
+                        ),
+                        Err(move_error) => eprintln!(
+                            "settings.json is unreadable ({error}) and could not be moved aside: {move_error}"
+                        ),
+                    }
+                    Settings::default()
+                }
+            },
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Settings::default(),
+            Err(e) => {
+                eprintln!("could not read settings.json; using defaults: {e}");
+                Settings::default()
+            }
+        };
+        Self {
+            path: Some(path),
+            inner: Mutex::new(settings),
+        }
+    }
+
+    /// A snapshot of the current settings.
+    pub fn get(&self) -> Settings {
+        self.inner.lock().unwrap().clone()
+    }
+
+    /// Reads without cloning (for hot paths such as the frontmost-app poll).
+    pub fn read<R>(&self, f: impl FnOnce(&Settings) -> R) -> R {
+        f(&self.inner.lock().unwrap())
+    }
+
+    /// Applies `f` and persists the result atomically. Memory changes only if the
+    /// write succeeds, so the in-memory copy never drifts from disk.
+    pub fn update<R>(&self, f: impl FnOnce(&mut Settings) -> R) -> Result<R, String> {
+        let mut current = self.inner.lock().unwrap();
+        let mut next = current.clone();
+        let result = f(&mut next);
+        next.character_size = next.character_size.clamp(60, 180);
+        if let Some(path) = &self.path {
+            let json = serde_json::to_vec_pretty(&next).map_err(|e| e.to_string())?;
+            crate::storage::write_atomic(path, &json)?;
+        }
+        *current = next;
+        Ok(result)
     }
 }
 
@@ -209,7 +259,11 @@ fn target_monitor(app: &AppHandle, settings: &Settings) -> Result<tauri::Monitor
         .ok_or_else(|| "no monitors found".to_string())
 }
 
-fn physical_window_size(monitor: &tauri::Monitor, logical_width: f64, logical_height: f64) -> (i32, i32) {
+fn physical_window_size(
+    monitor: &tauri::Monitor,
+    logical_width: f64,
+    logical_height: f64,
+) -> (i32, i32) {
     let scale = monitor.scale_factor();
     (
         (logical_width * scale).round() as i32,
@@ -285,7 +339,6 @@ fn monitor_label(_app: &AppHandle, monitor: &tauri::Monitor, index: usize) -> St
     format!("Display {} · {} x {}", index + 1, w, h)
 }
 
-
 #[tauri::command]
 pub fn get_monitor_options(app: AppHandle) -> Result<Vec<MonitorOption>, String> {
     let monitors = app.available_monitors().map_err(|e| e.to_string())?;
@@ -300,8 +353,15 @@ pub fn get_monitor_options(app: AppHandle) -> Result<Vec<MonitorOption>, String>
 }
 
 #[tauri::command]
-pub fn get_settings(app: AppHandle) -> Result<Settings, String> {
-    Settings::load_synced_and_save(&app)
+pub fn get_settings(store: State<SettingsStore>) -> Settings {
+    store.get()
+}
+
+/// Rescans installed and running apps, dropping deleted apps and keeping custom categories.
+pub fn refresh_installed_apps(store: &SettingsStore) {
+    if let Err(e) = store.update(|s| refresh_app_categories(&mut s.app_categories)) {
+        eprintln!("failed to save refreshed app list: {e}");
+    }
 }
 
 /// Registers the hide-character global shortcut. Pressing it emits to the frontend
@@ -315,18 +375,24 @@ pub fn register_pause_shortcut(app: &AppHandle, shortcut: &str) -> Result<(), St
 pub fn save_settings(
     app: AppHandle,
     state: State<AppState>,
-    mut settings: Settings,
+    store: State<SettingsStore>,
+    settings: Settings,
 ) -> Result<(), String> {
-    settings.character_size = settings.character_size.clamp(60, 180);
-    let previous = Settings::load(&app).unwrap_or_default();
+    let previous = store.get();
     if previous.pause_shortcut != settings.pause_shortcut {
         // Register the new binding first so an invalid one fails the save.
         register_pause_shortcut(&app, &settings.pause_shortcut)?;
-        let _ = app.global_shortcut().unregister(previous.pause_shortcut.as_str());
+        let _ = app
+            .global_shortcut()
+            .unregister(previous.pause_shortcut.as_str());
     }
 
-    settings.save(&app)?;
-    let placement_changed = previous.position != settings.position || previous.monitor_index != settings.monitor_index;
+    let settings = store.update(|current| {
+        *current = merge_saved_settings(current, settings);
+        current.clone()
+    })?;
+    let placement_changed =
+        previous.position != settings.position || previous.monitor_index != settings.monitor_index;
     if placement_changed {
         *state.pet_position.lock().unwrap() = None;
         crate::pet_desktop::detach();
@@ -344,7 +410,9 @@ pub fn save_settings(
     if *state.settings_open.lock().unwrap() {
         return Ok(());
     }
-    if !placement_changed { return Ok(()); }
+    if !placement_changed {
+        return Ok(());
+    }
     if let Some(window) = app.get_webview_window("main") {
         let position = settings.window_position();
         move_to_settings_monitor(
@@ -360,7 +428,11 @@ pub fn save_settings(
 }
 
 #[tauri::command]
-pub fn open_settings(app: AppHandle, state: State<AppState>) -> Result<(), String> {
+pub fn open_settings(
+    app: AppHandle,
+    state: State<AppState>,
+    store: State<SettingsStore>,
+) -> Result<(), String> {
     let window = app
         .get_webview_window("main")
         .ok_or_else(|| "main window not found".to_string())?;
@@ -379,7 +451,8 @@ pub fn open_settings(app: AppHandle, state: State<AppState>) -> Result<(), Strin
         .set_size(LogicalSize::new(SETTINGS_WIDTH, SETTINGS_HEIGHT))
         .map_err(|e| e.to_string())?;
 
-    let settings = Settings::load(&app)?;
+    refresh_installed_apps(&store);
+    let settings = store.get();
     move_to_settings_monitor(
         &app,
         &window,
@@ -394,7 +467,11 @@ pub fn open_settings(app: AppHandle, state: State<AppState>) -> Result<(), Strin
 }
 
 #[tauri::command]
-pub fn close_settings(app: AppHandle, state: State<AppState>) -> Result<(), String> {
+pub fn close_settings(
+    app: AppHandle,
+    state: State<AppState>,
+    store: State<SettingsStore>,
+) -> Result<(), String> {
     let window = app
         .get_webview_window("main")
         .ok_or_else(|| "main window not found".to_string())?;
@@ -405,12 +482,19 @@ pub fn close_settings(app: AppHandle, state: State<AppState>) -> Result<(), Stri
         .set_size(LogicalSize::new(OVERLAY_WIDTH, OVERLAY_HEIGHT))
         .map_err(|e| e.to_string())?;
 
-    let settings = Settings::load(&app)?;
+    let settings = store.get();
     let position = settings.window_position();
     if let Some(saved) = *state.pet_position.lock().unwrap() {
         window.set_position(saved).map_err(|e| e.to_string())?;
     } else {
-        move_to_settings_monitor(&app, &window, &settings, position, OVERLAY_WIDTH, OVERLAY_HEIGHT)?;
+        move_to_settings_monitor(
+            &app,
+            &window,
+            &settings,
+            position,
+            OVERLAY_WIDTH,
+            OVERLAY_HEIGHT,
+        )?;
     }
 
     #[cfg(target_os = "macos")]
@@ -425,50 +509,174 @@ pub fn close_settings(app: AppHandle, state: State<AppState>) -> Result<(), Stri
 
 /// Appends a pending reminder note.
 #[tauri::command]
-pub fn add_pending_note(app: AppHandle, note: String) -> Result<(), String> {
+pub fn add_pending_note(store: State<SettingsStore>, note: String) -> Result<(), String> {
     let text = note.trim();
     if text.is_empty() {
         return Ok(());
     }
-    let mut settings = Settings::load(&app)?;
-    settings.pending_notes.push(text.to_string());
-    settings.save(&app)?;
-    Ok(())
+    store.update(|s| s.pending_notes.push(text.to_string()))
 }
 
 /// Queued reminder notes (oldest first).
 #[tauri::command]
-pub fn get_pending_notes(app: AppHandle) -> Result<Vec<String>, String> {
-    Ok(Settings::load(&app)?.pending_notes)
+pub fn get_pending_notes(store: State<SettingsStore>) -> Vec<String> {
+    store.read(|s| s.pending_notes.clone())
 }
 
 /// Removes a queued note by index.
 #[tauri::command]
-pub fn remove_pending_note(app: AppHandle, index: usize) -> Result<(), String> {
-    let mut settings = Settings::load(&app)?;
-    if index >= settings.pending_notes.len() {
-        return Err(format!("note index {} out of range", index));
-    }
-    settings.pending_notes.remove(index);
-    settings.save(&app)?;
-    Ok(())
+pub fn remove_pending_note(store: State<SettingsStore>, index: usize) -> Result<(), String> {
+    store.update(|s| {
+        if index >= s.pending_notes.len() {
+            return Err(format!("note index {index} out of range"));
+        }
+        s.pending_notes.remove(index);
+        Ok(())
+    })?
 }
 
 /// Returns and removes the oldest pending note, if any.
 #[tauri::command]
-pub fn pop_pending_note(app: AppHandle) -> Result<Option<String>, String> {
-    let mut settings = Settings::load(&app)?;
-    if settings.pending_notes.is_empty() {
+pub fn pop_pending_note(store: State<SettingsStore>) -> Result<Option<String>, String> {
+    if store.read(|s| s.pending_notes.is_empty()) {
         return Ok(None);
     }
-    let note = settings.pending_notes.remove(0);
-    settings.save(&app)?;
-    Ok(Some(note))
+    store.update(|s| (!s.pending_notes.is_empty()).then(|| s.pending_notes.remove(0)))
+}
+
+/// The settings panel edits a snapshot taken when it opened. Notes are owned by their own
+/// commands, and apps discovered while the panel was open are not in the snapshot, so keep
+/// both from the live copy instead of letting a stale draft erase them.
+fn merge_saved_settings(current: &Settings, mut incoming: Settings) -> Settings {
+    incoming.pending_notes = current.pending_notes.clone();
+    for (bundle_id, entry) in &current.app_categories {
+        incoming
+            .app_categories
+            .entry(bundle_id.clone())
+            .or_insert_with(|| entry.clone());
+    }
+    incoming
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{AppState, Settings};
+    use super::{merge_saved_settings, AppState, Settings, SettingsStore};
+    use crate::app_categories::AppCategoryEntry;
+
+    fn temp_settings_path() -> std::path::PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        let dir = std::env::temp_dir().join(format!(
+            "nudge-settings-test-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir.join("settings.json")
+    }
+
+    fn app(name: &str) -> AppCategoryEntry {
+        AppCategoryEntry {
+            name: name.into(),
+            category: "public.app-category.developer-tools".into(),
+            user_override: false,
+            is_helper: Some(false),
+            bundle_path: None,
+        }
+    }
+
+    #[test]
+    fn store_persists_updates_and_reloads_them() {
+        let path = temp_settings_path();
+        let store = SettingsStore::open(path.clone());
+        store.update(|s| s.reminder_interval_mins = 45).unwrap();
+        assert_eq!(
+            SettingsStore::open(path.clone())
+                .get()
+                .reminder_interval_mins,
+            45
+        );
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn corrupt_settings_are_moved_aside_not_overwritten() {
+        let path = temp_settings_path();
+        std::fs::write(&path, b"{\"monitor_index\": ").unwrap();
+        let store = SettingsStore::open(path.clone());
+        assert_eq!(store.get().reminder_interval_mins, 30);
+        let dir = path.parent().unwrap();
+        let kept: Vec<_> = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .filter(|name| name.starts_with("settings.json.corrupt-"))
+            .collect();
+        assert_eq!(kept.len(), 1);
+        assert_eq!(
+            std::fs::read(dir.join(&kept[0])).unwrap(),
+            b"{\"monitor_index\": "
+        );
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn concurrent_updates_are_not_lost() {
+        let path = temp_settings_path();
+        let store = std::sync::Arc::new(SettingsStore::open(path.clone()));
+        let threads: Vec<_> = (0..8)
+            .map(|i| {
+                let store = store.clone();
+                std::thread::spawn(move || {
+                    for j in 0..10 {
+                        store
+                            .update(|s| s.pending_notes.push(format!("{i}-{j}")))
+                            .unwrap();
+                    }
+                })
+            })
+            .collect();
+        for t in threads {
+            t.join().unwrap();
+        }
+        assert_eq!(store.get().pending_notes.len(), 80);
+        assert_eq!(
+            SettingsStore::open(path.clone()).get().pending_notes.len(),
+            80
+        );
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn saving_a_stale_panel_draft_keeps_notes_and_newly_discovered_apps() {
+        let mut current = Settings {
+            pending_notes: vec!["stretch".into()],
+            ..Settings::default()
+        };
+        current
+            .app_categories
+            .insert("com.new.app".into(), app("New"));
+        current
+            .app_categories
+            .insert("com.code".into(), app("Code"));
+
+        let mut draft = Settings {
+            reminder_interval_mins: 50,
+            ..Settings::default()
+        };
+        let mut edited = app("Code");
+        edited.category = "public.app-category.games".into();
+        edited.user_override = true;
+        draft.app_categories.insert("com.code".into(), edited);
+
+        let saved = merge_saved_settings(&current, draft);
+        assert_eq!(saved.reminder_interval_mins, 50);
+        assert_eq!(saved.pending_notes, vec!["stretch".to_string()]);
+        assert!(saved.app_categories.contains_key("com.new.app"));
+        assert_eq!(
+            saved.app_categories["com.code"].category,
+            "public.app-category.games"
+        );
+    }
 
     #[test]
     fn opening_a_panel_discards_queued_pet_click_through() {
@@ -511,9 +719,17 @@ mod tests {
         let restored: Settings = serde_json::from_value(legacy).unwrap();
         assert_eq!(restored.character_size, 120);
         for size in [60, 144, 180] {
-            let settings = Settings { character_size: size, ..Settings::default() };
+            let settings = Settings {
+                character_size: size,
+                ..Settings::default()
+            };
             let saved = serde_json::to_string(&settings).unwrap();
-            assert_eq!(serde_json::from_str::<Settings>(&saved).unwrap().character_size, size);
+            assert_eq!(
+                serde_json::from_str::<Settings>(&saved)
+                    .unwrap()
+                    .character_size,
+                size
+            );
         }
     }
 }
