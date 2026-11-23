@@ -1,6 +1,6 @@
 [package]
 name = "nudge"
-version = "0.3.0"
+version = "0.4.0"
 description = "A gentle desktop companion for a more balanced day at your screen"
 authors = ["B-Eddie"]
 license = "MIT"

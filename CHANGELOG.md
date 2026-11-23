@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0 (unsigned beta)
 
 ### Nudges that know when to speak
 - Nudges wait for a pause in typing or the gap between two apps, with a limit set by how firm you want them to be. They used to appear mid-sentence.
