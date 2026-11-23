@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-window-context"
+description = "Allows reading the front window's title once the person turns it on, and perching on it."
+commands.allow = ["get_window_context", "get_window_access", "request_window_access", "perch_on_front_window"]

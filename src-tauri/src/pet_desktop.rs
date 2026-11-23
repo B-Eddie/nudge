@@ -38,6 +38,7 @@ mod mac {
         x: f64,
         y: f64,
         width: f64,
+        owner: i32,
     }
     unsafe fn get(dict: id, key: &str) -> id {
         let key = NSString::alloc(nil).init_str(key);
@@ -83,6 +84,7 @@ mod mac {
                 x: number(bounds, "X"),
                 y: number(bounds, "Y"),
                 width,
+                owner: number(entry, "kCGWindowOwnerPID") as i32,
             });
         }
         let _: () = msg_send![list, release];
@@ -329,6 +331,53 @@ mod mac {
             }
         }
     }
+    /// Where along a window's top edge the pet sits when it hops there by itself.
+    const HOP_INSET: f64 = 90.0;
+
+    /// Sits the pet on the frontmost window of `pid`, if there is room above its top edge.
+    /// Never covers a window that reaches the top of the screen, and never interrupts a drag.
+    pub fn perch_on(
+        window: &tauri::WebviewWindow,
+        pid: i32,
+        foot_x: f64,
+        foot_y: f64,
+        body_size: f64,
+    ) -> bool {
+        let Ok(ptr) = window.ns_window() else {
+            return false;
+        };
+        let mut state = MOVEMENT.lock().unwrap();
+        if state.drag.is_some() {
+            return false;
+        }
+        unsafe {
+            let Some(surface) = surfaces(None).into_iter().find(|s| s.owner == pid) else {
+                return false;
+            };
+            if state.perch.is_some_and(|p| p.window == surface.number) {
+                return false; // already there
+            }
+            let frame = (ptr as id).frame();
+            let offset = (surface.width - HOP_INSET).max(surface.width / 2.0);
+            let wanted = NSPoint::new(
+                surface.x + offset - foot_x,
+                primary_height() - surface.y - frame.size.height + foot_y,
+            );
+            let allowed = clamp_origin(wanted, frame.size, foot_x, foot_y, body_size);
+            if (allowed.y - wanted.y).abs() > 2.0 || (allowed.x - wanted.x).abs() > 60.0 {
+                return false;
+            }
+            state.body_size = body_size.clamp(60.0, 180.0);
+            // `follow` moves it there on the next frame and keeps it there.
+            state.perch = Some(Perch {
+                window: surface.number,
+                offset,
+                foot_x,
+                foot_y,
+            });
+        }
+        true
+    }
     pub fn detach() {
         let mut state = MOVEMENT.lock().unwrap();
         state.drag = None;
@@ -388,6 +437,32 @@ pub fn pet_drag(
         }
     }
     Ok(())
+}
+
+/// Moves the pet onto the window in use. Returns whether it hopped.
+#[tauri::command]
+pub fn perch_on_front_window(
+    app: tauri::AppHandle,
+    foot_x: f64,
+    foot_y: f64,
+    body_size: f64,
+) -> Result<bool, String> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or("main window missing")?;
+    if *app.state::<crate::AppState>().settings_open.lock().unwrap() {
+        return Ok(false);
+    }
+    #[cfg(target_os = "macos")]
+    {
+        Ok(crate::frontmost_pid()
+            .is_some_and(|pid| mac::perch_on(&window, pid, foot_x, foot_y, body_size)))
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (window, foot_x, foot_y, body_size);
+        Ok(false)
+    }
 }
 
 pub fn follow(window: &tauri::WebviewWindow) {

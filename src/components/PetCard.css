@@ -1,0 +1,9 @@
+.pet-card { width: min(262px, calc(100vw - 24px)); padding: 13px 14px 11px; }
+.pet-card p { margin: 4px 0 10px; }
+.pet-card h2 { margin-top: 4px; font-size: 16px; overflow-wrap: anywhere; }
+.pet-card .reminder-prompt-actions { gap: 6px; }
+.pet-card-later { display: flex; align-items: center; gap: 4px; margin-top: 9px; padding-top: 8px; border-top: 1px solid var(--divider); }
+.pet-card-later span { margin-right: auto; color: var(--text-dim); font-size: 11px; }
+.pet-card-later button { min-height: 26px; padding: 4px 8px; border: 0; border-radius: 999px; background: transparent; color: var(--text); font: 600 11px/1.2 var(--font-body); cursor: pointer; }
+.pet-card-later button:hover { background: var(--surface-raised); }
+.break-coach-step { min-height: 36px; }

@@ -147,10 +147,10 @@ button:disabled { cursor: default; }
 .break-coach-track span { display: block; height: 100%; background: var(--accent); border-radius: inherit; transition: width .18s linear; }
 
 .character { position: absolute; display: flex; flex-direction: row; align-items: center; width: var(--pet-size, 120px); height: var(--pet-size, 120px); overflow: visible; }
-.character.pos-bl { bottom: 10vh; left: 0; }
-.character.pos-br { bottom: 10vh; right: 0; }
-.character.pos-tl { top: 10vh; left: 0; }
-.character.pos-tr { top: 10vh; right: 0; }
+.character.pos-bl { bottom: 30px; left: 0; }
+.character.pos-br { bottom: 30px; right: 0; }
+.character.pos-tl { top: 30px; left: 0; }
+.character.pos-tr { top: 30px; right: 0; }
 .character.pos-center { left: calc(50% - var(--pet-size, 120px) / 2); top: calc(50% - var(--pet-size, 120px) / 2); }
 .character-figure { flex-shrink: 0; width: 100%; isolation: isolate; }
 .character img, #characterMain { display: block; width: 100%; image-rendering: pixelated; }
@@ -209,3 +209,5 @@ button:disabled { cursor: default; }
   font: 12px/1.35 sans-serif;
   pointer-events: auto;
 }
+
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

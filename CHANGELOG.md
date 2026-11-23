@@ -1,6 +1,45 @@
 # Changelog
 
 ## Unreleased
+
+### Nudges that know when to speak
+- Nudges wait for a pause in typing or the gap between two apps, with a limit set by how firm you want them to be. They used to appear mid-sentence.
+- **Fix: audio detection never worked.** It read a CoreAudio property that does not exist, so automatic breaks could start during calls and browser videos. Detection now uses the macOS process list (14.2 and later; older systems fall back to the app in front).
+- Calls hold nudges for as long as they last. Videos hold them for a while. Background music holds nothing.
+- The nudge card starts a suggested reset in one click, and snoozes for 5 minutes, your usual time, or until you finish what you're doing. Left unanswered, it folds away and your pet dozes off; pet it to wake it.
+- Distracting time is added up over a rolling window with an adjustable limit, so a quick look elsewhere no longer starts it over.
+- **Fix:** nudges that came due while the companion was hidden were dropped; they now wait.
+- **Fix:** coming back fully rested was counted as an interrupted break, and the minutes before an automatic break were counted as work.
+- Active hours, weekends off, and more ways to go quiet from the menu bar.
+
+### Someone to rest with
+- **Focus sessions:** your pet holds what you're doing on a sign, keeps nudges for the end, asks if you drift, and looks after stray thoughts.
+- **A garden that grows when you rest.** Fourteen kinds of plant, some seasonal or nocturnal. Nothing wilts.
+- **Friendship and outfits:** ten things to find and wear, and moments to remember. Screen time never counts.
+- Fourteen step-by-step resets your pet performs with you, suggested for the moment and by what has helped before. Optional sounds and spoken steps.
+- Breaks survive a bumped desk, can be resumed if cut short, and never ask for more than 20 minutes.
+- Name your companion, choose how much it chats, and watch it sway to your music.
+
+### Part of your Mac
+- **Knows which tab you're on**, in any browser, from the window's title. Opt-in, needs Accessibility, never reads addresses or pages, and never saves titles. Add your own rules, including private ones.
+- A video about what you're working on counts as working. Drift cards name the site; focus sessions offer the page in front of you; coming back from a break, your pet tells you where you were.
+- Notices tabs flying by and repeat visits, and has something to say about where you are.
+- Locking the screen starts a break. Full-screen video makes the pet step out of the picture.
+- Optionally hops onto the window you're using, when there's room above it.
+- **Fix:** video in Zen and other Firefox-based browsers is recognized.
+
+### Your day
+- Wrap up the day: how it felt, and one thing to leave for tomorrow.
+- Wind-down before bedtime, and optional eye, posture and water rhythms.
+- A weekly letter, active hours, and week-over-week comparison in Activity. New columns in the CSV export.
+- Save a postcard of your garden.
+
+### Privacy and settings
+- Settings are grouped into tabs, with a plain list of what nudge knows.
+- Mark an app private so its time is never recorded, choose how long history is kept, or erase it.
+- The overlay is slightly larger so a card sits above the pet instead of covering it.
+
+### Earlier
 - **Settings that behave.** Minute fields no longer snap to 1 while you type (clearing "30" to enter "45" used to give 145). The show/hide shortcut is kept as soon as you press it, and Esc cancels; before, you had to hold the combo and press Esc to save. A stray click outside Settings no longer throws away your edits. Settings are grouped into Companion, Appearance, Reminders, Placement, General and App categories.
 - **Match Mac appearance**, now the default for new installs, follows Light and Dark Mode live.
 - **Shorter setup:** five steps instead of eight. The last one shows the three things people miss: click for the menu, drag anywhere, and the menu-bar icon.

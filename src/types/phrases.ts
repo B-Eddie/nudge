@@ -15,11 +15,15 @@ export const DISTRACTING_CATEGORIES = new Set([
   "Video",
 ]);
 
-/** Continuous seconds on a distracting category before the first nudge. */
-export const DISTRACTION_LIMIT_SECS = 60 * 60;
-
-/** Re-nudge while still stuck on the same distracting category. */
-export const DISTRACTION_NUDGE_REPEAT_SECS = 15 * 60;
+/** Said during wind-down, in place of anything about work. */
+export const SLEEPY_PHRASES = [
+  "tomorrow can have the rest",
+  "my eyes are closing on their own",
+  "dim the lights a little?",
+  "that’ll still be there in the morning",
+  "the garden’s asleep already",
+  "one more tab, then bed?",
+];
 
 export function isDistractingCategory(category: string): boolean {
   return DISTRACTING_CATEGORIES.has(category);

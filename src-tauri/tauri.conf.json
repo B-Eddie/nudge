@@ -14,8 +14,8 @@
     "windows": [
       {
         "title": "nudge",
-        "width": 300,
-        "height": 300,
+        "width": 320,
+        "height": 400,
         "resizable": false,
         "fullscreen": false,
         "decorations": false,

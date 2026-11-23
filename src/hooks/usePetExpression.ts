@@ -8,6 +8,10 @@ interface ExpressionContext {
   adventurePose?: PetPose;
   transitioning: boolean; hovered: boolean; dragging: boolean; petted: number;
   near: boolean; busy: boolean; energy: number; reducedMotion: boolean;
+  /** A pose to hold while doing a break routine together. */
+  performing?: PetPose;
+  /** 0 awake to 3 asleep: how long a nudge has gone unanswered. */
+  drowsy?: number;
 }
 export function usePetExpression(c: ExpressionContext) {
   const [reaction, setReaction] = useState<PetPose | null>(null);
@@ -29,7 +33,7 @@ export function usePetExpression(c: ExpressionContext) {
   useEffect(() => {
     setHabit(null);
     setBlinking(false);
-    if (c.reducedMotion || c.dragging || c.hovered || c.busy || c.transitioning || c.outing !== "rest" || c.activity === "sleep" || reaction) return;
+    if (c.reducedMotion || c.dragging || c.hovered || c.busy || c.transitioning || c.outing !== "rest" || c.activity === "sleep" || c.performing || reaction) return;
     const timers = new Set<ReturnType<typeof setTimeout>>();
     const later = (callback: () => void, ms: number) => {
       const timer = setTimeout(() => { timers.delete(timer); callback(); }, ms);
@@ -42,19 +46,19 @@ export function usePetExpression(c: ExpressionContext) {
       later(() => { setBlinking(false); blink(); }, 140);
     }, 3800 + Math.random() * 4200);
     const habit = () => later(() => {
-      const options: PetPose[] = c.energy <= 2 ? ["yawn", "groom", "stretch"]
+      const options: PetPose[] = c.drowsy ? ["yawn"] : c.energy <= 2 ? ["yawn", "groom", "stretch"]
         : c.character === "cat" ? ["groom", "stretch", "curious"]
         : c.character === "capybara" ? ["yawn", "curious", "stretch"]
         : ["stretch", "groom", "curious"];
-      const choices = options.filter(pose => pose !== last);
+      const choices = options.length > 1 ? options.filter(pose => pose !== last) : options;
       last = choices[Math.floor(Math.random() * choices.length)];
       setHabit(last);
       later(() => { setHabit(null); habit(); }, last === "curious" ? 1600 : 2600);
-    }, (working ? 42000 : c.energy <= 2 ? 10000 : 16000) + Math.random() * (working ? 22000 : 12000));
+    }, (c.drowsy ? 12000 : working ? 42000 : c.energy <= 2 ? 10000 : 16000) + Math.random() * (working ? 22000 : 12000));
     if (!working) blink();
     habit();
     return () => timers.forEach(clearTimeout);
-  }, [c.character, c.activity, c.outing, c.reducedMotion, c.dragging, c.hovered, c.busy, c.transitioning, c.energy, reaction]);
+  }, [c.character, c.activity, c.outing, c.reducedMotion, c.dragging, c.hovered, c.busy, c.transitioning, c.energy, c.drowsy, c.performing, reaction]);
   useEffect(() => {
     setStep(false);
     if (c.reducedMotion || c.dragging || c.hovered || c.busy || c.transitioning || reaction
@@ -66,9 +70,11 @@ export function usePetExpression(c: ExpressionContext) {
   let pose: PetPose;
   if (c.dragging) pose = "lifted";
   else if (reaction) pose = reaction;
+  else if (c.performing) pose = c.performing;
   else if (c.hovered) pose = "curious";
   else if (c.transitioning) pose = "idle";
   else if (c.adventurePose && c.outing === "rest") pose = c.adventurePose;
+  else if (c.drowsy === 3 && c.outing === "rest") pose = "sleep";
   else if (c.activity === "sleep" && c.outing === "rest") pose = "sleep";
   else if (c.outing === "walk" || c.outing === "home") pose = step ? "walkA" : "walkB";
   else if (c.outing === "sniff") pose = c.adventurePose ?? "curious";

@@ -9,24 +9,26 @@ export interface ActivitySnapshot {
   history: DayRecord[];
 }
 
-export function archiveDay(history: DayRecord[], stats: SessionStats): DayRecord[] {
+export const DEFAULT_HISTORY_DAYS = 31;
+
+export function archiveDay(history: DayRecord[], stats: SessionStats, keepDays = DEFAULT_HISTORY_DAYS): DayRecord[] {
   const record = dayRecordFromStats(stats);
   const next = history.filter((rec) => rec.date !== record.date);
   if (Object.keys(record.categorySeconds).length > 0 || record.restSeconds > 0) {
     next.push(record);
   }
   next.sort((a, b) => a.date.localeCompare(b.date));
-  return next.slice(-31);
+  return next.slice(-keepDays);
 }
 
 /** On a new day, keep a break in progress rather than turning it into work. */
-export function rollOverActivity(snapshot: ActivitySnapshot, now: number): ActivitySnapshot {
+export function rollOverActivity(snapshot: ActivitySnapshot, now: number, keepDays = DEFAULT_HISTORY_DAYS): ActivitySnapshot {
   if (dayKey(snapshot.stats.startedAt) === dayKey(now)) return snapshot;
   const continuingBreak = snapshot.timeEvents < 0;
   return {
     ...snapshot,
     stats: emptySessionStats(now),
-    history: archiveDay(snapshot.history ?? [], snapshot.stats),
+    history: archiveDay(snapshot.history ?? [], snapshot.stats, keepDays),
     timePassed: 0,
     timeEvents: continuingBreak ? snapshot.timeEvents : 1,
   };

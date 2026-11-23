@@ -122,3 +122,31 @@
 @keyframes pet-land { 0% { transform: scale(1.06, .9); } 55% { transform: scale(.97, 1.04); } 100% { transform: none; } }
 @keyframes pet-land-shadow { 0% { transform: scale(1.15); opacity: 1; } 100% { transform: none; } }
 @media (prefers-reduced-motion: reduce) { .pet-landing .pet-breath, .pet-landing .pet-shadow { animation: none; } }
+
+/* A little sign for the thing you said you'd do. Wood in both themes, like the pet's props. */
+.pet-sign { position: absolute; bottom: 8px; width: 92px; display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+.pet-sign.on-right { left: 114px; }
+.pet-sign.on-left { right: 114px; }
+.pet-sign::after { content: ""; width: 6px; height: 16px; background: #8a6848; border: 2px solid #5f452f; border-top: 0; }
+.pet-sign-board { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; max-width: 92px; padding: 5px 8px 4px; border: 2px solid #5f452f; background: #e8cfa2; box-shadow: inset 0 -3px 0 #d3b380; color: #4a3323; font: 700 14px/1.1 var(--font-brand); text-align: center; overflow-wrap: anywhere; }
+.pet-sprout { position: absolute; bottom: 10px; pointer-events: none; transform-origin: 50% 100%; animation: pet-sprout-in 1s steps(8, end) both; }
+.pet-sprout.on-right { left: 116px; }
+.pet-sprout.on-left { right: 116px; }
+@keyframes pet-sprout-in { 0% { transform: scale(.2); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } 100% { transform: none; } }
+.pet-note { position: absolute; top: 12px; right: 4px; color: var(--pet-note, #8aa0d8); font: 18px/1 var(--font-body); text-shadow: 0 0 2px rgb(255 255 255 / .8); pointer-events: none; animation: pet-note 2.4s steps(8, end) infinite; }
+@keyframes pet-note { 0% { opacity: 0; transform: translate(0, 8px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(6px, -12px); } }
+.pet-swaying .pet-breath { transform-origin: 60px 108px; animation: pet-sway 1.8s steps(6, end) infinite alternate; }
+@keyframes pet-sway { from { transform: rotate(-2deg); } to { transform: rotate(2deg); } }
+/* Breathing together: the pet fills and empties at the pace of the step. */
+.pet-breathe-in .pet-breath, .pet-breathe-out .pet-breath { transform-origin: 60px 108px; transition: transform 4s ease-in-out; }
+.pet-breathe-in .pet-breath { transform: scale(1.1, 1.08); }
+.pet-breathe-out .pet-breath { transition-duration: 6s; transform: scale(.98, .95); }
+@media (prefers-reduced-motion: reduce) { .pet-note { opacity: 1; } .pet-breathe-in .pet-breath, .pet-breathe-out .pet-breath { transform: none; } }
+
+.pet-actions { width: 196px; }
+.pet-actions-label { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pet-actions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+.pet-actions-grid button { gap: 8px; min-height: 38px; padding: 8px; font-size: 12.5px; }
+
+.pet-hopping .pet-breath { transition: transform .18s ease-in, opacity .18s ease-in; transform: translateY(-26px) scale(.94, 1.08); opacity: 0; }
+.pet-hopping .pet-shadow { opacity: 0; }

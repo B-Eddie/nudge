@@ -43,7 +43,7 @@ const settings = {
   monitor_index: 0, reminder_interval_mins: 30, reminder_snooze_mins: 10, position: "bottom_left",
   character: params.get("pet") ?? "red_panda", character_size: 120, theme, pause_shortcut: "Cmd+Option+Shift+KeyP",
   app_categories: apps, onboarding_complete: view !== "onboarding", pending_notes: ["Drink some water", "Text mom back"],
-  auto_idle_break_mins: 5, launch_at_login: true, hide_helper_apps: false,
+  auto_idle_break_mins: 5, window_titles: true, site_rules: [{ contains: "Quercus", category: "Learning" }, { contains: "My Bank", category: "Private" }], launch_at_login: true, hide_helper_apps: false,
 };
 const categories = [
   ["unknown", "Unknown"], ["public.app-category.developer-tools", "Developer Tools"],
@@ -51,6 +51,17 @@ const categories = [
   ["public.app-category.music", "Music"], ["public.app-category.games", "Games"],
   ["public.app-category.graphics-design", "Graphics & Design"], ["public.app-category.video", "Video"],
 ].map(([value, label]) => ({ value, label }));
+
+const speciesSample = ["daisy", "tulip", "lavender", "sunflower", "mushroom", "pumpkin", "fern", "cactus", "moonflower", "maple", "strawberry", "bamboo", "blossom", "snowdrop", "tulip", "daisy"];
+const companion = {
+  version: 1, metAt: Date.now() - 34 * 864e5, bond: Number(params.get("bond") ?? 130), breaks: 64, goodnights: 1,
+  plants: params.get("new") ? [] : [...speciesSample.map((species, i) => ({ id: i + 1, species, drops: 4, plantedAt: Date.now() - i * 864e5, bloomedAt: Date.now() - i * 864e5 })), { id: 99, species: "lavender", drops: 3, plantedAt: Date.now(), bloomedAt: null }],
+  wearing: params.get("wear") ?? null, found: ["leaf", "flower", "bow_tie", "scarf", "beanie", "straw_hat", "nightcap", "party_hat", "flower_crown"],
+  milestones: ["break-1", "bloom-1", "day-7", "break-25", "day-30", "bloom-12"], routines: {},
+  focus: view === "sign" || params.get("focus") ? { text: "Finish the intro paragraph", startedAt: Date.now() - 6e5, endsAt: Date.now() + 9e5, focusedSeconds: 540, drift: 0, nextDriftAt: 0, allowed: [], parked: ["Reply to Sam"] } : null,
+  focusLog: [{ text: "Physics set 4", startedAt: Date.now() - 36e5, seconds: 1500, outcome: "done" }, { text: "Essay draft", startedAt: Date.now() - 864e5, seconds: 1500, outcome: "partly" }],
+  tomorrow: "", greetedOn: new Date().toLocaleDateString("en-CA"), letterOn: "", today: { date: "", counts: {}, drops: 0 },
+};
 
 async function invoke(cmd: string, args: Record<string, unknown> = {}): Promise<unknown> {
   switch (cmd) {
@@ -66,9 +77,13 @@ async function invoke(cmd: string, args: Record<string, unknown> = {}): Promise<
     case "get_app_category_options": return categories;
     case "get_pending_notes": return [...settings.pending_notes];
     case "get_activity": return { timePassed: 1240, timeEvents: 2, paused: false, history: [], stats: { startedAt: Date.now() - 5 * 3600e3, categorySeconds: {}, breaksTaken: 0, breaksInterrupted: 0, restSeconds: 0, currentStretchSeconds: 1240, longestStretchSeconds: 2900 } };
-    case "get_auto_break_status": return { idle_seconds: 0, idle_threshold_seconds: 300, should_auto_break: false, defer_auto_break: false, defer_reason: null };
+    case "get_auto_break_status": return { idle_seconds: 8, idle_threshold_seconds: 300, should_auto_break: false, defer_auto_break: false, defer_reason: null };
     case "get_frontmost_app": return { name: "Visual Studio Code", bundle_id: "com.microsoft.VSCode", category: "public.app-category.developer-tools", category_label: "Developer Tools" };
+    case "get_window_access": return params.get("access") === "1";
+    case "get_window_context": return { bundle_id: "com.microsoft.VSCode", title: "Essay draft", fullscreen: false, browser: false };
     case "pop_pending_note": return null;
+    case "get_companion": return structuredClone(companion);
+    case "get_seconds_since_last_input": return 999;
     default: console.info("[preview] invoke", cmd, args); return null;
   }
 }
@@ -93,30 +108,58 @@ const stats = {
   categorySeconds: (view === "summary-empty" ? {} : { "Developer Tools": 9800, Productivity: 4100, "Social Networking": 2300, Music: 1500, Games: 600 }) as Record<string, number>,
   breaksTaken: view === "summary-empty" ? 0 : 5, breaksInterrupted: view === "summary-empty" ? 0 : 1,
   restSeconds: view === "summary-empty" ? 0 : 1680, currentStretchSeconds: 1240, longestStretchSeconds: 4200,
+  hourlySeconds: view === "summary-empty" ? [] : [0, 0, 0, 0, 0, 0, 0, 900, 2800, 3300, 3000, 1800, 600, 2600, 3100, 900, 0, 0, 0, 0, 0, 0, 0, 0],
+  nudges: view === "summary-empty" ? [] : [{ hour: 9, outcome: "taken" as const }, { hour: 11, outcome: "later" as const }, { hour: 14, outcome: "taken" as const }],
+  focusSeconds: 2700, focusSessions: 2, mood: null,
 };
 const history = view === "summary-empty" ? [] : [1, 2, 3, 5, 6].map(offset => ({
   date: key(day(offset)), categorySeconds: { "Developer Tools": 6000 + offset * 900, Productivity: 3000, Video: offset * 700 },
-  breaksTaken: 4, breaksInterrupted: offset % 2, restSeconds: 1200, longestStretchSeconds: 3600,
+  breaksTaken: 4, breaksInterrupted: offset % 2, restSeconds: 1200, longestStretchSeconds: 7800,
 }));
 
 async function main() {
   const root = ReactDOM.createRoot(document.getElementById("root")!);
   const noop = () => console.info("[preview] close");
   // `transform` makes this box the containing block for the panels' position: fixed,
-  // so they lay out exactly as in the 420×580 settings window (or 460×360 overlay).
+  // so they lay out exactly as in the 420×580 settings window (or 320×400 overlay).
   const frame = (child: React.ReactNode) => <div style={{ width: 420, height: Number(params.get("h") ?? 580), position: "relative", overflow: "hidden", transform: "translateZ(0)" }}>{child}</div>;
   const desktop = (child: React.ReactNode) => (
-    <div style={{ width: 460, height: 360, position: "relative", overflow: "hidden", transform: "translateZ(0)",
+    <div style={{ width: 320, height: 400, position: "relative", overflow: "hidden", transform: "translateZ(0)",
       background: theme === "night_garden" ? "#1f2126" : "linear-gradient(135deg,#dfe7ee,#f4efe6)" }}>{child}</div>
   );
   switch (view) {
     case "settings": {
       const { SettingsPanel } = await import("../components/SettingsPanel");
-      root.render(frame(<SettingsPanel onClose={noop} />)); break;
+      root.render(frame(<SettingsPanel onClose={noop} onErase={async () => {}} />));
+      if (params.get("tab")) setTimeout(() => document.querySelector<HTMLButtonElement>(`#settings-tab-${params.get("tab")}`)?.click(), 400);
+      break;
     }
-    case "summary": case "summary-empty": {
+    case "summary": case "summary-empty": case "letter": {
       const { SummaryPanel } = await import("../components/SummaryPanel");
-      root.render(frame(<SummaryPanel stats={stats} history={history} energy={3} onBreak={false} onClose={noop} />)); break;
+      const { writeLetter } = await import("../lib/weeklyLetter");
+      const letter = writeLetter({ history, focusLog: [], petName: "Biscuit", blooms: 14, now: Date.now(), settings: { reminder_interval_mins: 30, wind_down_enabled: false, rhythm_eyes: false } });
+      root.render(frame(<SummaryPanel stats={stats} history={history} energy={3} onBreak={false} onClose={noop} letter={letter} character="red_panda"
+        initialTab={view === "letter" ? "letter" : params.get("tab") === "week" ? "week" : "today"} onApply={async () => {}} onWrapUp={noop} />)); break;
+    }
+    case "garden": case "focus": case "wrapup": {
+      const { readCompanion } = await import("../lib/companion");
+      const state = readCompanion(companion, Date.now());
+      const { HomePanel } = await import("../components/HomePanel");
+      const { FocusPanel } = await import("../components/FocusPanel");
+      const { WrapUpPanel } = await import("../components/WrapUpPanel");
+      const shared = { character: settings.character as "cat", petName: "Biscuit", now: params.get("hour") ? new Date().setHours(Number(params.get("hour"))) : Date.now(), onClose: noop };
+      root.render(frame(view === "garden" ? <HomePanel {...shared} state={state} initialTab={(params.get("tab") ?? "garden") as "garden"} onWear={noop} />
+        : view === "focus" ? <FocusPanel {...shared} session={state.focus} log={state.focusLog} accessory={null} onStart={noop} onExtend={noop} onPark={noop} onEnd={noop} />
+        : <WrapUpPanel stats={stats} finished={state.focusLog.slice(0, 1)} petName="Biscuit" tomorrow="" onDone={noop} onClose={noop} />)); break;
+    }
+    case "postcard": {
+      const { drawPostcard } = await import("../lib/postcard");
+      const { readCompanion } = await import("../lib/companion");
+      const canvas = document.createElement("canvas");
+      document.body.append(canvas);
+      canvas.style.cssText = "position:fixed;inset:0;width:900px";
+      await drawPostcard(canvas, { character: settings.character as "cat", accessory: "scarf", petName: "Biscuit", plants: readCompanion(companion, Date.now()).plants, breaks: 64, days: 34, now: params.get("hour") ? new Date().setHours(Number(params.get("hour"))) : Date.now() });
+      break;
     }
     case "onboarding": {
       const { OnboardingPanel } = await import("../components/OnboardingPanel");
@@ -130,10 +173,31 @@ async function main() {
       const { BreakGuidePanel } = await import("../components/BreakGuidePanel");
       root.render(frame(<BreakGuidePanel onClose={noop} onStart={r => console.info("[preview] start", r.id)} />)); break;
     }
+    case "art": {
+      const { PlantArt } = await import("../components/PixelArt");
+      const { SPECIES_IDS } = await import("../lib/garden");
+      root.render(<div style={{ display: "grid", gridTemplateColumns: "repeat(7, 90px)", gap: 8, padding: 12, background: "#dfe9e4" }}>
+        {SPECIES_IDS.map(id => <div key={id} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, font: "10px sans-serif" }}><PlantArt species={id} stage="bloom" scale={4} />{id}</div>)}
+        {(["seed", "sprout", "bud"] as const).map(stage => <PlantArt key={stage} species="lavender" stage={stage} scale={4} />)}
+      </div>); break;
+    }
+    case "outfits": {
+      const { PixelPetSprite } = await import("../components/PixelPetSprite");
+      const { ACCESSORY_IDS } = await import("../lib/companion");
+      const { PET_POSES } = await import("../types/pixelPets");
+      const only = params.get("wear");
+      const pets = ["panda", "cat", "red_panda", "capybara", "crab"] as const;
+      const poses = Object.keys(PET_POSES) as (keyof typeof PET_POSES)[];
+      root.render(<div style={{ padding: 8, background: "#e8ecef" }}>{only
+        ? pets.map(pet => <div key={pet} style={{ display: "flex", flexWrap: "wrap", width: 1000 }}>{poses.map(pose =>
+          <div key={pose} style={{ width: 120, height: 120 }}><PixelPetSprite character={pet} pose={pose} accessory={only as "leaf"} /></div>)}</div>)
+        : pets.map(pet => <div key={pet} style={{ display: "flex" }}>{ACCESSORY_IDS.map(id =>
+          <div key={id} style={{ width: 120, height: 120 }}><PixelPetSprite character={pet} accessory={id} /></div>)}</div>)}</div>); break;
+    }
     case "menu": {
       const { RadialMenu } = await import("../components/RadialMenu");
       root.render(desktop(<div className="character pos-bl" style={{ position: "absolute", left: 20, bottom: 20, width: 120, height: 120 }}>
-        <RadialMenu open position="bl" break={0} onAction={noop} onNote={noop} onClose={noop} />
+        <RadialMenu open name="Biscuit" position="bl" break={0} onAction={noop} onNote={noop} onClose={noop} />
       </div>)); break;
     }
     default: {
@@ -143,6 +207,8 @@ async function main() {
       setTimeout(() => {
         const emit = (window as unknown as { __emit: (e: string, p?: unknown) => void }).__emit;
         if (view === "reminder") emit("show-reminder");
+        if (view === "openmenu") document.querySelector<HTMLButtonElement>("[data-pet-menu]")?.click();
+        if (view === "coach") { emit("show-reminder"); setTimeout(() => document.querySelector<HTMLButtonElement>(".reminder-prompt-primary")?.click(), 800); }
         if (view === "bubble") emit("tray-action", "quiet-hour");
       }, 600);
     }

@@ -12,13 +12,13 @@ describe("activity CSV export", () => {
     const stats = { ...emptySessionStats(now), categorySeconds: { Games: 600 }, breaksTaken: 2, restSeconds: 300 };
     const history = [
       day("2026-11-08", { "Developer Tools": 3600 }, { breaksTaken: 1, breaksInterrupted: 1, longestStretchSeconds: 1800 }),
-      day("2026-11-09", { "Developer Tools": 90, Music: 30 }),
+      day("2026-11-09", { "Developer Tools": 90, Music: 30 }, { focusSeconds: 1500, mood: 4, nudges: [{ hour: 9, outcome: "taken" }, { hour: 15, outcome: "later" }] }),
     ];
     expect(activityCsv(stats, history).trim().split("\n")).toEqual([
-      "date,active_minutes,rest_minutes,breaks_taken,breaks_interrupted,longest_stretch_minutes,Developer Tools (minutes),Games (minutes),Music (minutes)",
-      "2026-11-08,60,0,1,1,30,60,0,0",
-      "2026-11-09,2,0,0,0,0,1.5,0,0.5",
-      "2026-11-10,10,5,2,0,0,0,10,0",
+      "date,active_minutes,rest_minutes,breaks_taken,breaks_interrupted,longest_stretch_minutes,focus_minutes,nudges_taken,nudges_total,mood_1_to_5,Developer Tools (minutes),Games (minutes),Music (minutes)",
+      "2026-11-08,60,0,1,1,30,0,0,0,,60,0,0",
+      "2026-11-09,2,0,0,0,0,25,1,2,4,1.5,0,0.5",
+      "2026-11-10,10,5,2,0,0,0,0,0,,0,10,0",
     ]);
   });
 

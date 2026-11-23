@@ -143,10 +143,11 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
                 your work stretch grows, and nudges you to take a breather.
               </p>
               <p className="onboarding-hint" data-testid="onboarding-privacy">
-                To adapt to your work, nudge notices which app is in front and
-                how long since you last used the keyboard or mouse. It never
-                records what you type or take screenshots, and everything
-                stays on this Mac.
+                To adapt to your work, nudge notices which app is in front, how
+                long since you last used the keyboard or mouse, and whether a
+                call or sound is playing. It never records what you type, what
+                you say or what’s on your screen, and everything stays on this
+                Mac.
               </p>
             </>
           )}
@@ -161,6 +162,11 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
                 value={draft.character}
                 onChange={(character) => setDraft({ ...draft, character })}
               />
+              <label className="onboarding-field onboarding-name">
+                <span>What’s its name?</span>
+                <input type="text" value={draft.pet_name ?? ""} maxLength={20} placeholder="You can decide later"
+                  onChange={e => setDraft({ ...draft, pet_name: e.target.value })} />
+              </label>
             </>
           )}
 
@@ -211,9 +217,9 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
                 <span>Your companion is ready.</span>
               </div>
               <ul className="onboarding-tips">
-                <li><strong>Click</strong> your companion for breaks, notes, your day and Settings.</li>
+                <li><strong>Right-click</strong> your companion for breaks, focus, its garden and Settings. Every pause you take grows the garden.</li>
                 <li><strong>Drag</strong> it anywhere, even onto the top of a window.</li>
-                <li>It also lives in your <strong>menu bar</strong>, where you can quiet it for an hour or quit.</li>
+                <li>It also lives in your <strong>menu bar</strong>, where you can quiet it for a while or quit.</li>
               </ul>
             </>
           )}

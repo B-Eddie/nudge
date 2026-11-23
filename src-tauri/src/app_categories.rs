@@ -6,6 +6,10 @@ use serde::{Deserialize, Serialize};
 
 pub const UNKNOWN_CATEGORY: &str = "unknown";
 
+/// Chosen by the person, never by an app: time here counts toward breaks but is not recorded.
+pub const PRIVATE_CATEGORY: &str = "nudge.private";
+pub const PRIVATE_LABEL: &str = "Private";
+
 // for now, only support some of them
 pub const APP_CATEGORIES: &[(&str, &str)] = &[
     ("public.app-category.developer-tools", "Developer Tools"),
@@ -41,6 +45,9 @@ pub fn is_valid_apple_category(value: &str) -> bool {
 pub fn category_label(value: &str) -> String {
     if value == UNKNOWN_CATEGORY {
         return "Unknown".to_string();
+    }
+    if value == PRIVATE_CATEGORY {
+        return PRIVATE_LABEL.to_string();
     }
     APP_CATEGORIES
         .iter()
@@ -82,6 +89,10 @@ pub fn get_app_category_options() -> Vec<CategoryOption> {
         value: UNKNOWN_CATEGORY.to_string(),
         label: "Unknown".to_string(),
     }];
+    options.push(CategoryOption {
+        value: PRIVATE_CATEGORY.to_string(),
+        label: "Private (don’t record)".to_string(),
+    });
     options.extend(APP_CATEGORIES.iter().map(|(value, label)| CategoryOption {
         value: (*value).to_string(),
         label: (*label).to_string(),
@@ -452,6 +463,15 @@ pub fn merge_discovered_apps(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn only_the_person_can_mark_an_app_private() {
+        assert_eq!(normalize_plist_category(PRIVATE_CATEGORY), UNKNOWN_CATEGORY);
+        assert_eq!(category_label(PRIVATE_CATEGORY), PRIVATE_LABEL);
+        assert!(get_app_category_options()
+            .iter()
+            .any(|option| option.value == PRIVATE_CATEGORY));
+    }
+
     #[test]
     fn helper_metadata_updates_without_overwriting_user_categories() {
         let mut entries = HashMap::new();

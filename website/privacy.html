@@ -61,7 +61,7 @@
       </nav>
     </header>
     <main id="main">
-      <p class="eyebrow">Privacy · Updated October 1, 2026</p>
+      <p class="eyebrow">Privacy · Updated November 23, 2026</p>
       <h1>Your day stays<br />on your Mac.</h1>
       <p class="intro">A small companion should come with a clear explanation of what it can see. Here’s how the Nudge app and this website handle information.</p>
       <div class="summary">
@@ -72,20 +72,24 @@
         <ul>
           <li>The name and identifier of the active app, and its category, to adapt the companion’s behavior and summarize time by category.</li>
           <li>Time since keyboard, mouse-button, or scrolling activity, to recognize idle stretches and avoid interrupting a break. It does not record the keys you type or the content of your work.</li>
+          <li>Whether a microphone or camera is in use, and which apps are playing sound, to stay quiet during calls and recognize videos. It never hears or sees what they pick up. You can turn off call awareness in Settings.</li>
+          <li>If you turn on “Notice which tab I’m on” and allow Accessibility: the title of the window in front and whether it is full screen. Titles are used in memory to recognize the kind of site or document and are not saved, unless you choose one as the text of a focus session. Password managers, apps you mark private, and windows whose titles say they are private are skipped; some browsers do not mark private windows. Any rules you add are saved with your settings.</li>
+          <li>When the screen is locked, to begin a break.</li>
           <li>Pointer position and mouse-button state for petting and dragging, plus window positions and sizes so the companion can perch on a window.</li>
           <li>Installed app names, identifiers, locations, and category metadata to populate the app-category settings.</li>
         </ul>
-        <p>Nudge does not take screenshots or read document text, messages, browser history, or page contents.</p>
+        <p>Nudge does not take screenshots or read document text, messages, web addresses, browser history, or page contents. A window title can include a document or conversation name, which is why reading titles is off until you turn it on.</p>
       </section>
       <section aria-labelledby="saved">
         <h2 id="saved">What it saves</h2>
-        <p>Activity summaries contain time by app category, breaks taken or interrupted, rest duration, and the longest work stretch. Nudge keeps the current session and up to 31 daily activity summaries. It also saves your preferences, custom app categories, and notes waiting for a reminder.</p>
-        <p>These live in <code>activity.json</code> and <code>settings.json</code> in the app’s local configuration folder. They are ordinary local files and may be included in backups you make of your Mac.</p>
+        <p>Activity summaries contain time by app category, breaks taken or interrupted, rest duration, and the longest work stretch. They also contain active time by hour, how you answered each nudge, focus time, and a mood if you choose to add one. Nudge keeps the current session and 31 daily summaries by default; you can choose from 7 days to a year. Time in apps you mark private is never recorded.</p>
+        <p>It also saves your preferences, custom app categories, notes waiting for a reminder, and your companion’s memory: its garden, friendship and outfits, which resets helped, and the text and outcome of your focus sessions.</p>
+        <p>These live in <code>activity.json</code>, <code>companion.json</code> and <code>settings.json</code> in the app’s local configuration folder. They are ordinary local files and may be included in backups you make of your Mac.</p>
       </section>
       <section aria-labelledby="control">
         <h2 id="control">You’re in control</h2>
-        <p>You can change app categories, reminder timing, and launch-at-login behavior in Settings. Quit Nudge to stop its activity monitoring.</p>
-        <p>To remove saved activity, quit the app and remove <code>activity.json</code> from <code>~/Library/Application Support/com.eb.nudge/</code>. Removing <code>settings.json</code> also resets preferences, custom categories, and pending notes. The app creates fresh files when you next use it.</p>
+        <p>You can change app categories, mark apps private, limit how long history is kept, and erase it in Settings. Erasing removes activity, focus sessions and moods; your garden, settings and waiting notes stay. Quit Nudge to stop its activity monitoring.</p>
+        <p>To remove saved activity, quit the app and remove <code>activity.json</code> and <code>activity.json.bak</code> from <code>~/Library/Application Support/com.eb.nudge/</code>. Removing <code>companion.json</code> and its <code>.bak</code> copy also resets your companion. Removing <code>settings.json</code> also resets preferences, custom categories, and pending notes. The app creates fresh files when you next use it.</p>
       </section>
       <section aria-labelledby="website">
         <h2 id="website">About this website</h2>

@@ -1,4 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { NudgeStyle } from "../lib/reminderPolicy";
+import type { SiteRule } from "../lib/sites";
 import type { CompanionId, ThemeId } from "./appearance";
 
 export interface AppCategoryEntry {
@@ -27,6 +29,69 @@ export interface Settings {
   /** Whether to automatically launch nudge when the user logs in. */
   launch_at_login?: boolean;
   hide_helper_apps?: boolean;
+  /** What you call your companion; empty uses its species name. */
+  pet_name?: string;
+  chattiness?: Chattiness;
+  nudge_style?: NudgeStyle;
+  /** Hold nudges while the microphone or a camera is in use. */
+  call_awareness?: boolean;
+  distraction_limit_mins?: number;
+  // Times of day are minutes after midnight.
+  active_hours_enabled?: boolean;
+  active_start?: number;
+  active_end?: number;
+  active_weekends?: boolean;
+  wind_down_enabled?: boolean;
+  bedtime?: number;
+  rhythm_eyes?: boolean;
+  rhythm_water?: boolean;
+  rhythm_posture?: boolean;
+  sounds?: boolean;
+  spoken_breaks?: boolean;
+  menu_bar_timer?: boolean;
+  history_days?: number;
+  /** Read the front window's title. Needs Accessibility. */
+  window_titles?: boolean;
+  site_rules?: SiteRule[];
+  /** Hop onto the window in use. */
+  sit_on_windows?: boolean;
+}
+
+export type Chattiness = "quiet" | "normal" | "chatty";
+
+/** Matches the Rust defaults; used until settings load and for files from older versions. */
+export const PREFERENCE_DEFAULTS = {
+  pet_name: "",
+  chattiness: "normal" as Chattiness,
+  nudge_style: "balanced" as NudgeStyle,
+  call_awareness: true,
+  distraction_limit_mins: 60,
+  active_hours_enabled: false,
+  active_start: 9 * 60,
+  active_end: 18 * 60,
+  active_weekends: true,
+  wind_down_enabled: false,
+  bedtime: 23 * 60,
+  rhythm_eyes: false,
+  rhythm_water: false,
+  rhythm_posture: false,
+  sounds: false,
+  spoken_breaks: false,
+  menu_bar_timer: false,
+  history_days: 31,
+  window_titles: false,
+  site_rules: [] as SiteRule[],
+  sit_on_windows: false,
+};
+export type Preferences = typeof PREFERENCE_DEFAULTS & Pick<Settings, "reminder_interval_mins" | "reminder_snooze_mins">;
+
+export function preferences(settings?: Partial<Settings> | null): Preferences {
+  const result: Record<string, unknown> = { ...PREFERENCE_DEFAULTS, reminder_interval_mins: 30, reminder_snooze_mins: 10 };
+  for (const key of Object.keys(result)) {
+    const value = settings?.[key as keyof Settings];
+    if (value !== undefined && value !== null) result[key] = value;
+  }
+  return result as Preferences;
 }
 
 export interface MonitorOption {

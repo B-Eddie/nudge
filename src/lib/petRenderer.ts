@@ -1,5 +1,7 @@
 import type { PetMotionFrame, PixelOffset } from "./petMotion";
 import type { EyeAnchor, PetRect, PetRig } from "./petRig";
+import { WORN, type WornPlace } from "./accessoryArt";
+import type { AccessoryId } from "./companion";
 
 /** Logical grid. Rig geometry and motion offsets are calibrated in these units. */
 export const LOGICAL_SIZE = 60;
@@ -296,8 +298,17 @@ function drawPhoneGrip(output: Uint8ClampedArray, grid: Grid, paw: SpriteLayer |
   }
 }
 
+export interface Worn { id: AccessoryId; place: WornPlace }
+
+function drawWorn(output: Uint8ClampedArray, grid: Grid, worn: Worn, offset: PixelOffset) {
+  const { rows, palette } = WORN[worn.id];
+  rows.forEach((row, y) => [...row].forEach((key, x) => {
+    if (palette[key]) block(output, grid, worn.place.left + x + offset.x, worn.place.top + y + offset.y, color(palette[key]));
+  }));
+}
+
 export function renderSpritePixels(layers: SpriteLayers, motion: PetMotionFrame,
-  gaze: PixelOffset, phone = false): Uint8ClampedArray {
+  gaze: PixelOffset, phone = false, worn: Worn | null = null): Uint8ClampedArray {
   const { grid } = layers;
   const { size: N, scale: k } = grid;
   const output = new Uint8ClampedArray(N * N * 4);
@@ -317,11 +328,15 @@ export function renderSpritePixels(layers: SpriteLayers, motion: PetMotionFrame,
   draw(output, N, layers.body, times(body, k));
   draw(output, N, layers.head, times(head, k));
   for (const eye of layers.eyes) drawEye(output, grid, eye, times(head, k), gaze, motion.blink);
+  // Hats sit over the head but under paws and props, so a raised paw stays in front.
+  const neckwear = worn && WORN[worn.id].at === "neck";
+  if (worn && !neckwear) drawWorn(output, grid, worn, head);
   draw(output, N, layers.prop, times(prop, k));
   propDetail(output, grid, layers.prop, times(prop, k), motion);
   draw(output, N, layers.leftPaw, times(leftPaw, k));
   draw(output, N, layers.rightPaw, times(rightPaw, k));
   backfillJoints(output, N, layers.joints, times(body, k));
+  if (worn && neckwear) drawWorn(output, grid, worn, body);
   if (phone) {
     drawPhone(output, grid, prop, motion.screenPulse);
     drawPhoneGrip(output, grid, layers.rightPaw, rightPaw, prop);

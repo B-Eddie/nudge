@@ -14,8 +14,9 @@ use crate::app_categories::{
 };
 
 // ensure these values are consistent everywhere
-pub const OVERLAY_WIDTH: f64 = 300.0;
-pub const OVERLAY_HEIGHT: f64 = 300.0;
+// Tall enough for a nudge card to sit above the pet instead of covering it.
+pub const OVERLAY_WIDTH: f64 = 320.0;
+pub const OVERLAY_HEIGHT: f64 = 400.0;
 pub const SETTINGS_WIDTH: f64 = 420.0;
 pub const SETTINGS_HEIGHT: f64 = 580.0;
 
@@ -40,6 +41,50 @@ fn default_theme() -> String {
 
 fn default_reminder_snooze_mins() -> u32 {
     10
+}
+
+fn enabled() -> bool {
+    true
+}
+
+fn default_chattiness() -> String {
+    "normal".to_string()
+}
+
+fn default_nudge_style() -> String {
+    "balanced".to_string()
+}
+
+fn default_distraction_limit_mins() -> u32 {
+    60
+}
+
+/// Times of day are minutes after midnight.
+fn default_active_start() -> u32 {
+    9 * 60
+}
+
+fn default_active_end() -> u32 {
+    18 * 60
+}
+
+fn default_bedtime() -> u32 {
+    23 * 60
+}
+
+fn default_history_days() -> u32 {
+    31
+}
+
+const LAST_MINUTE_OF_DAY: u32 = 24 * 60 - 1;
+const MAX_PET_NAME_CHARS: usize = 20;
+
+fn one_of(value: &str, allowed: &[&str], fallback: String) -> String {
+    if allowed.contains(&value) {
+        value.to_string()
+    } else {
+        fallback
+    }
 }
 
 #[derive(Default)]
@@ -71,6 +116,15 @@ impl AppState {
     }
 }
 
+/// "Windows whose title contains `contains` are `category`" (a display label).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SiteRule {
+    pub contains: String,
+    pub category: String,
+}
+
+const MAX_SITE_RULES: usize = 100;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     pub monitor_index: i32,
@@ -101,6 +155,57 @@ pub struct Settings {
     pub launch_at_login: bool,
     #[serde(default)]
     pub hide_helper_apps: bool,
+    /// What the person calls their companion; empty uses the species name.
+    #[serde(default)]
+    pub pet_name: String,
+    /// quiet | normal | chatty
+    #[serde(default = "default_chattiness")]
+    pub chattiness: String,
+    /// gentle | balanced | firm
+    #[serde(default = "default_nudge_style")]
+    pub nudge_style: String,
+    /// Hold nudges while the microphone or a camera is in use.
+    #[serde(default = "enabled")]
+    pub call_awareness: bool,
+    /// Minutes of distracting apps, in a rolling window, before a reset prompt.
+    #[serde(default = "default_distraction_limit_mins")]
+    pub distraction_limit_mins: u32,
+    #[serde(default)]
+    pub active_hours_enabled: bool,
+    #[serde(default = "default_active_start")]
+    pub active_start: u32,
+    #[serde(default = "default_active_end")]
+    pub active_end: u32,
+    #[serde(default = "enabled")]
+    pub active_weekends: bool,
+    #[serde(default)]
+    pub wind_down_enabled: bool,
+    #[serde(default = "default_bedtime")]
+    pub bedtime: u32,
+    #[serde(default)]
+    pub rhythm_eyes: bool,
+    #[serde(default)]
+    pub rhythm_water: bool,
+    #[serde(default)]
+    pub rhythm_posture: bool,
+    #[serde(default)]
+    pub sounds: bool,
+    #[serde(default)]
+    pub spoken_breaks: bool,
+    #[serde(default)]
+    pub menu_bar_timer: bool,
+    /// Read the front window's title to tell tabs and documents apart. Needs Accessibility.
+    #[serde(default)]
+    pub window_titles: bool,
+    /// The person's own "titles containing this are that" rules.
+    #[serde(default)]
+    pub site_rules: Vec<SiteRule>,
+    /// Let the companion hop onto the window in use.
+    #[serde(default)]
+    pub sit_on_windows: bool,
+    /// Days of activity summaries to keep.
+    #[serde(default = "default_history_days")]
+    pub history_days: u32,
 }
 
 fn default_auto_idle_break_mins() -> u32 {
@@ -124,6 +229,27 @@ impl Default for Settings {
             auto_idle_break_mins: default_auto_idle_break_mins(),
             launch_at_login: false,
             hide_helper_apps: false,
+            pet_name: String::new(),
+            chattiness: default_chattiness(),
+            nudge_style: default_nudge_style(),
+            call_awareness: true,
+            distraction_limit_mins: default_distraction_limit_mins(),
+            active_hours_enabled: false,
+            active_start: default_active_start(),
+            active_end: default_active_end(),
+            active_weekends: true,
+            wind_down_enabled: false,
+            bedtime: default_bedtime(),
+            rhythm_eyes: false,
+            rhythm_water: false,
+            rhythm_posture: false,
+            sounds: false,
+            spoken_breaks: false,
+            menu_bar_timer: false,
+            window_titles: false,
+            site_rules: Vec::new(),
+            sit_on_windows: false,
+            history_days: default_history_days(),
         }
     }
 }
@@ -133,6 +259,40 @@ impl Settings {
         self.character_size = self.character_size.clamp(60, 180);
         let discovered = discover_running_apps();
         merge_discovered_apps(&mut self.app_categories, &discovered);
+    }
+
+    /// Brings hand-edited or out-of-range values back to something the app can use.
+    pub fn sanitize(&mut self) {
+        self.character_size = self.character_size.clamp(60, 180);
+        self.pet_name = self
+            .pet_name
+            .trim()
+            .chars()
+            .filter(|c| !c.is_control())
+            .take(MAX_PET_NAME_CHARS)
+            .collect();
+        self.chattiness = one_of(
+            &self.chattiness,
+            &["quiet", "normal", "chatty"],
+            default_chattiness(),
+        );
+        self.nudge_style = one_of(
+            &self.nudge_style,
+            &["gentle", "balanced", "firm"],
+            default_nudge_style(),
+        );
+        self.distraction_limit_mins = self.distraction_limit_mins.clamp(10, 240);
+        self.active_start = self.active_start.min(LAST_MINUTE_OF_DAY);
+        self.active_end = self.active_end.min(LAST_MINUTE_OF_DAY);
+        self.bedtime = self.bedtime.min(LAST_MINUTE_OF_DAY);
+        self.site_rules
+            .retain(|rule| !rule.contains.trim().is_empty());
+        self.site_rules.truncate(MAX_SITE_RULES);
+        for rule in &mut self.site_rules {
+            rule.contains = rule.contains.trim().chars().take(60).collect();
+            rule.category = rule.category.chars().take(40).collect();
+        }
+        self.history_days = self.history_days.clamp(7, 366);
     }
 
     pub fn category_for_bundle(&self, bundle_id: Option<&str>) -> String {
@@ -150,7 +310,7 @@ impl Settings {
         if !data.contains("onboarding_complete") {
             settings.onboarding_complete = true;
         }
-        settings.character_size = settings.character_size.clamp(60, 180);
+        settings.sanitize();
         Ok(settings)
     }
 
@@ -549,6 +709,7 @@ pub fn pop_pending_note(store: State<SettingsStore>) -> Result<Option<String>, S
 /// both from the live copy instead of letting a stale draft erase them.
 fn merge_saved_settings(current: &Settings, mut incoming: Settings) -> Settings {
     incoming.pending_notes = current.pending_notes.clone();
+    incoming.sanitize();
     for (bundle_id, entry) in &current.app_categories {
         incoming
             .app_categories
@@ -710,6 +871,66 @@ mod tests {
         assert_eq!(state.queued_click_through(outside_pet, true), Some(true));
         let over_pet = state.next_input_request();
         assert_eq!(state.queued_click_through(over_pet, false), Some(false));
+    }
+
+    #[test]
+    fn settings_from_before_this_version_gain_gentle_defaults() {
+        let mut value = serde_json::to_value(Settings::default()).unwrap();
+        let object = value.as_object_mut().unwrap();
+        for added in [
+            "pet_name",
+            "chattiness",
+            "nudge_style",
+            "call_awareness",
+            "distraction_limit_mins",
+            "active_hours_enabled",
+            "active_start",
+            "active_end",
+            "active_weekends",
+            "wind_down_enabled",
+            "bedtime",
+            "rhythm_eyes",
+            "rhythm_water",
+            "rhythm_posture",
+            "sounds",
+            "spoken_breaks",
+            "menu_bar_timer",
+            "window_titles",
+            "site_rules",
+            "sit_on_windows",
+            "history_days",
+        ] {
+            assert!(object.remove(added).is_some(), "{added}");
+        }
+        let settings = Settings::from_json(&value.to_string()).unwrap();
+        assert_eq!(settings.nudge_style, "balanced");
+        assert_eq!(settings.history_days, 31);
+        assert!(settings.call_awareness && settings.active_weekends);
+        // Anything that speaks, makes sound or adds prompts is opt-in.
+        assert!(!settings.sounds && !settings.spoken_breaks && !settings.wind_down_enabled);
+        assert!(!settings.rhythm_eyes && !settings.rhythm_water && !settings.rhythm_posture);
+        assert!(!settings.active_hours_enabled && !settings.menu_bar_timer);
+        assert!(!settings.window_titles && !settings.sit_on_windows);
+    }
+
+    #[test]
+    fn out_of_range_values_are_brought_back_into_range() {
+        let mut settings = Settings {
+            pet_name: "  Biscuit\u{7} the Extremely Long Name  ".into(),
+            chattiness: "shouting".into(),
+            nudge_style: String::new(),
+            distraction_limit_mins: 0,
+            bedtime: 99_999,
+            history_days: 1,
+            ..Settings::default()
+        };
+        settings.sanitize();
+        assert_eq!(settings.pet_name, "Biscuit the Extremel");
+        assert_eq!(settings.chattiness, "normal");
+        assert_eq!(settings.nudge_style, "balanced");
+        assert_eq!(settings.distraction_limit_mins, 10);
+        assert_eq!(settings.bedtime, 1439);
+        assert_eq!(settings.history_days, 7);
     }
 
     #[test]

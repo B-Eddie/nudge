@@ -1,9 +1,15 @@
 import { useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { LuDownload, LuX } from "react-icons/lu";
+import { LuDownload, LuMoon, LuX } from "react-icons/lu";
 import { activityCsv, exportFileName } from "../lib/activityExport";
 import { useDialogFocus } from "../hooks/useDialogFocus";
+import type { NudgeRecord } from "../lib/reminderPolicy";
+import { daysBefore, type Letter } from "../lib/weeklyLetter";
+import type { CompanionId } from "../types/appearance";
+import type { AccessoryId } from "../lib/companion";
+import { PixelPetSprite } from "./PixelPetSprite";
 import "./SummaryPanel.css";
+import "./PanelShell.css";
 
 // stats from memory for current session
 export interface SessionStats {
@@ -15,6 +21,13 @@ export interface SessionStats {
   restSeconds: number;
   currentStretchSeconds: number;
   longestStretchSeconds: number;
+  /** Active seconds per hour of the day; missing on days saved by older versions. */
+  hourlySeconds?: number[];
+  nudges?: NudgeRecord[];
+  focusSeconds?: number;
+  focusSessions?: number;
+  /** 1 (rough) to 5 (great), if the person said. */
+  mood?: number | null;
 }
 
 // completed day's stats, archived when it passes midnight
@@ -25,6 +38,13 @@ export interface DayRecord {
   breaksInterrupted: number;
   restSeconds: number;
   longestStretchSeconds: number;
+  /** Active seconds per hour of the day; missing on days saved by older versions. */
+  hourlySeconds?: number[];
+  nudges?: NudgeRecord[];
+  focusSeconds?: number;
+  focusSessions?: number;
+  /** 1 (rough) to 5 (great), if the person said. */
+  mood?: number | null;
 }
 
 export function emptySessionStats(now = Date.now()): SessionStats {
@@ -55,6 +75,11 @@ export function dayRecordFromStats(stats: SessionStats): DayRecord {
     breaksInterrupted: stats.breaksInterrupted,
     restSeconds: stats.restSeconds,
     longestStretchSeconds: stats.longestStretchSeconds,
+    hourlySeconds: [...(stats.hourlySeconds ?? [])],
+    nudges: [...(stats.nudges ?? [])],
+    focusSeconds: stats.focusSeconds ?? 0,
+    focusSessions: stats.focusSessions ?? 0,
+    mood: stats.mood ?? null,
   };
 }
 
@@ -65,7 +90,16 @@ interface SummaryPanelProps {
   energy: number;
   onBreak: boolean;
   onClose: () => void;
+  letter?: Letter | null;
+  character?: CompanionId;
+  accessory?: AccessoryId | null;
+  initialTab?: SummaryTab;
+  /** Applies a letter's suggestion; resolves once it is saved. */
+  onApply?: (letter: Letter) => Promise<void>;
+  onWrapUp?: () => void;
 }
+export type SummaryTab = "today" | "week" | "letter";
+const TABS: { id: SummaryTab; label: string }[] = [{ id: "today", label: "Today" }, { id: "week", label: "Past week" }, { id: "letter", label: "Letter" }];
 
 const CATEGORY_COLORS: Record<string, string> = {
   "Developer Tools": "#7998d8",
@@ -75,6 +109,10 @@ const CATEGORY_COLORS: Record<string, string> = {
   Entertainment: "#d7a080",
   Video: "#c3a270",
   Music: "#77a8b7",
+  Learning: "#6fae9a",
+  Messages: "#b39ac4",
+  News: "#b5a58c",
+  Shopping: "#d09aa0",
   Unknown: "#929aa6",
 };
 const FALLBACK_COLOR = "#9aa0a6";
@@ -228,14 +266,36 @@ function CategoryBreakdown({
   );
 }
 
+function HourStrip({ hours, label }: { hours: number[]; label: string }) {
+  const most = Math.max(...hours);
+  if (most === 0) return null;
+  return (
+    <div role="img" aria-label={label}>
+      <div className="hours">
+        {hours.map((seconds, hour) => <i key={hour} className={seconds > 0 ? "active" : ""} style={{ height: `${Math.max(6, seconds / most * 100)}%` }} />)}
+      </div>
+      <div className="hours-axis" aria-hidden="true"><span>12a</span><span>6a</span><span>12p</span><span>6p</span><span>12a</span></div>
+    </div>
+  );
+}
+
+const hoursOf = (day: { hourlySeconds?: number[] }) => Array.from({ length: 24 }, (_, hour) => day.hourlySeconds?.[hour] ?? 0);
+
 export function SummaryPanel({
   stats,
   history,
   energy,
   onBreak,
   onClose,
+  letter = null,
+  character = "crab",
+  accessory = null,
+  initialTab = "today",
+  onApply,
+  onWrapUp,
 }: SummaryPanelProps) {
-  const [tab, setTab] = useState<"today" | "week">("today");
+  const [tab, setTab] = useState<SummaryTab>(initialTab);
+  const [applied, setApplied] = useState<"no" | "saving" | "yes" | "failed">("no");
   const [exportStatus, setExportStatus] = useState<{ ok: boolean; text: string } | null>(null);
   const [exporting, setExporting] = useState(false);
 
@@ -271,6 +331,20 @@ export function SummaryPanel({
     [stats, history],
   );
 
+  const weekHours = useMemo(() => {
+    const recent = [...daysBefore(history, Date.now(), 6), stats];
+    return Array.from({ length: 24 }, (_, hour) => recent.reduce((sum, day) => sum + hoursOf(day)[hour], 0));
+  }, [stats, history]);
+  // Whole days only, so a half-finished today never looks like an improvement.
+  const comparison = useMemo(() => {
+    const average = (days: DayRecord[]) => days.reduce((sum, day) => sum + sumSeconds(day.categorySeconds), 0) / days.length;
+    const recent = daysBefore(history, Date.now(), 7), before = daysBefore(history, Date.now(), 7, 7);
+    if (recent.length < 3 || before.length < 3) return null;
+    const change = average(recent) - average(before);
+    if (Math.abs(change) < 600) return "About the same each day as the week before.";
+    return `${formatDuration(Math.abs(change))} ${change < 0 ? "less" : "more"} a day than the week before.`;
+  }, [history]);
+
   const activeSeconds = categories.total;
   const energyClass = energy >= 4 ? "high" : energy === 3 ? "mid" : "low";
   const topCategory = categories.entries[0];
@@ -286,8 +360,9 @@ export function SummaryPanel({
   const handleTabKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
     e.preventDefault();
-    const nextTab = e.key === "Home" ? "today" : e.key === "End" ? "week"
-      : tab === "today" ? "week" : "today";
+    const current = TABS.findIndex(t => t.id === tab);
+    const nextTab = TABS[e.key === "Home" ? 0 : e.key === "End" ? TABS.length - 1
+      : (current + (e.key === "ArrowLeft" ? -1 : 1) + TABS.length) % TABS.length].id;
     setTab(nextTab);
     tabListRef.current?.querySelector<HTMLButtonElement>(`#summary-tab-${nextTab}`)?.focus();
   };
@@ -312,6 +387,9 @@ export function SummaryPanel({
             <h2 id="summary-title">Activity</h2>
           </div>
           <div className="summary-header-actions">
+            {onWrapUp && <button type="button" className="summary-close" onClick={onWrapUp} aria-label="Wrap up the day" title="Wrap up the day">
+              <LuMoon size={17} aria-hidden="true" />
+            </button>}
             <button
               type="button"
               className="summary-close"
@@ -343,30 +421,21 @@ export function SummaryPanel({
         )}
 
         <div ref={tabListRef} className="summary-tabs" role="tablist" aria-label="Report range" onKeyDown={handleTabKeyDown}>
-          <button
-            type="button"
-            role="tab"
-            id="summary-tab-today"
-            aria-selected={tab === "today"}
-            aria-controls="summary-content"
-            tabIndex={tab === "today" ? 0 : -1}
-            className={`summary-tab ${tab === "today" ? "active" : ""}`}
-            onClick={() => setTab("today")}
-          >
-            Today
-          </button>
-          <button
-            type="button"
-            role="tab"
-            id="summary-tab-week"
-            aria-selected={tab === "week"}
-            aria-controls="summary-content"
-            tabIndex={tab === "week" ? 0 : -1}
-            className={`summary-tab ${tab === "week" ? "active" : ""}`}
-            onClick={() => setTab("week")}
-          >
-            Past week
-          </button>
+          {TABS.map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              id={`summary-tab-${id}`}
+              aria-selected={tab === id}
+              aria-controls="summary-content"
+              tabIndex={tab === id ? 0 : -1}
+              className={`summary-tab ${tab === id ? "active" : ""}`}
+              onClick={() => setTab(id)}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         {tab === "today" ? (
@@ -441,6 +510,13 @@ export function SummaryPanel({
               />
             </section>
 
+            {Math.max(...hoursOf(stats)) > 0 && (
+              <section className="summary-section">
+                <h3 className="summary-section-title">Your hours</h3>
+                <HourStrip hours={hoursOf(stats)} label="Active time by hour today" />
+              </section>
+            )}
+
             <section className="summary-section">
               <h3 className="summary-section-title">Day details</h3>
               <ul className="summary-log">
@@ -460,6 +536,18 @@ export function SummaryPanel({
                   {stats.breaksTaken}{" "}
                   {stats.breaksTaken === 1 ? "break" : "breaks"}
                 </li>
+                {(stats.focusSeconds ?? 0) >= 60 && (
+                  <li>
+                    Focused {formatDuration(stats.focusSeconds ?? 0)} in {stats.focusSessions ?? 0}{" "}
+                    {stats.focusSessions === 1 ? "session" : "sessions"}
+                  </li>
+                )}
+                {(stats.nudges?.length ?? 0) > 0 && (
+                  <li>
+                    Took {stats.nudges?.filter((n) => n.outcome === "taken").length} of {stats.nudges?.length}{" "}
+                    {stats.nudges?.length === 1 ? "nudge" : "nudges"}
+                  </li>
+                )}
                 {stats.breaksInterrupted > 0 && (
                   <li className="summary-log-warn">
                     {stats.breaksInterrupted}{" "}
@@ -469,6 +557,34 @@ export function SummaryPanel({
                 )}
               </ul>
             </section>
+          </div>
+        ) : tab === "letter" ? (
+          <div className="summary-body" role="tabpanel" id="summary-content" aria-labelledby="summary-tab-letter" tabIndex={0}>
+            {letter ? (
+              <article className="letter">
+                <p>{letter.greeting}</p>
+                <p className="letter-lead">{letter.observation}</p>
+                <ul>{letter.details.map((line) => <li key={line}>{line}</li>)}</ul>
+                <p>{letter.suggestion}</p>
+                {letter.apply && onApply && (
+                  <p>
+                    <button type="button" className="letter-apply" disabled={applied === "saving" || applied === "yes"} onClick={() => {
+                      setApplied("saving");
+                      onApply(letter).then(() => setApplied("yes"), () => setApplied("failed"));
+                    }}>
+                      {applied === "yes" ? "Done" : letter.apply.label}
+                    </button>
+                    {applied === "failed" && <span role="alert"> Couldn’t save that. Please try again.</span>}
+                  </p>
+                )}
+                <div className="letter-sign">
+                  <span>{letter.signature}</span>
+                  <PixelPetSprite character={character} pose="happy" displaySize={64} accessory={accessory} />
+                </div>
+              </article>
+            ) : (
+              <p className="summary-hint">After a few days together, your companion writes you a short letter about your week. It’s written on this Mac, from your own summaries.</p>
+            )}
           </div>
         ) : (
           <div className="summary-body" role="tabpanel" id="summary-content" aria-labelledby="summary-tab-week" tabIndex={0}>
@@ -492,6 +608,8 @@ export function SummaryPanel({
                 </span>
               </div>
             </div>
+
+            {comparison && <p className="week-compare">{comparison}</p>}
 
             <section className="summary-section">
               <h3 className="summary-section-title">Last 7 days</h3>
@@ -535,6 +653,13 @@ export function SummaryPanel({
               <h3 className="summary-section-title">Where your week went</h3>
               <CategoryBreakdown entries={week.entries} total={week.total} />
             </section>
+
+            {Math.max(...weekHours) > 0 && (
+              <section className="summary-section">
+                <h3 className="summary-section-title">Your usual hours</h3>
+                <HourStrip hours={weekHours} label="Active time by hour over the past week" />
+              </section>
+            )}
 
             <section className="summary-section">
               <h3 className="summary-section-title">Week details</h3>

@@ -32,14 +32,22 @@ Nudge makes screen time tangible with a desktop companion that gets tired as you
 - Context-aware phrases: says phrases based on what you're doing (coding, gaming, social, etc.) and how tired the companion is
 - Configurable reminder rhythm, ten-minute snooze, automatic-break threshold, screen position, monitor, and per-app categories
 - Refreshes installed apps on every launch and when Settings opens, removes deleted apps, and preserves custom categories for apps you still have
-- Reminders wait until you return from an idle stretch or finish passive media
-- Four timed reset ideas, with clear steps and a visible countdown; every pause can be ended early
-- Activity summary: time per category, breaks taken/interrupted, longest stretch, ~31 days of history
+- Nudges wait for a pause in typing, the gap between two apps, or your return; they hold for calls and give videos time to end
+- Unanswered nudges fold away and your pet dozes off instead of nagging; pet it to wake it
+- Optional tab and document awareness in any browser, with your own rules; titles are never saved
+- Locking your Mac counts as a break, full-screen video hides the pet, and it can sit on the window you're using
+- Focus sessions: your pet holds your intention on a sign, notices drift, and parks stray thoughts
+- A garden that grows with every pause (14 plants, some seasonal) and never wilts; save it as a postcard
+- A friendship that deepens with care, never screen time, and ten outfits to find
+- Fourteen step-by-step resets your pet does with you, suggested for the moment; every pause can be ended early
+- Optional wind-down, active hours, and eye, posture and water rhythms
+- Wrap up the day with a mood and one thing for tomorrow; read a weekly letter written on your Mac
+- Activity summary: time per category and hour, breaks, focus, nudges taken, week-over-week change, 7 days to a year of history
+- Private apps, history limits, and one-click erase
 - Launch at login and a customizable global shortcut for hiding the companion
 - Personal reminder notes that your companion can say at the next reminder
-- A small hover status shows the current stretch and time until the next reminder
-- Menu-bar item: show or hide the companion, take a break, open your summary or Settings, quiet nudges for an hour, and quit
-- Quiet hour: reminders wait until it ends (or until you resume) instead of being dropped; chatter and distraction nudges stay silent
+- A small hover status shows the current stretch and what the next reminder is waiting for
+- Menu-bar item: companion, breaks, focus, garden, quiet time, summary, Settings and quit, with an optional countdown
 - Export your full activity history as a CSV (one row per day, a column per category) from the Activity panel; the file goes to Downloads
 
 ## Challenges
@@ -49,7 +57,7 @@ Nudge makes screen time tangible with a desktop companion that gets tired as you
 
 ## The future
 - Windows support
-- More activity insights and additional character accessories
+- Friend visits
 
 ## Installation
 
@@ -118,11 +126,17 @@ If the window closes or leaves the current Space, the pet stays where it was.
 
 
 ## Data and development
-Activity and settings are stored locally in the application's configuration directory.
+Activity, settings and the companion's memory (garden, outfits, focus sessions) are stored locally in the application's configuration directory.
 No account or cloud sync is required.
 
 - Activity writes are atomic and keep the previous valid snapshot as `activity.json.bak`.
   If both files cannot be read, nudge will refuse to overwrite the existing history.
+- `companion.json` is stored the same way; an unreadable copy is moved aside and the backup used.
+- Tab awareness is off by default and uses macOS Accessibility to read only the front window's
+  title and full-screen state. Titles are classified in memory and not written to disk, unless you
+  choose one as a focus session. Because builds are ad-hoc signed, macOS may ask again after an update.
+- Call awareness reads only whether a microphone or camera is in use and which apps are playing
+  sound. Nothing is captured, and no permission is needed. It can be turned off in Settings.
 - Settings live in memory and every change is written atomically, so a crash can't leave a
   half-written file and concurrent changes can't undo each other. An unreadable
   `settings.json` is moved aside as `settings.json.corrupt-<timestamp>` rather than replaced.

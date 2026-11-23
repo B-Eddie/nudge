@@ -8,6 +8,14 @@ use tauri::{AppHandle, Manager, State};
 
 use crate::storage::write_atomic;
 
+/// How one reminder was answered, kept so later ones can be better timed.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NudgeRecord {
+    pub hour: u8,
+    /// taken | later | missed
+    pub outcome: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionStats {
@@ -18,6 +26,18 @@ pub struct SessionStats {
     pub rest_seconds: u32,
     pub current_stretch_seconds: u32,
     pub longest_stretch_seconds: u32,
+    /// Active seconds in each hour of the day (24 entries, or empty on older days).
+    #[serde(default)]
+    pub hourly_seconds: Vec<u32>,
+    #[serde(default)]
+    pub nudges: Vec<NudgeRecord>,
+    #[serde(default)]
+    pub focus_seconds: u32,
+    #[serde(default)]
+    pub focus_sessions: u32,
+    /// 1 (rough) to 5 (great), if the person chose to say.
+    #[serde(default)]
+    pub mood: Option<u8>,
 }
 
 impl Default for SessionStats {
@@ -34,6 +54,11 @@ impl Default for SessionStats {
             rest_seconds: 0,
             current_stretch_seconds: 0,
             longest_stretch_seconds: 0,
+            hourly_seconds: Vec::new(),
+            nudges: Vec::new(),
+            focus_seconds: 0,
+            focus_sessions: 0,
+            mood: None,
         }
     }
 }
@@ -48,6 +73,16 @@ pub struct DayRecord {
     pub breaks_interrupted: u32,
     pub rest_seconds: u32,
     pub longest_stretch_seconds: u32,
+    #[serde(default)]
+    pub hourly_seconds: Vec<u32>,
+    #[serde(default)]
+    pub nudges: Vec<NudgeRecord>,
+    #[serde(default)]
+    pub focus_seconds: u32,
+    #[serde(default)]
+    pub focus_sessions: u32,
+    #[serde(default)]
+    pub mood: Option<u8>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -148,9 +183,21 @@ fn save_to_path(path: &Path, bytes: &[u8]) -> Result<(), String> {
     write_atomic(path, bytes)
 }
 
+/// Removes the saved history and its backup so nothing readable is left behind.
+fn erase_files(path: &Path) -> Result<(), String> {
+    for file in [path.to_path_buf(), backup_path(path)] {
+        match std::fs::remove_file(&file) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(format!("{}: {e}", file.display())),
+        }
+    }
+    Ok(())
+}
+
 pub struct ActivityStore {
     cache: Mutex<ActivityState>,
-    load_error: Option<String>,
+    load_error: Mutex<Option<String>>,
 }
 
 impl ActivityStore {
@@ -165,23 +212,26 @@ impl ActivityStore {
         };
         Self {
             cache: Mutex::new(activity),
-            load_error,
+            load_error: Mutex::new(load_error),
+        }
+    }
+
+    fn check_loaded(&self) -> Result<(), String> {
+        match self.load_error.lock().unwrap().as_ref() {
+            Some(error) => Err(error.clone()),
+            None => Ok(()),
         }
     }
 
     pub fn persist(&self, app: &AppHandle) -> Result<(), String> {
-        if let Some(error) = &self.load_error {
-            return Err(error.clone());
-        }
+        self.check_loaded()?;
         self.cache.lock().unwrap().save(app)
     }
 }
 
 #[tauri::command]
 pub fn get_activity(state: State<ActivityStore>) -> Result<ActivityState, String> {
-    if let Some(error) = &state.load_error {
-        return Err(error.clone());
-    }
+    state.check_loaded()?;
     Ok(state.cache.lock().unwrap().clone())
 }
 
@@ -191,20 +241,32 @@ pub fn save_activity(
     state: State<ActivityStore>,
     activity: ActivityState,
 ) -> Result<(), String> {
-    if let Some(error) = &state.load_error {
-        return Err(error.clone());
-    }
+    state.check_loaded()?;
     let mut cache = state.cache.lock().unwrap();
     activity.save(&app)?;
     *cache = activity;
     Ok(())
 }
 
+/// Deletes every saved activity summary and starts today over. Also the way out when the
+/// file on disk can't be read: the person has chosen to let it go.
+#[tauri::command]
+pub fn erase_activity(
+    app: AppHandle,
+    state: State<ActivityStore>,
+) -> Result<ActivityState, String> {
+    let mut cache = state.cache.lock().unwrap();
+    erase_files(&ActivityState::path(&app)?)?;
+    *cache = ActivityState::default();
+    *state.load_error.lock().unwrap() = None;
+    Ok(cache.clone())
+}
+
 /// A plain export file name such as `nudge-activity-2026-11-10.csv`. Anything else
 /// (separators, `..`, hidden files) is rejected so the webview cannot choose a path.
-fn valid_export_name(name: &str) -> bool {
+fn valid_export_name(name: &str, extension: &str) -> bool {
     name.len() <= 80
-        && name.ends_with(".csv")
+        && name.ends_with(extension)
         && !name.starts_with('.')
         && name
             .chars()
@@ -212,16 +274,37 @@ fn valid_export_name(name: &str) -> bool {
 }
 
 /// `dir/name`, or `dir/stem (2).csv` and so on, never replacing an earlier export.
-fn unused_path(dir: &Path, name: &str) -> PathBuf {
+fn unused_path(dir: &Path, name: &str, extension: &str) -> PathBuf {
     let first = dir.join(name);
     if !first.exists() {
         return first;
     }
-    let stem = name.trim_end_matches(".csv");
+    let stem = name.trim_end_matches(extension);
     (2..)
-        .map(|n| dir.join(format!("{stem} ({n}).csv")))
+        .map(|n| dir.join(format!("{stem} ({n}){extension}")))
         .find(|candidate| !candidate.exists())
         .expect("an unused file name exists")
+}
+
+fn export_to_downloads(
+    app: &AppHandle,
+    file_name: &str,
+    extension: &str,
+    bytes: &[u8],
+) -> Result<String, String> {
+    if !valid_export_name(file_name, extension) {
+        return Err(format!("invalid export file name: {file_name}"));
+    }
+    let dir = app.path().download_dir().map_err(|e| e.to_string())?;
+    let path = unused_path(&dir, file_name, extension);
+    write_atomic(&path, bytes)?;
+    if let Err(e) = tauri_plugin_opener::reveal_item_in_dir(&path) {
+        eprintln!(
+            "exported to {} but could not reveal it: {e}",
+            path.display()
+        );
+    }
+    Ok(path.display().to_string())
 }
 
 /// Writes the CSV built by the overlay into Downloads and reveals it in Finder.
@@ -232,19 +315,23 @@ pub fn export_activity_csv(
     file_name: String,
     contents: String,
 ) -> Result<String, String> {
-    if !valid_export_name(&file_name) {
-        return Err(format!("invalid export file name: {file_name}"));
+    export_to_downloads(&app, &file_name, ".csv", contents.as_bytes())
+}
+
+const PNG_SIGNATURE: &[u8] = b"\x89PNG\r\n\x1a\n";
+const MAX_POSTCARD_BYTES: usize = 8 * 1024 * 1024;
+
+fn valid_postcard(png: &[u8]) -> bool {
+    png.len() <= MAX_POSTCARD_BYTES && png.starts_with(PNG_SIGNATURE)
+}
+
+/// Saves a postcard drawn by the overlay to Downloads and reveals it in Finder.
+#[tauri::command]
+pub fn export_postcard(app: AppHandle, file_name: String, png: Vec<u8>) -> Result<String, String> {
+    if !valid_postcard(&png) {
+        return Err("the postcard is not a PNG image".into());
     }
-    let dir = app.path().download_dir().map_err(|e| e.to_string())?;
-    let path = unused_path(&dir, &file_name);
-    write_atomic(&path, contents.as_bytes())?;
-    if let Err(e) = tauri_plugin_opener::reveal_item_in_dir(&path) {
-        eprintln!(
-            "exported to {} but could not reveal it: {e}",
-            path.display()
-        );
-    }
-    Ok(path.display().to_string())
+    export_to_downloads(&app, &file_name, ".png", &png)
 }
 
 pub fn persist_activity(app: &AppHandle) -> Result<(), String> {
@@ -277,20 +364,49 @@ mod tests {
 
     #[test]
     fn export_names_cannot_escape_the_downloads_folder() {
-        assert!(valid_export_name("nudge-activity-2026-11-10.csv"));
+        assert!(valid_export_name("nudge-activity-2026-11-10.csv", ".csv"));
+        assert!(valid_export_name("nudge-postcard.png", ".png"));
+        assert!(!valid_export_name("nudge-postcard.png", ".csv"));
         for bad in ["../x.csv", "a/b.csv", ".hidden.csv", "x.sh", "", "a b.csv"] {
-            assert!(!valid_export_name(bad), "{bad}");
+            assert!(!valid_export_name(bad, ".csv"), "{bad}");
         }
     }
 
     #[test]
     fn exports_never_replace_an_earlier_file() {
         let dir = fixture().parent().unwrap().to_path_buf();
-        let first = unused_path(&dir, "nudge.csv");
+        let first = unused_path(&dir, "nudge.csv", ".csv");
         std::fs::write(&first, "a").unwrap();
-        let second = unused_path(&dir, "nudge.csv");
+        let second = unused_path(&dir, "nudge.csv", ".csv");
         assert_eq!(second.file_name().unwrap(), "nudge (2).csv");
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn postcards_must_be_png_images() {
+        assert!(valid_postcard(b"\x89PNG\r\n\x1a\nrest"));
+        assert!(!valid_postcard(b"#!/bin/sh"));
+        assert!(!valid_postcard(b""));
+    }
+
+    #[test]
+    fn erasing_removes_the_history_and_its_backup() {
+        let path = fixture();
+        save_to_path(&path, &data(12)).unwrap();
+        save_to_path(&path, &data(13)).unwrap();
+        erase_files(&path).unwrap();
+        assert!(!path.exists() && !backup_path(&path).exists());
+        assert_eq!(load_from_path(&path).unwrap().time_passed, 0);
+        erase_files(&path).unwrap(); // nothing left is not an error
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn days_saved_by_earlier_versions_still_load() {
+        let day = r#"{"date":"2026-11-01","categorySeconds":{"Games":60},"breaksTaken":1,
+            "breaksInterrupted":0,"restSeconds":60,"longestStretchSeconds":60}"#;
+        let day: DayRecord = serde_json::from_str(day).unwrap();
+        assert!(day.hourly_seconds.is_empty() && day.nudges.is_empty() && day.mood.is_none());
     }
 
     #[test]

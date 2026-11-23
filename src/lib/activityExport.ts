@@ -7,6 +7,10 @@ const FIXED_COLUMNS = [
   "breaks_taken",
   "breaks_interrupted",
   "longest_stretch_minutes",
+  "focus_minutes",
+  "nudges_taken",
+  "nudges_total",
+  "mood_1_to_5",
 ] as const;
 
 const minutes = (seconds: number) => (Math.round((seconds / 60) * 10) / 10).toString();
@@ -35,6 +39,10 @@ export function activityCsv(stats: SessionStats, history: DayRecord[]): string {
       String(day.breaksTaken),
       String(day.breaksInterrupted),
       minutes(day.longestStretchSeconds),
+      minutes(day.focusSeconds ?? 0),
+      String((day.nudges ?? []).filter((n) => n.outcome === "taken").length),
+      String((day.nudges ?? []).length),
+      day.mood ? String(day.mood) : "",
       ...categories.map((c) => minutes(day.categorySeconds[c] ?? 0)),
     ];
   });

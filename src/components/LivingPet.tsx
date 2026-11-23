@@ -8,6 +8,11 @@ import { petSize } from "../types/petSize";
 import { ADVENTURES, type PetRequest } from "../hooks/usePetLife";
 import { PixelPetSprite } from "./PixelPetSprite";
 import { useAmbientLight } from "../hooks/useAmbientLight";
+import { PlantArt } from "./PixelArt";
+import type { AccessoryId } from "../lib/companion";
+import type { Plant } from "../lib/garden";
+import { stageOf } from "../lib/garden";
+import type { PetPose } from "../types/pixelPets";
 import "./LivingPet.css";
 
 interface Props {
@@ -17,6 +22,19 @@ interface Props {
   request?: PetRequest;
   motionPaused?: boolean;
   busy: boolean; position: string; energy: number; onMenu: () => void; onPet: () => void;
+  accessory?: AccessoryId | null;
+  /** Pose held while doing a break routine together, and its breath. */
+  performing?: PetPose; breathe?: "in" | "out";
+  /** 0 awake to 3 asleep: how long a nudge has gone unanswered. */
+  drowsy?: 0 | 1 | 2 | 3;
+  /** Music is playing somewhere on the Mac. */
+  music?: boolean;
+  /** Short text on the pet's sign, for a focus session. */
+  sign?: string;
+  /** A plant that just grew, shown beside the pet for a moment. */
+  sprout?: Plant | null;
+  /** Leaving the ground to land on another window. */
+  hopping?: boolean;
 }
 export function LivingPet(p: Props) {
   const size = petSize(p.size);
@@ -36,21 +54,22 @@ export function LivingPet(p: Props) {
   }, [p.petted]);
   // A short squash-and-settle when the pet is put down, so it lands on the desktop.
   const [landing, setLanding] = useState(false);
-  const wasDragging = useRef(p.dragging);
+  const aloft = p.dragging || !!p.hopping;
+  const wasAloft = useRef(aloft);
   useEffect(() => {
-    const dropped = wasDragging.current && !p.dragging;
-    wasDragging.current = p.dragging;
+    const dropped = wasAloft.current && !aloft;
+    wasAloft.current = aloft;
     if (!dropped || reduced) return;
     setLanding(true);
     const timeout = setTimeout(() => setLanding(false), 420);
     return () => clearTimeout(timeout);
-  }, [p.dragging, reduced]);
+  }, [aloft, reduced]);
   const ambient = useAmbientLight();
-  const behavior = usePetBehavior(p.category, p.resting, p.busy || p.dragging || happy, reduced, p.character, p.energy, p.request, p.hovered);
+  const behavior = usePetBehavior(p.category, p.resting, p.busy || p.dragging || happy || !!p.performing || (p.drowsy ?? 0) >= 2, reduced, p.character, p.energy, p.request, p.hovered);
   const { activity, transitioning, outing, adventure, touches, responding, interact } = behavior;
   const { pose, reacting } = usePetExpression({
     ...behavior, character: p.character, hovered: p.hovered, dragging: p.dragging,
-    petted: p.petted, near: p.attention.near, busy: p.busy, energy: p.energy, reducedMotion: reduced,
+    petted: p.petted, near: p.attention.near, busy: p.busy, energy: p.energy, reducedMotion: reduced, performing: p.performing, drowsy: p.drowsy,
   });
   const direction = p.position.endsWith("r") ? -1 : 1;
   const walking = outing === "walk" || outing === "home";
@@ -60,18 +79,24 @@ export function LivingPet(p: Props) {
     "--sniff-x": `${direction * 2}px`,
     "--walk-x": `${reduced ? 0 : direction * 32}px`,
   } as CSSProperties;
-  const mood = p.dragging ? "lifted" : reacting ? "happy" : p.hovered ? "curious" : outing === "sniff" ? "sniff" : activity;
-  return <div className={`pet-stage${p.attention.near ? " pet-pointer-near" : ""}${landing ? " pet-landing" : ""}`} data-ambient={ambient} style={{ "--pet-size": `${size}px`, "--pet-scale": size / 120 } as CSSProperties}
+  const mood = p.dragging ? "lifted" : reacting ? "happy" : p.hovered ? "curious" : outing === "sniff" ? "sniff"
+    : p.drowsy === 3 && !adventure && !p.performing ? "sleep" : activity;
+  // Background music sets a gentle sway, unless the pet is already wearing headphones.
+  const swaying = p.music && !p.resting && !p.performing && !adventure && outing === "rest" && mood !== "sleep" && mood !== "music" && !p.busy;
+  return <div className={`pet-stage${p.attention.near ? " pet-pointer-near" : ""}${landing ? " pet-landing" : ""}${p.hopping ? " pet-hopping" : ""}`} data-ambient={ambient} style={{ "--pet-size": `${size}px`, "--pet-scale": size / 120 } as CSSProperties}
     onContextMenu={e => { e.preventDefault(); p.onMenu(); }}>
-    <div className={`living-pet outing-${outing} mood-${mood} ${adventure ? `adventure-${adventure.kind} adventure-${adventure.phase} ${ADVENTURES[adventure.kind].travels ? "adventure-travels" : ""}` : ""} ${transitioning ? "pet-changing" : ""} ${p.energy <= 2 ? "pet-tired" : ""} ${p.hovered ? "pet-attended" : ""}`} style={style} data-pet-pose={pose} data-pet-adventure={adventure?.kind} data-pet-phase={adventure?.phase}>
+    <div className={`living-pet outing-${outing} mood-${mood} ${adventure ? `adventure-${adventure.kind} adventure-${adventure.phase} ${ADVENTURES[adventure.kind].travels ? "adventure-travels" : ""}` : ""} ${transitioning ? "pet-changing" : ""} ${p.energy <= 2 ? "pet-tired" : ""} ${p.hovered ? "pet-attended" : ""} ${p.breathe ? `pet-breathe-${p.breathe}` : ""} ${swaying ? "pet-swaying" : ""}`} style={style} data-pet-pose={pose} data-pet-adventure={adventure?.kind} data-pet-phase={adventure?.phase}>
     {adventure && <PetPlaything kind={adventure.kind} phase={adventure.phase} touches={touches} responding={responding} onInteract={interact} />}
-    <button className="pet-body" data-pet-body aria-label={`${p.name}${adventure ? `. ${ADVENTURES[adventure.kind].label}` : ""}. Click to pet, drag to move, right-click for menu.`}
+    {p.sprout && !adventure && <span className={`pet-sprout ${direction === 1 ? "on-right" : "on-left"}`} aria-hidden="true"><PlantArt species={p.sprout.species} stage={stageOf(p.sprout)} scale={2.5} /></span>}
+    {p.sign && !p.sprout && !adventure && <span className={`pet-sign ${direction === 1 ? "on-right" : "on-left"}`} aria-hidden="true"><span className="pet-sign-board">{p.sign}</span></span>}
+    {swaying && <span className="pet-note" aria-hidden="true">♪</span>}
+    <button className="pet-body" data-pet-body aria-label={`${p.name}${adventure ? `. ${ADVENTURES[adventure.kind].label}` : ""}${p.sign ? `. Focusing on ${p.sign}` : ""}${p.drowsy === 3 ? ". Asleep; pet to wake" : ""}. Click to pet, drag to move, right-click for menu.`}
       onClick={e => { if (e.detail === 0) p.onPet(); }}
       onKeyDown={e => { if (e.key === "F10" && e.shiftKey) { e.preventDefault(); p.onMenu(); } }}>
       <span className="pet-shadow" aria-hidden="true" />
       <span className="pet-rig"><span className="pet-breath"><span className="pet-attention">
         <span className={walking || outing === "sniff" ? (facing < 0 ? "pet-facing-left" : "pet-facing-right") : ""}>
-          <PixelPetSprite character={p.character} pose={pose} displaySize={size}
+          <PixelPetSprite character={p.character} pose={pose} displaySize={size} accessory={p.accessory}
             animated paused={p.motionPaused ?? p.busy} reducedMotion={reduced}
             attention={{ ...p.attention, x: (walking || outing === "sniff") && facing < 0 ? -p.attention.x : p.attention.x }}
             phone={!adventure && activity === "social" && pose === "curious" && !p.hovered && !p.dragging} />

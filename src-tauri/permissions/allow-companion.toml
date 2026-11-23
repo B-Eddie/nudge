@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-companion"
+description = "Allows loading and saving the companion's garden, bond and focus sessions."
+commands.allow = ["get_companion", "save_companion", "replace_companion"]

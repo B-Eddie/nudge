@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-tray"
+description = "Allows setting the short text beside the menu-bar icon."
+commands.allow = ["set_tray_title"]

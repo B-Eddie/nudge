@@ -193,3 +193,15 @@
     height: 32px;
   }
 }
+
+.break-guide-panel { overflow: hidden; }
+.break-guide-intro { margin: 10px 0 12px; }
+.break-guide-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; flex: 0 0 auto; }
+.break-guide-tags button { min-height: 30px; padding: 5px 11px; border: 0; border-radius: 999px; background: var(--surface); color: var(--text-dim); font: 550 12px/1.2 var(--font-body); cursor: pointer; }
+.break-guide-tags button:hover { background: var(--surface-raised); color: var(--text); }
+.break-guide-tags button[aria-pressed="true"] { background: var(--accent-strong); color: var(--action-text); }
+.break-routine-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; align-content: start; overscroll-behavior: contain; padding: 2px; margin: -2px; }
+.break-routine-option { min-height: 62px; padding: 9px 12px; }
+.break-guide-footer { flex: 0 0 auto; margin-top: 14px; }
+.break-guide-rest { margin-left: auto; min-height: 32px; padding: 7px 14px; border: 0; border-radius: 999px; background: var(--surface-raised); color: var(--text); font: 600 12px/1.2 var(--font-body); cursor: pointer; }
+.break-guide-rest:hover { background: var(--surface-raised-hover); }

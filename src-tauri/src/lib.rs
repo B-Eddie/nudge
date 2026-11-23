@@ -7,19 +7,26 @@ use tauri_plugin_autostart::MacosLauncher;
 mod activity;
 mod app_categories;
 mod auto_break;
+mod companion;
 mod pet_desktop;
+mod presence;
 mod settings;
 mod storage;
 mod tray;
+mod window_context;
 pub use activity::{
-    export_activity_csv, get_activity, persist_activity, save_activity, ActivityStore,
+    erase_activity, export_activity_csv, export_postcard, get_activity, persist_activity,
+    save_activity, ActivityStore,
 };
 pub use app_categories::get_app_category_options;
+pub use companion::{get_companion, replace_companion, save_companion, CompanionStore};
+pub use presence::PresenceStore;
 pub use settings::{
     add_pending_note, close_settings, get_monitor_options, get_pending_notes, get_settings,
     move_to_settings_monitor, open_settings, pop_pending_note, register_pause_shortcut,
     remove_pending_note, save_settings, AppState, MonitorOption, Settings, SettingsStore,
 };
+pub use tray::set_tray_title;
 
 #[cfg(target_os = "macos")]
 use cocoa::appkit::{NSColor, NSEvent, NSWindow};
@@ -380,6 +387,12 @@ fn start_power_monitor(window: tauri::WebviewWindow) {
         }
     }
 
+    extern "C" fn screen_locked(_this: &Object, _cmd: objc::runtime::Sel, _note: id) {
+        if let Some(window) = OVERLAY_WINDOW.get() {
+            let _ = window.emit("screen-locked", ());
+        }
+    }
+
     extern "C" fn system_did_wake(_this: &Object, _cmd: objc::runtime::Sel, _note: id) {
         let _ = (_this, _note);
         if let Some(window) = OVERLAY_WINDOW.get() {
@@ -400,6 +413,10 @@ fn start_power_monitor(window: tauri::WebviewWindow) {
                 system_will_sleep as extern "C" fn(&Object, objc::runtime::Sel, id),
             );
             decl.add_method(
+                sel!(screenLocked:),
+                screen_locked as extern "C" fn(&Object, objc::runtime::Sel, id),
+            );
+            decl.add_method(
                 sel!(systemDidWake:),
                 system_did_wake as extern "C" fn(&Object, objc::runtime::Sel, id),
             );
@@ -409,6 +426,16 @@ fn start_power_monitor(window: tauri::WebviewWindow) {
         let observer: id = msg_send![*observer_class, new];
         let workspace: id = msg_send![class!(NSWorkspace), sharedWorkspace];
         let notification_center: id = msg_send![workspace, notificationCenter];
+        // Locking the screen is the clearest "I'm stepping away" there is.
+        let distributed: id = msg_send![class!(NSDistributedNotificationCenter), defaultCenter];
+        let locked = NSString::alloc(nil).init_str("com.apple.screenIsLocked");
+        let _: () = msg_send![
+            distributed,
+            addObserver:observer
+            selector:sel!(screenLocked:)
+            name:locked
+            object:nil
+        ];
         let notifications = [
             ("NSWorkspaceWillSleepNotification", sel!(systemWillSleep:)),
             ("NSWorkspaceDidWakeNotification", sel!(systemDidWake:)),
@@ -528,6 +555,61 @@ fn frontmost_app() -> Option<FrontmostApp> {
     })
 }
 
+#[cfg(target_os = "macos")]
+fn frontmost_pid() -> Option<i32> {
+    use objc2::rc::autoreleasepool;
+    use objc2_app_kit::NSWorkspace;
+
+    autoreleasepool(|_| {
+        let workspace = unsafe { NSWorkspace::sharedWorkspace() };
+        unsafe { workspace.frontmostApplication() }
+            .map(|app| unsafe { app.processIdentifier() })
+            .filter(|pid| *pid > 0 && *pid != std::process::id() as i32)
+    })
+}
+
+/// The front window's title and full-screen state, when the person has turned that on.
+/// Runs off the main thread because another app has to answer.
+#[tauri::command(async)]
+fn get_window_context(store: tauri::State<SettingsStore>) -> window_context::WindowContext {
+    #[cfg(target_os = "macos")]
+    {
+        let (enabled, private) = {
+            let front = frontmost_app();
+            let bundle = front.as_ref().and_then(|f| f.bundle_id.clone());
+            let (enabled, category) =
+                store.read(|s| (s.window_titles, s.category_for_bundle(bundle.as_deref())));
+            (
+                enabled.then_some(bundle),
+                category == app_categories::PRIVATE_CATEGORY,
+            )
+        };
+        let Some(bundle_id) = enabled else {
+            return Default::default();
+        };
+        let Some((title, fullscreen)) = frontmost_pid().and_then(window_context::read) else {
+            return Default::default();
+        };
+        let off_limits = private
+            || bundle_id
+                .as_deref()
+                .is_none_or(window_context::is_secret_app);
+        window_context::WindowContext {
+            browser: bundle_id.as_deref().is_some_and(window_context::is_browser),
+            bundle_id,
+            title: title
+                .filter(|_| !off_limits)
+                .and_then(|t| window_context::usable_title(&t)),
+            fullscreen,
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = store;
+        Default::default()
+    }
+}
+
 /// Bundles already looked up by a running-app scan this session. Without this, an app
 /// that discovery never registers would trigger a scan and a disk write on every poll.
 #[derive(Default)]
@@ -562,35 +644,36 @@ fn get_frontmost_app(
     }
 }
 
-#[derive(Clone, serde::Serialize)]
-struct AutoBreakStatus {
-    idle_seconds: f64,
-    idle_threshold_seconds: u64,
-    should_auto_break: bool,
-    defer_auto_break: bool,
-    defer_reason: Option<String>,
-}
-
 #[tauri::command]
 fn get_auto_break_status(
-    app: tauri::AppHandle,
     store: tauri::State<SettingsStore>,
     attempts: tauri::State<DiscoveryAttempts>,
-) -> Result<AutoBreakStatus, String> {
+    presence: tauri::State<PresenceStore>,
+) -> Result<auto_break::AutoBreakStatus, String> {
     let idle_seconds = get_seconds_since_last_input();
-    let front = get_frontmost_app(store.clone(), attempts)?;
-    let bundle_id = front.as_ref().and_then(|info| info.bundle_id.as_deref());
-    let category = front.as_ref().map(|info| info.category.as_str());
-    let status = store.read(|settings| {
-        auto_break::evaluate_auto_break(&app, idle_seconds, settings, bundle_id, category)
-    });
-    Ok(AutoBreakStatus {
-        idle_seconds: status.idle_seconds,
-        idle_threshold_seconds: status.idle_threshold_seconds,
-        should_auto_break: status.should_auto_break,
-        defer_auto_break: status.defer_auto_break,
-        defer_reason: status.defer_reason,
+    let app_in_front = get_frontmost_app(store.clone(), attempts)?;
+    let front = auto_break::Front {
+        bundle_id: app_in_front.as_ref().and_then(|i| i.bundle_id.as_deref()),
+        category: app_in_front.as_ref().map(|i| i.category.as_str()),
+    };
+    let presence = presence.get();
+    Ok(store
+        .read(|settings| auto_break::evaluate_auto_break(idle_seconds, settings, front, &presence)))
+}
+
+#[cfg(target_os = "macos")]
+fn our_bundle_id() -> Option<String> {
+    use objc2::rc::autoreleasepool;
+    use objc2_foundation::NSBundle;
+
+    autoreleasepool(|pool| {
+        unsafe { NSBundle::mainBundle().bundleIdentifier() }.map(|id| id.as_str(pool).to_owned())
     })
+}
+
+#[cfg(not(target_os = "macos"))]
+fn our_bundle_id() -> Option<String> {
+    None
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -628,9 +711,19 @@ pub fn run() {
             get_app_category_options,
             get_seconds_since_last_input,
             get_auto_break_status,
+            get_window_context,
+            window_context::get_window_access,
+            window_context::request_window_access,
+            pet_desktop::perch_on_front_window,
             get_activity,
             save_activity,
+            erase_activity,
             export_activity_csv,
+            export_postcard,
+            get_companion,
+            save_companion,
+            replace_companion,
+            set_tray_title,
             reset_reminder_timer,
             pop_pending_note,
             add_pending_note,
@@ -640,6 +733,11 @@ pub fn run() {
         ])
         .setup(|app| {
             app.manage(ActivityStore::load(app.handle()));
+            app.manage(CompanionStore::load(app.handle())?);
+
+            let presence = PresenceStore::default();
+            presence.start(our_bundle_id());
+            app.manage(presence);
 
             let store = SettingsStore::load(app.handle());
             settings::refresh_installed_apps(&store);

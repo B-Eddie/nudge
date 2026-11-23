@@ -44,14 +44,14 @@ describe("Break picker controls", () => {
       act(() => options[index].click());
       expect(start).toHaveBeenLastCalledWith(routine);
     }
-    expect(start).toHaveBeenCalledTimes(4);
+    expect(start).toHaveBeenCalledTimes(BREAK_ROUTINES.length);
     expect(close).not.toHaveBeenCalled();
   });
 
   it("keeps Tab inside the picker and restores the trigger when closed", async () => {
     await open();
     const first = host.querySelector<HTMLButtonElement>('[aria-label="Close break ideas"]')!;
-    const last = host.querySelectorAll<HTMLButtonElement>(".break-routine-option")[3];
+    const last = [...host.querySelectorAll<HTMLButtonElement>(".break-routine-option")].at(-1)!;
     expect(document.activeElement).toBe(first);
     act(() => first.dispatchEvent(new KeyboardEvent("keydown", {
       key: "Tab", shiftKey: true, bubbles: true, cancelable: true,
@@ -63,6 +63,18 @@ describe("Break picker controls", () => {
     expect(document.activeElement).toBe(first);
     await act(async () => root.render(null));
     expect(document.activeElement).toBe(trigger);
+  });
+
+  it("narrows to a kind of break, and starts a plain rest", async () => {
+    const rest = vi.fn();
+    await act(async () => root.render(<BreakGuidePanel onClose={close} onStart={start} onJustRest={rest} routines={[...BREAK_ROUTINES].reverse()} />));
+    expect(host.querySelector(".break-routine-option")?.textContent).toContain("Suggested for right now");
+    const by = (text: string) => [...host.querySelectorAll<HTMLButtonElement>("button")].find(b => b.textContent === text)!;
+    act(() => by("Eyes").click());
+    expect(host.querySelectorAll(".break-routine-option")).toHaveLength(BREAK_ROUTINES.filter(r => r.tags.includes("eyes")).length);
+    expect(by("Eyes").getAttribute("aria-pressed")).toBe("true");
+    act(() => by("Just rest").click());
+    expect(rest).toHaveBeenCalledOnce();
   });
 
   it("closes with Escape, the close button, or the empty backdrop, but not panel content", async () => {

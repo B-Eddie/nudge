@@ -5,10 +5,10 @@ export type PetActivity = "idle" | "focus" | "read" | "music" | "play" | "social
 export function activityFor(category?: string): PetActivity {
   switch (category) {
     case "Developer Tools": case "Video": case "Entertainment": return "focus";
-    case "Productivity": return "read";
+    case "Productivity": case "Learning": case "News": return "read";
     case "Music": return "music";
     case "Games": return "play";
-    case "Social Networking": return "social";
+    case "Social Networking": case "Messages": return "social";
     default: return "idle";
   }
 }

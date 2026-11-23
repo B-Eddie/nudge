@@ -3,7 +3,9 @@ import { isolateAtlas, framePixels } from "../lib/spriteAtlas";
 import type { CompanionId } from "../types/appearance";
 import type { PetAttention } from "../lib/petAttention";
 import { getPetRig } from "../lib/petRig";
-import { prepareSpritePixels, renderSpritePixels, type SpriteLayers } from "../lib/petRenderer";
+import { prepareSpritePixels, renderSpritePixels, type SpriteLayers, type Worn } from "../lib/petRenderer";
+import { placeAccessory } from "../lib/accessoryArt";
+import type { AccessoryId } from "../lib/companion";
 import { samplePetMotion } from "../lib/petMotion";
 import { resampleFrame, spriteResolution } from "../lib/spriteResample";
 import { PET_POSES, PIXEL_PETS, spritePlacement, mirrorWalkingFrame, type PetPose } from "../types/pixelPets";
@@ -18,8 +20,13 @@ interface SpriteProps {
   attention?: PetAttention;
   /** CSS pixels the sprite is shown at; picks the art resolution. */
   displaySize?: number;
+  accessory?: AccessoryId | null;
 }
-interface PreparedAtlas { poses: Record<PetPose, SpriteLayers> }
+interface PreparedAtlas {
+  poses: Record<PetPose, SpriteLayers>;
+  /** Where an outfit sits in a pose, measured on first use. */
+  wear: (id: AccessoryId | null, pose: PetPose) => Worn | null;
+}
 const atlases = new Map<string, Promise<PreparedAtlas>>();
 
 /** Tracks devicePixelRatio, which changes when the pet moves to another display. */
@@ -35,7 +42,7 @@ function useDevicePixelRatio() {
   return ratio;
 }
 
-function loadSprite(character: CompanionId, scale: number) {
+export function loadSprite(character: CompanionId, scale: number) {
   const key = `${character}@${scale}`;
   let promise = atlases.get(key);
   if (!promise) {
@@ -52,6 +59,8 @@ function loadSprite(character: CompanionId, scale: number) {
           const rgba = ctx.getImageData(0, 0, atlas.width, atlas.height).data;
           const { frames, labels } = isolateAtlas(rgba, atlas.width, atlas.height);
           const poses = {} as Record<PetPose, SpriteLayers>;
+          const solid = {} as Record<PetPose, Uint8Array>;
+          const placed = new Map<string, Worn | null>();
           for (const [pose, index] of Object.entries(PET_POSES) as [PetPose, number][]) {
             const source = frames[index];
             const placement = spritePlacement(source, frames[0]);
@@ -63,8 +72,23 @@ function loadSprite(character: CompanionId, scale: number) {
                 width: placement.width * scale, height: placement.height * scale,
               }, mirrorWalkingFrame(character, pose));
             poses[pose] = prepareSpritePixels(normalized, getPetRig(character, pose), scale);
+            const mask = solid[pose] = new Uint8Array(60 * 60);
+            for (let y = 0; y < 60; y++) for (let x = 0; x < 60; x++) {
+              mask[y * 60 + x] = normalized[(Math.floor((y + .5) * scale) * size + Math.floor((x + .5) * scale)) * 4 + 3] > 128 ? 1 : 0;
+            }
           }
-          resolve({ poses });
+          resolve({ poses, wear: (id, pose) => {
+            if (!id) return null;
+            const key = `${id}:${pose}`;
+            let worn = placed.get(key);
+            if (worn === undefined) {
+              const place = placeAccessory(id, getPetRig(character, pose), pose, character,
+                (x, y) => x >= 0 && y >= 0 && x < 60 && y < 60 && solid[pose][y * 60 + x] === 1);
+              worn = place ? { id, place } : null;
+              placed.set(key, worn);
+            }
+            return worn;
+          } });
         } catch (error) { atlases.delete(key); reject(error); }
       };
       image.onerror = () => {
@@ -81,12 +105,12 @@ function loadSprite(character: CompanionId, scale: number) {
 // Decode once. Pointer updates change the articulated face without resetting its
 // activity clock, remounting the canvas, or replacing unrelated expression art.
 export function PixelPetSprite({ character, pose = "idle", phone = false, animated = false,
-  paused = false, reducedMotion = false, attention, displaySize = 120 }: SpriteProps) {
+  paused = false, reducedMotion = false, attention, displaySize = 120, accessory = null }: SpriteProps) {
   const scale = spriteResolution(displaySize, useDevicePixelRatio());
   const size = 60 * scale;
   const canvas = useRef<HTMLCanvasElement>(null);
-  const inputs = useRef({ pose, phone, animated, paused, reducedMotion, attention });
-  inputs.current = { pose, phone, animated, paused, reducedMotion, attention };
+  const inputs = useRef({ pose, phone, animated, paused, reducedMotion, attention, accessory });
+  inputs.current = { pose, phone, animated, paused, reducedMotion, attention, accessory };
   const requestDraw = useRef<() => void>(() => {});
 
   useEffect(() => {
@@ -135,9 +159,10 @@ export function PixelPetSprite({ character, pose = "idle", phone = false, animat
           const motion = samplePetMotion(current.pose, elapsed, character, current.phone,
             !current.animated || current.reducedMotion);
           const gaze = { x: Math.round(gazeX * 10) / 10, y: Math.round(gazeY * 10) / 10 };
-          const key = JSON.stringify([current.pose, current.phone, motion, gaze]);
+          const key = JSON.stringify([current.pose, current.phone, current.accessory, motion, gaze]);
           if (key !== previousKey) {
-            const pixels = renderSpritePixels(atlas.poses[current.pose], motion, gaze, current.phone);
+            const pixels = renderSpritePixels(atlas.poses[current.pose], motion, gaze, current.phone,
+              atlas.wear(current.accessory, current.pose));
             ctx.putImageData(new ImageData(pixels, size, size), 0, 0);
             previousKey = key;
           }
@@ -164,7 +189,7 @@ export function PixelPetSprite({ character, pose = "idle", phone = false, animat
     };
   }, [character, scale, size]);
 
-  useEffect(() => { requestDraw.current(); }, [pose, phone, animated, paused, reducedMotion,
+  useEffect(() => { requestDraw.current(); }, [pose, phone, animated, paused, reducedMotion, accessory,
     attention?.x, attention?.y, attention?.near, attention?.tracking]);
   return <canvas ref={canvas} className="pixel-pet-sprite" width={size} height={size} aria-hidden="true" />;
 }
