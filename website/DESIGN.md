@@ -1,6 +1,10 @@
 # Nudge website design
 
-## Direction
+## Direction (current)
+
+Weekly manga print, shared with the app (`src/manga.css`, `website/print.css`): ink on tinted newsprint, with each character's paper in their own colour. Panels are cut with square ink frames, eyebrows are caption boxes, primary buttons are cut on a slant, and depth comes from screentone, not shadows. Type is Dela Gothic One for display and Zen Kaku Gothic New for text, both OFL and self-hosted. The pastel "Bevel" direction below was retired because it looked like every other desktop-pet site.
+
+## Direction (previous)
 
 The website is a playful introduction to a small macOS desktop companion. Its main job is to let someone meet the pets, understand the break reminders, and download the app with confidence.
 

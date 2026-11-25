@@ -12,6 +12,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import "../App.css";
 import "../components/LivingPet.css";
+import manga from "../manga.css?inline";
 
 type Callback = (event: { event: string; payload: unknown; id: number }) => void;
 const callbacks = new Map<number, Callback>();
@@ -22,6 +23,9 @@ const params = new URLSearchParams(location.search);
 const view = params.get("view") ?? "settings";
 const theme = params.get("theme") ?? "bamboo";
 document.documentElement.dataset.theme = theme;
+document.documentElement.dataset.pet = params.get("pet") ?? "panda";
+// Panels load their own styles lazily here; the print layer has to come after them.
+const printLayer = () => { const style = document.createElement("style"); style.textContent = manga; setTimeout(() => document.head.append(style), 300); };
 // still=1: settle instantly for screenshots (no entrance animations or transitions).
 if (params.get("still")) {
   const style = document.createElement("style");
@@ -148,7 +152,7 @@ async function main() {
       const { FocusPanel } = await import("../components/FocusPanel");
       const { WrapUpPanel } = await import("../components/WrapUpPanel");
       const shared = { character: settings.character as "cat", petName: "Biscuit", now: params.get("hour") ? new Date().setHours(Number(params.get("hour"))) : Date.now(), onClose: noop };
-      root.render(frame(view === "garden" ? <HomePanel {...shared} state={state} initialTab={(params.get("tab") ?? "garden") as "garden"} onWear={noop} />
+      root.render(frame(view === "garden" ? <HomePanel {...shared} state={state} initialTab={(params.get("tab") ?? "garden") as "garden"} onWear={noop} onOpen={noop} />
         : view === "focus" ? <FocusPanel {...shared} session={state.focus} log={state.focusLog} accessory={null} onStart={noop} onExtend={noop} onPark={noop} onEnd={noop} />
         : <WrapUpPanel stats={stats} finished={state.focusLog.slice(0, 1)} petName="Biscuit" tomorrow="" onDone={noop} onClose={noop} />)); break;
     }
@@ -215,6 +219,13 @@ async function main() {
       root.render(<div style={{ padding: 8, background: "#e8ecef" }}>{(["panda", "cat", "capybara", "crab"] as const).map(pet => <div key={pet} style={{ display: "flex", flexWrap: "wrap", width: 1000 }}>{(Object.keys(PET_POSES) as (keyof typeof PET_POSES)[]).map(pose =>
         <div key={pose} style={{ width: 125, height: 125 }}><PixelPetSprite character={pet} pose={pose} energy={4} /></div>)}</div>)}</div>); break;
     }
+    case "export": {
+      // Every pose as the app draws it, signature gear on, for website/scripts/export-app-pets.mjs.
+      const { PixelPetSprite } = await import("../components/PixelPetSprite");
+      const { PET_POSES } = await import("../types/pixelPets");
+      root.render(<div>{(["panda", "cat", "capybara", "crab"] as const).map(pet => (Object.keys(PET_POSES) as (keyof typeof PET_POSES)[]).map(pose =>
+        <div key={pet + pose} data-pet={pet} data-pose={pose} style={{ display: "inline-block", width: 80, height: 80 }}><PixelPetSprite character={pet} pose={pose} /></div>))}</div>); break;
+    }
     case "mad": {
       const { PixelPetSprite } = await import("../components/PixelPetSprite");
       const pets = ["panda", "cat", "capybara", "crab"] as const;
@@ -229,7 +240,7 @@ async function main() {
     case "menu": {
       const { RadialMenu } = await import("../components/RadialMenu");
       root.render(desktop(<div className="character pos-bl" style={{ position: "absolute", left: 20, bottom: 20, width: 120, height: 120 }}>
-        <RadialMenu open name="Biscuit" position="bl" break={0} onAction={noop} onNote={noop} onClose={noop} />
+        <RadialMenu open name="Goro" rank="Grade 2 napper" epithet="monk of the second lunch" rest="about 6 minutes, together" expand={{ label: "Unlimited Bamvoid", ready: true }} position="bl" break={0} onAction={noop} onClose={noop} />
       </div>)); break;
     }
     default: {
@@ -247,4 +258,4 @@ async function main() {
     }
   }
 }
-void main();
+void main().then(printLayer);

@@ -37,30 +37,29 @@ function resize(percent: number) {
 }
 
 describe("Settings character size and keyboard access", () => {
-  it("previews a legacy default, resets it, and persists the chosen size only on Save", async () => {
+  it("previews a legacy default, resets it, and saves the chosen size as you go", async () => {
     await open();
     expect(host.querySelector("output")?.textContent).toBe("100%");
     resize(50); expect(host.querySelector("output")?.textContent).toBe("50%");
     act(() => button("Reset").click()); expect(host.querySelector("output")?.textContent).toBe("100%");
     resize(150); expect(host.querySelector("output")?.textContent).toBe("150%");
-    expect(bridge.invoke).not.toHaveBeenCalledWith("save_settings", expect.anything());
-    await act(async () => button("Save").click());
+    await act(async () => { await new Promise(r => setTimeout(r, 450)); });
     expect(bridge.invoke).toHaveBeenCalledWith("save_settings", { settings: expect.objectContaining({ character_size: 180, character: "cat" }) });
-    expect(close).toHaveBeenCalledOnce();
+    expect(close).not.toHaveBeenCalled();
   });
-  it("discards a resized draft on Cancel", async () => {
+  it("saves a change that hasn't settled yet when closed straight away", async () => {
     await open(); resize(50);
-    act(() => button("Cancel").click());
-    expect(bridge.invoke).not.toHaveBeenCalledWith("save_settings", expect.anything());
-    expect(saved.character_size).toBeUndefined(); expect(close).toHaveBeenCalledOnce();
+    await act(async () => button("Done").click());
+    expect(bridge.invoke).toHaveBeenCalledWith("save_settings", { settings: expect.objectContaining({ character_size: 60 }) });
+    expect(close).toHaveBeenCalledOnce();
   });
   it("focuses Settings, wraps Tab within it, and gives unnamed app rows a readable label", async () => {
     await open();
     const first = host.querySelector<HTMLButtonElement>('[aria-label="Close settings"]')!;
     expect(document.activeElement).toBe(first);
     act(() => first.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true, cancelable: true })));
-    expect(document.activeElement).toBe(button("Save"));
-    act(() => button("Save").dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true })));
+    expect(document.activeElement).toBe(button("Done"));
+    act(() => button("Done").dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true })));
     expect(document.activeElement).toBe(first);
     expect(host.querySelector('[aria-label="Category for com.test.app"]')).not.toBeNull();
   });
@@ -72,13 +71,14 @@ describe("Settings character size and keyboard access", () => {
     expect(document.activeElement?.getAttribute("aria-checked")).toBe("true");
     expect(host.querySelectorAll('.companion-picker [tabindex="0"]')).toHaveLength(1);
   });
-  it("keeps a failed save open with a useful error and a retry button", async () => {
+  it("keeps a failed save open with a useful error and a retry", async () => {
     await open(); resize(150);
     bridge.invoke.mockRejectedValueOnce(new Error("Disk full"));
     vi.spyOn(console, "error").mockImplementation(() => undefined);
-    await act(async () => button("Save").click());
+    await act(async () => button("Done").click());
     expect(close).not.toHaveBeenCalled();
     expect(host.querySelector('[role="alert"]')?.textContent).toContain("Couldn't save settings");
-    expect(button("Save").disabled).toBe(false);
+    await act(async () => button("Try again").click());
+    expect(close).toHaveBeenCalledOnce();
   });
 });

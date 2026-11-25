@@ -9,14 +9,18 @@ import { ambientLightAt } from "../hooks/useAmbientLight";
 import { PanelShell, PanelTabs } from "./PanelShell";
 import { PixelArt, PlantArt } from "./PixelArt";
 import { PixelPetSprite } from "./PixelPetSprite";
+import { CAST } from "../lib/cast";
+import { EXPANSION, TECHNIQUES } from "../lib/napjutsu";
 
 export type HomeTab = "garden" | "outfits" | "us";
 const TABS: { id: HomeTab; label: string }[] = [{ id: "garden", label: "Garden" }, { id: "outfits", label: "Outfits" }, { id: "us", label: "Us" }];
 const ROW = 6, MIN_PLOTS = 18;
 
-export function HomePanel({ state, character, petName, now, initialTab = "garden", onWear, onForgive, onClose }: {
+export function HomePanel({ state, character, petName, now, initialTab = "garden", onWear, onForgive, onOpen, onClose }: {
   state: CompanionState; character: CompanionId; petName: string; now: number; initialTab?: HomeTab;
   onForgive?: (key: string) => void;
+  /** Other rooms: activity, notes, guided resets, wrap-up. */
+  onOpen?: (action: string) => void;
   onWear: (id: AccessoryId | null) => void; onClose: () => void;
 }) {
   const [tab, setTab] = useState<HomeTab>(initialTab);
@@ -90,6 +94,11 @@ export function HomePanel({ state, character, petName, now, initialTab = "garden
       </div>}
 
       {tab === "us" && <div className="panel-group" role="tabpanel" id="home-panel-us" aria-labelledby="home-tab-us" style={{ gap: 18 }}>
+        <div className="cast-card">
+          <PixelPetSprite character={character} pose="happy" accessory={state.wearing} />
+          <div><strong>{petName}</strong><em>{CAST[character].epithet}</em><p>{CAST[character].bio}</p></div>
+        </div>
+        <div className="technique"><b>{TECHNIQUES[character].name}</b><span>{EXPANSION}. Charged by rest; a tired {petName} can only manage a tantrum.</span></div>
         <div className="panel-group">
           <p className="panel-label">{level.name}</p>
           <div className="panel-meter" role="progressbar" aria-label="Friendship" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(level.progress * 100)}><span style={{ width: `${level.progress * 100}%` }} /></div>
@@ -108,6 +117,12 @@ export function HomePanel({ state, character, petName, now, initialTab = "garden
           <ul className="milestones">{MILESTONES.map(m => <li key={m.id} className={m.reached(state, now) ? "reached" : ""}>{m.text}</li>)}</ul>
         </div>
       </div>}
+      {onOpen && <nav className="home-links" aria-label="More">
+        <button type="button" onClick={() => onOpen("summary")}>Activity</button>
+        <button type="button" onClick={() => onOpen("note")}>Reminder notes</button>
+        <button type="button" onClick={() => onOpen("break")}>Guided resets</button>
+        <button type="button" onClick={() => onOpen("wrapup")}>Wrap up the day</button>
+      </nav>}
     </PanelShell>
   );
 }

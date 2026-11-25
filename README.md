@@ -21,7 +21,7 @@ Nudge makes screen time tangible with a desktop companion that gets tired as you
 ## Features
 - Visual progression: character animation depends on time spent on computer without a break
 - Taking a break will restore the character: resting long enough to compensate for time spent without break will recover the companion
-- Choose a crab, panda, tuxedo cat, or capybara, hand-drawn in pixel art, with expressive movement
+- A cast of four: Mika the tuxedo cat, Goro the panda, Yuzu the capybara and Hasami the crab. Each is hand-drawn in pixel art and has its own voice, signature gear and Do-Nothing Expansion, which only a rested pet can open
 - Light, Dark, or Match Mac appearance (follows Light and Dark Mode live); resize your pet from 50% to 150% in Settings
 - App awareness: waits for a stable category, puts the old activity away, and eases into the next
 - Looks toward your pointer, enjoys strokes and clicks, and can be picked up and dragged
@@ -39,7 +39,7 @@ Nudge makes screen time tangible with a desktop companion that gets tired as you
 - Focus sessions: your pet holds your intention on a sign, notices drift, and parks stray thoughts
 - **Mad at it for you:** choose “Expand” and your pet unleashes its Do-Nothing Expansion on the window in front, then starts the thing with you for ten minutes. Save it as a GIF
 - A garden that grows with every pause (14 plants, some seasonal) and never wilts; save it as a postcard
-- A friendship that deepens with care, never screen time, and eleven outfits to find
+- A friendship that deepens with care, never screen time, and twelve outfits to find
 - Fourteen step-by-step resets your pet does with you, suggested for the moment; every pause can be ended early
 - Optional wind-down, active hours, and eye, posture and water rhythms
 - Wrap up the day with a mood and one thing for tomorrow; read a weekly letter written on your Mac

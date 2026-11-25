@@ -17,7 +17,7 @@ export const BOND_LEVELS = [
   { name: RANKS[3], at: 180 }, { name: RANKS[4], at: 350 }, { name: RANKS[5], at: 600 },
 ];
 
-export const ACCESSORY_IDS = ["leaf", "flower", "bow_tie", "scarf", "beanie", "straw_hat", "nightcap", "party_hat", "flower_crown", "star", "headband"] as const;
+export const ACCESSORY_IDS = ["leaf", "flower", "bow_tie", "scarf", "beanie", "straw_hat", "nightcap", "party_hat", "flower_crown", "star", "headband", "uniform"] as const;
 export type AccessoryId = (typeof ACCESSORY_IDS)[number];
 
 export interface CompanionState {
@@ -168,6 +168,7 @@ export const ACCESSORIES: Record<AccessoryId, Accessory> = {
   flower_crown: { name: "Flower crown", hint: "Grow 12 blooms", unlocked: s => blooms(s.plants) >= 12 },
   headband: { name: "Fighting headband", hint: "Finish 5 things you dreaded", unlocked: s => s.beaten >= 5 },
   star: { name: "Lucky star", hint: `Become a ${RANKS[5]}`, unlocked: bonded(5) },
+  uniform: { name: "Academy collar", hint: `Become a ${RANKS[3]}`, unlocked: bonded(3) },
 };
 export const unlocked = (state: CompanionState, now: number) =>
   ACCESSORY_IDS.filter(id => state.found.includes(id) || ACCESSORIES[id].unlocked(state, now));

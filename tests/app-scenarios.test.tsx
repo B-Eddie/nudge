@@ -168,12 +168,12 @@ describe("nudges find their moment", () => {
     await wait(2000);
     expect(reminderPrompt()).not.toBeNull();
   });
-  it("snoozes for the chosen time and remembers the answer", async () => {
+  it("asks again after the snooze time and remembers the answer", async () => {
     await mount();
     await emit("show-reminder");
-    await click("5 min");
+    await click("Not yet");
     expect(reminderPrompt()).toBeNull();
-    await wait(4.9 * MIN);
+    await wait(9.9 * MIN);
     expect(reminderPrompt()).toBeNull();
     await wait(0.2 * MIN);
     expect(reminderPrompt()).not.toBeNull();
@@ -508,6 +508,20 @@ describe("mad on your behalf", () => {
     bridge.invoke.mockClear();
     await wait(20 * 60_000);
     expect(bridge.invoke).not.toHaveBeenCalledWith("throw_at_front_window", expect.anything());
+  });
+  it("can't expand worn out: it throws a small tantrum and asks to rest first", async () => {
+    world.front = xcode;
+    Object.assign(activity, { timePassed: 2 * 3600, timeEvents: 5 });
+    try {
+      await mount();
+      await emit("tray-action", "ugh");
+      expect(mad()).toBe(true);
+      expect(bridge.invoke).toHaveBeenCalledWith("throw_at_front_window", expect.objectContaining({ ultimate: false }));
+      await wait(8000);
+      expect(host.textContent).toContain("Not enough rest energy");
+      await click("Rest first");
+      expect(host.textContent).not.toContain("Not enough rest energy");
+    } finally { Object.assign(activity, { timePassed: 0, timeEvents: 1 }); }
   });
   it("stops at once for a break", async () => {
     await mount(); await emit("tray-action", "ugh");

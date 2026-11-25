@@ -6,71 +6,86 @@
   font-display: swap;
 }
 
-/* The same clear whites, cloud surfaces, and charcoal controls as the website. */
+@font-face { font-family: "Dela Gothic One"; src: url("./assets/fonts/dela-gothic-one.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Zen Kaku Gothic New"; src: url("./assets/fonts/zen-kaku-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Zen Kaku Gothic New"; src: url("./assets/fonts/zen-kaku-500.woff2") format("woff2"); font-weight: 500 600; font-display: swap; }
+@font-face { font-family: "Zen Kaku Gothic New"; src: url("./assets/fonts/zen-kaku-700.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+
+/* Printed like a weekly manga magazine: black ink on coloured newsprint. Each of the cast
+ * has its own paper, the way anthologies print each story on a different stock. */
 :root {
   color-scheme: light;
-  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-display: var(--font-body);
+  --font-body: "Zen Kaku Gothic New", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: "Dela Gothic One", "Zen Kaku Gothic New", sans-serif;
   --font-brand: "PPNeueBit-Bold", monospace;
-  --panel-bg: #fff;
-  --panel-border: #e4e8ee;
-  --panel-radius: 24px;
+  --paper: #f3ecd8;
+  --spot: #b23a2c;
+  --ink: #1b1814;
+  --rim: #fffcf3;
+  --panel-bg: var(--paper);
+  --panel-border: var(--ink);
+  --panel-radius: 0;
   --panel-shadow: none;
-  --surface: #f5f7fa;
-  --surface-raised: #ebf0f8;
-  --surface-raised-hover: #e0e7f2;
-  --divider: #e9edf3;
-  --text: #222326;
-  --text-strong: #222326;
-  --text-dim: #60656c;
-  --text-muted: #60656c;
-  --text-faint: #68707b;
-  --accent: #1f2025;
-  --accent-strong: #1f2025;
-  --accent-strong-hover: #393c44;
-  --accent-soft: #e8efff;
-  --action-text: #fff;
-  --danger: #b33a49;
-  --warn: #986222;
-  --info: #49659d;
-  --focus-border: #415eee;
-  --focus-ring: 0 0 0 3px rgb(65 94 238 / 18%);
-  --menu-surface: #fff;
-  /* Compact so it isn't clipped by the overlay window (cards sit ~8px from its edge). */
-  --popover-shadow: 0 1px 2px rgb(16 22 34 / 8%), 0 3px 9px rgb(16 22 34 / 10%);
-  --menu-stroke: #e4e8ee;
-  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 12 12'%3E%3Cpath fill='%2360656c' d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
+  --surface: color-mix(in srgb, var(--ink) 5%, var(--paper));
+  --surface-raised: color-mix(in srgb, var(--ink) 9%, var(--paper));
+  --surface-raised-hover: color-mix(in srgb, var(--ink) 15%, var(--paper));
+  --field: color-mix(in srgb, #fff 55%, var(--paper));
+  --divider: color-mix(in srgb, var(--ink) 22%, var(--paper));
+  --text: var(--ink);
+  --text-strong: var(--ink);
+  --text-dim: color-mix(in srgb, var(--ink) 70%, var(--paper));
+  --text-muted: var(--text-dim);
+  --text-faint: color-mix(in srgb, var(--ink) 58%, var(--paper));
+  --accent: var(--ink);
+  --accent-strong: var(--ink);
+  --accent-strong-hover: color-mix(in srgb, var(--ink) 82%, var(--spot));
+  --accent-soft: color-mix(in srgb, var(--spot) 16%, var(--paper));
+  --action-text: var(--paper);
+  --danger: #b0262f;
+  --warn: #8a5a12;
+  --info: var(--spot);
+  --focus-border: var(--spot);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--spot) 30%, transparent);
+  --menu-surface: var(--paper);
+  /* Panels are cut out of the page: an ink frame with a thin white margin round it. */
+  --popover-shadow: 0 0 0 3px var(--rim);
+  --menu-stroke: var(--ink);
+  --tone: radial-gradient(circle, var(--ink) 1.1px, transparent 1.4px) 0 0 / 5px 5px;
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 12 12'%3E%3Cpath fill='%231b1814' d='M2 4h8L6 9z'/%3E%3C/svg%3E");
 }
+:root[data-pet="cat"] { --paper: #f2ebc9; --spot: #8a6a00; }
+:root[data-pet="panda"] { --paper: #e2ead3; --spot: #2f6b3a; }
+:root[data-pet="capybara"] { --paper: #f4e0c8; --spot: #b0561a; }
+:root[data-pet="crab"] { --paper: #f4dcd6; --spot: #b8283a; }
 
-/* Keep existing saved theme IDs while using a cool, neutral night palette. */
+/* Night: the black pages of a flashback, printed in the same paper colour. */
 :root[data-theme="night_garden"] {
   color-scheme: dark;
-  --panel-bg: #24262c;
-  --panel-border: #40434d;
-  --surface: #2d3038;
-  --surface-raised: #343947;
-  --surface-raised-hover: #424a5b;
-  --divider: #3a3e48;
-  --text: #f2f4f8;
-  --text-strong: #f2f4f8;
-  --text-dim: #bcc3d0;
-  --text-muted: #b1bacb;
-  --text-faint: #aeb7c7;
-  --accent: #f2f4f8;
-  --accent-strong: #f2f4f8;
-  --accent-strong-hover: #d8e1f1;
-  --accent-soft: #353f5c;
-  --action-text: #222326;
-  --danger: #ffacb8;
-  --warn: #edc58c;
-  --info: #b6c9ff;
-  --focus-border: #9eb1ff;
-  --focus-ring: 0 0 0 3px rgb(158 177 255 / 25%);
-  --menu-surface: #24262c;
-  --popover-shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 3px 9px rgb(0 0 0 / 32%);
-  --menu-stroke: #40434d;
-  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 12 12'%3E%3Cpath fill='%23bcc3d0' d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
+  --ink: color-mix(in srgb, var(--paper-night, #f3ecd8) 92%, #fff);
+  --rim: #000;
+  --panel-bg: #15130f;
+  --surface: #211e19;
+  --surface-raised: #2b2721;
+  --surface-raised-hover: #38332b;
+  --field: #1c1915;
+  --divider: #3d382f;
+  --text-dim: #bdb4a2;
+  --text-faint: #a39a88;
+  --accent-strong-hover: #fff;
+  --accent-soft: color-mix(in srgb, var(--spot-night, #ff8a73) 22%, #15130f);
+  --action-text: #15130f;
+  --danger: #ff9a9a;
+  --warn: #f0c37c;
+  --info: var(--spot-night, #ff8a73);
+  --focus-border: var(--spot-night, #ff8a73);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--spot-night, #ff8a73) 35%, transparent);
+  --menu-surface: #15130f;
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 12 12'%3E%3Cpath fill='%23f3ecd8' d='M2 4h8L6 9z'/%3E%3C/svg%3E");
 }
+:root[data-theme="night_garden"][data-pet="cat"] { --paper-night: #f2ebc9; --spot-night: #f2cf5b; }
+:root[data-theme="night_garden"][data-pet="panda"] { --paper-night: #e2ead3; --spot-night: #8fd49a; }
+:root[data-theme="night_garden"][data-pet="capybara"] { --paper-night: #f4e0c8; --spot-night: #f5a55c; }
+:root[data-theme="night_garden"][data-pet="crab"] { --paper-night: #f4dcd6; --spot-night: #ff8a8f; }
 
 @keyframes panel-in {
   from { opacity: 0; transform: translateY(6px) scale(.985); }

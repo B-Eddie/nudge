@@ -2,7 +2,7 @@ import type { PetMotionFrame, PixelOffset } from "./petMotion";
 import type { EyeAnchor, PetRect, PetRig } from "./petRig";
 import type { Tween } from "./petTransition";
 import { WORN, type WornPlace } from "./accessoryArt";
-import type { AccessoryId } from "./companion";
+import type { GearId } from "./accessoryArt";
 
 /** Everything is drawn on one grid and enlarged whole, so no pixel is ever split. */
 export const LOGICAL_SIZE = 80;
@@ -101,7 +101,7 @@ function drawPhoneGrip(output: Uint8ClampedArray, paw: Uint8ClampedArray, pawOff
   }
 }
 
-export interface Worn { id: AccessoryId; place: WornPlace }
+export interface Worn { id: GearId; place: WornPlace }
 
 function drawWorn(output: Uint8ClampedArray, worn: Worn, offset: PixelOffset) {
   const { rows, palette } = WORN[worn.id];

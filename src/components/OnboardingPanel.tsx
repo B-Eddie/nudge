@@ -3,7 +3,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { PiArrowRightBold, PiCheckBold } from "react-icons/pi";
 import { useDialogFocus } from "../hooks/useDialogFocus";
 import type { Settings } from "../types/settings";
-import { CompanionPicker, ThemePicker } from "./AppearancePicker";
+import { CompanionPicker } from "./AppearancePicker";
+import { CAST } from "../lib/cast";
+import { EXPANSION } from "../lib/napjutsu";
+import { knownCompanion } from "../types/appearance";
 import { MinutesField } from "./MinutesField";
 import { PixelPetSprite } from "./PixelPetSprite";
 import "./OnboardingPanel.css";
@@ -13,7 +16,7 @@ interface OnboardingPanelProps {
 }
 
 // Short on purpose: everything else has a good default and lives in Settings.
-const STEPS = ["welcome", "companion", "appearance", "reminder", "done"] as const;
+const STEPS = ["fighter", "reminder", "done"] as const;
 
 export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
   const [step, setStep] = useState(0);
@@ -111,19 +114,11 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
         <header className="onboarding-header">
           <div>
             <div className="onboarding-heading-meta">
-              <p className="onboarding-eyebrow">Make yourself at home</p>
+              <p className="onboarding-eyebrow">Nudge · rest is a martial art</p>
               <p className="onboarding-progress">{step + 1} / {STEPS.length}</p>
             </div>
             <h2 ref={titleRef} id="onboarding-title" tabIndex={-1}>
-              {stepId === "welcome"
-                ? "Welcome to Nudge"
-                : stepId === "companion"
-                  ? "Choose a companion"
-                  : stepId === "appearance"
-                    ? "Pick a look"
-                    : stepId === "reminder"
-                      ? "Find your rhythm"
-                      : "Say hello"}
+              {stepId === "fighter" ? "Choose your fighter" : stepId === "reminder" ? "How long between rests?" : "Three moves to know"}
             </h2>
             <div className="onboarding-progress-track" role="progressbar" aria-label="Setup progress" aria-valuemin={0} aria-valuemax={STEPS.length} aria-valuenow={step + 1} aria-valuetext={`Step ${step + 1} of ${STEPS.length}`}>
               {STEPS.map((id, index) => <span key={id} className={index <= step ? "complete" : undefined} />)}
@@ -132,54 +127,27 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
         </header>
 
         <div className="onboarding-body">
-          {stepId === "welcome" && (
+          {stepId === "fighter" && (
             <>
-              <div className="onboarding-companion-scene" aria-hidden="true">
-                <PixelPetSprite character={draft.character ?? "crab"} pose="happy" />
-                <span>Master the art of doing nothing.</span>
-              </div>
               <p className="onboarding-lead">
-                A small companion that lives on your desktop, gets tired as
-                your work stretch grows, and nudges you to take a breather.
-              </p>
-              <p className="onboarding-hint" data-testid="onboarding-privacy">
-                To adapt to your work, nudge notices which app is in front, how
-                long since you last used the keyboard or mouse, and whether a
-                call or sound is playing. It never records what you type, what
-                you say or what’s on your screen, and everything stays on this
-                Mac.
-              </p>
-            </>
-          )}
-
-          {stepId === "companion" && (
-            <>
-              <p className="onboarding-hint">
-                Each one codes, reads, listens to music and naps in its own way.
-                You can switch any time.
+                Four tiny masters live on your desktop. They get tired while you work, and their
+                strongest technique is a break. Pick one to train with.
               </p>
               <CompanionPicker
                 value={draft.character}
                 onChange={(character) => setDraft({ ...draft, character })}
               />
+              <p className="onboarding-hint"><strong>{CAST[knownCompanion(draft.character)].name}.</strong> {CAST[knownCompanion(draft.character)].bio}</p>
               <label className="onboarding-field onboarding-name">
-                <span>What’s its name?</span>
-                <input type="text" value={draft.pet_name ?? ""} maxLength={20} placeholder="You can decide later"
+                <span>Rename them?</span>
+                <input type="text" value={draft.pet_name ?? ""} maxLength={20} placeholder={CAST[knownCompanion(draft.character)].name}
                   onChange={e => setDraft({ ...draft, pet_name: e.target.value })} />
               </label>
-            </>
-          )}
-
-          {stepId === "appearance" && (
-            <>
-              <p className="onboarding-hint">
-                For your companion’s menus and panels.
+              <p className="onboarding-subhint" data-testid="onboarding-privacy">
+                To know when to step in, nudge notices which app is in front, how long since you last
+                used the keyboard or mouse, and whether a call or sound is playing. It never records
+                what you type, what you say or what’s on your screen, and everything stays on this Mac.
               </p>
-              <ThemePicker
-                value={draft.theme}
-                previewChanges
-                onChange={(theme) => setDraft({ ...draft, theme })}
-              />
             </>
           )}
 
@@ -213,13 +181,13 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
           {stepId === "done" && (
             <>
               <div className="onboarding-companion-scene" aria-hidden="true">
-                <PixelPetSprite character={draft.character ?? "crab"} pose="delighted" />
-                <span>Your companion is ready.</span>
+                <PixelPetSprite character={knownCompanion(draft.character)} pose="delighted" />
+                <span>{CAST[knownCompanion(draft.character)].hello}</span>
               </div>
               <ul className="onboarding-tips">
-                <li><strong>Right-click</strong> your companion for breaks, focus, its garden and Settings. Every pause you take grows the garden.</li>
-                <li><strong>Drag</strong> it anywhere, even onto the top of a window.</li>
-                <li>It also lives in your <strong>menu bar</strong>, where you can quiet it for a while or quit.</li>
+                <li><strong>Right-click</strong> {draft.pet_name || CAST[knownCompanion(draft.character)].name} to rest, focus, or open Home.</li>
+                <li><strong>Expand</strong> when you’re stuck on something you hate. A rested pet unleashes its {EXPANSION} on that window. A tired one just throws a tantrum.</li>
+                <li><strong>Double-click</strong> to play. Drag it anywhere, even onto a window. It also lives in your menu bar.</li>
               </ul>
             </>
           )}

@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { LuDownload, LuMoon, LuX } from "react-icons/lu";
+import { LuX } from "react-icons/lu";
 import { activityCsv, exportFileName } from "../lib/activityExport";
 import { useDialogFocus } from "../hooks/useDialogFocus";
 import type { NudgeRecord } from "../lib/reminderPolicy";
@@ -387,19 +387,6 @@ export function SummaryPanel({
             <h2 id="summary-title">Activity</h2>
           </div>
           <div className="summary-header-actions">
-            {onWrapUp && <button type="button" className="summary-close" onClick={onWrapUp} aria-label="Wrap up the day" title="Wrap up the day">
-              <LuMoon size={17} aria-hidden="true" />
-            </button>}
-            <button
-              type="button"
-              className="summary-close"
-              onClick={() => void exportCsv()}
-              disabled={exporting}
-              aria-label="Export activity as CSV"
-              title="Export as CSV"
-            >
-              <LuDownload size={17} aria-hidden="true" />
-            </button>
             <button
               type="button"
               className="summary-close summary-dismiss"
@@ -693,6 +680,12 @@ export function SummaryPanel({
             </section>
           </div>
         )}
+        <footer className="settings-footer summary-footer">
+          {onWrapUp && <button type="button" className="settings-btn secondary spacer" onClick={onWrapUp}>Wrap up the day</button>}
+          <button type="button" className="settings-btn secondary" onClick={() => void exportCsv()} disabled={exporting} aria-label="Export activity as CSV">
+            {exporting ? "Exporting…" : "Export CSV"}
+          </button>
+        </footer>
       </div>
     </div>
   );

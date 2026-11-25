@@ -8,6 +8,7 @@ import {
 } from "../types/appearance";
 import "./AppearancePicker.css";
 import { PixelPetSprite } from "./PixelPetSprite";
+import { CAST } from "../lib/cast";
 import type { KeyboardEvent } from "react";
 
 function radioKeys(event: KeyboardEvent<HTMLDivElement>) {
@@ -36,18 +37,18 @@ export function CompanionPicker({ value, onChange }: CompanionPickerProps) {
           key={companion.id}
           type="button"
           role="radio"
-          aria-label={`${companion.name}. ${companion.description}`}
+          aria-label={`${companion.name}, ${CAST[companion.id].name}. ${CAST[companion.id].bio}`}
           aria-checked={selected === companion.id}
           tabIndex={selected === companion.id ? 0 : -1}
-          title={companion.description}
+          title={CAST[companion.id].bio}
           className={`companion-option${selected === companion.id ? " selected" : ""}`}
-          onClick={() => onChange(companion.id)}
+          onClick={() => { document.documentElement.dataset.pet = companion.id; onChange(companion.id); }}
         >
           <span className="companion-option-art">
             <PixelPetSprite character={companion.id} />
           </span>
-          <span className="companion-option-name">{companion.name}</span>
-          <span className="companion-option-description">{companion.description}</span>
+          <span className="companion-option-name">{CAST[companion.id].name}</span>
+          <span className="companion-option-epithet">{companion.name}</span>
         </button>
       ))}
     </div>

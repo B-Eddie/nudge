@@ -1,0 +1,46 @@
+/* The print layer, same as the app: black ink on tinted newsprint, cut panels, no pills.
+   Loaded after site.css; it only restyles. */
+@font-face{font-family:"Dela Gothic One";src:url("assets/fonts/dela-gothic-one.woff2") format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Zen Kaku Gothic New";src:url("assets/fonts/zen-kaku-500.woff2") format("woff2");font-weight:400 600;font-display:swap}
+@font-face{font-family:"Zen Kaku Gothic New";src:url("assets/fonts/zen-kaku-700.woff2") format("woff2");font-weight:700;font-display:swap}
+
+:root{--paper:#f3ecd8;--ink:#1b1814;--muted:#5d554a;--charcoal:#1b1814;--cloud:#ebe2c9;--blue:#b23a2c;--line:#1b1814;--radius:0;font-family:"Zen Kaku Gothic New",-apple-system,BlinkMacSystemFont,sans-serif;font-weight:500;background:var(--paper)}
+body{background:var(--paper)}
+::selection{background:#1b1814;color:var(--paper)}
+h1,h2,h3,.section-heading h2,.wordmark span{font-family:"Dela Gothic One",sans-serif;font-weight:400;letter-spacing:0}
+.hero-copy h1{line-height:1.08}
+.section-heading p,.hero-copy>p,.feature-copy p{color:var(--muted)}
+
+/* Panels: ink frames, square corners, screentone instead of soft gradients. */
+.feature-card,.rhythm-card,.download-field,.pet-playground,.mad-teaser{border:3px solid var(--ink);border-radius:0;box-shadow:none}
+.feature-card,.rhythm-card{background:radial-gradient(circle,#1b181422 1px,transparent 1.5px) 0 0/7px 7px,var(--paper)}
+.download-field{background:radial-gradient(circle,#1b181428 1.1px,transparent 1.6px) 0 0/7px 7px,#efe3c6}
+.site-header{background:var(--paper);border:3px solid var(--ink);border-radius:0;padding:0 6px}
+.navigation{background:transparent;box-shadow:none;border-radius:0}
+
+/* Buttons: ink, cut on a slant. */
+.button{border-radius:0;background:var(--ink);color:var(--paper);clip-path:polygon(10px 0,100% 0,calc(100% - 10px) 100%,0 100%);padding-inline:30px;font-weight:700}
+.button:hover{background:#3a332b}
+.mode-button,.text-button,.icon-button{border-radius:0;border:2px solid var(--ink);font-weight:700}
+.mode-button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.demo-bubble{border:2.5px solid var(--ink);border-radius:22px/18px;background:#fffcf3;box-shadow:none;font-weight:700}
+.step-number{border-radius:0;background:var(--ink);color:var(--paper);font-family:"Dela Gothic One",sans-serif}
+.question-list details{border-bottom:2px dashed #1b181455}
+.essentials>div{font-weight:700}
+
+/* The cast: each card printed on its character's own paper. */
+.companion-choice{border:3px solid transparent;border-radius:0;padding:18px 10px 20px}
+.companion-choice[data-character="cat"]{background:#f2ebc9}
+.companion-choice[data-character="panda"]{background:#e2ead3}
+.companion-choice[data-character="capybara"]{background:#f4e0c8}
+.companion-choice[data-character="crab"]{background:#f4dcd6}
+.companion-choice[aria-pressed="true"]{border-color:var(--ink)}
+.companion-name{font-family:"Dela Gothic One",sans-serif;font-size:22px}
+.companion-epithet{display:block;margin:2px 0 8px;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.companion-technique{display:block;margin-top:10px;padding:6px 10px;background:var(--ink);color:var(--paper);font-size:12px;font-weight:700}
+
+.hero-kicker{display:inline-block;margin-bottom:18px;padding:5px 12px;background:var(--ink);color:var(--paper);font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+.hero{border-radius:0;background:radial-gradient(circle,#1b181418 1.1px,transparent 1.6px) 0 0/8px 8px,var(--paper)}
+.hero-atmosphere{display:none}
+.breathing-halo{background:#e6d9b8;box-shadow:0 0 0 20px #e6d9b855}
+.expression-orbit{border-radius:0;background:#fffcf3;border:2px solid var(--ink)}

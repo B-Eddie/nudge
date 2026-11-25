@@ -51,19 +51,19 @@ export const TANTRUMS: Record<CompanionId, TantrumStep[]> = {
 };
 
 /** Choreography for a Do-Nothing Expansion, timed to src/lib/ultimate.ts. */
-const expansion = (strike: TantrumStep[], after: string): TantrumStep[] => [
-  { pose: "idle", ms: 1550, act: "charge" },
+const expansion = (strike: TantrumStep[], after: string, chant?: string): TantrumStep[] => [
+  { pose: "idle", ms: 1550, act: "charge", shout: chant },
   { pose: "stretch", ms: 1350, act: "loom" },
   ...strike,
   { pose: "blink", ms: 700, act: "stand", calm: true },
   { pose: "idle", ms: 750, act: "stand", calm: true, shout: after },
 ];
 export const ULTIMATES: Record<CompanionId, TantrumStep[]> = {
-  cat: expansion([{ pose: "stretch", ms: 1550, act: "lunge" }, { pose: "groom", ms: 500, act: "stand", calm: true }], "whatever."),
-  panda: expansion([{ pose: "stretch", ms: 1550, act: "stomp" }, { pose: "yawn", ms: 500, act: "shake" }], "snack time"),
+  cat: expansion([{ pose: "stretch", ms: 1550, act: "lunge" }, { pose: "groom", ms: 500, act: "stand", calm: true }], "whatever.", "expand."),
+  panda: expansion([{ pose: "stretch", ms: 1550, act: "stomp" }, { pose: "yawn", ms: 500, act: "shake" }], "snack time", "…om."),
   // It does nothing. That is the technique.
   capybara: expansion([{ pose: "blink", ms: 1550, act: "stand", calm: true }, { pose: "idle", ms: 500, act: "stand" }], "ahh."),
-  crab: expansion([{ pose: "walkA", ms: 1450, act: "shake" }, { pose: "stretch", ms: 600, act: "loom" }], "perfect"),
+  crab: expansion([{ pose: "walkA", ms: 1450, act: "shake" }, { pose: "stretch", ms: 600, act: "loom" }], "perfect", "EXPANSIOOON!"),
 };
 const stepsOf = (character: CompanionId, ultimate: boolean) => (ultimate ? ULTIMATES : TANTRUMS)[character];
 

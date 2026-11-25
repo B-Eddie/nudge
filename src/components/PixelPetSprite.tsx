@@ -4,7 +4,7 @@ import type { CompanionId } from "../types/appearance";
 import type { PetAttention } from "../lib/petAttention";
 import { getPetRig } from "../lib/petRig";
 import { LOGICAL_SIZE, prepareSpritePixels, renderSpritePixels, type SpriteLayers, type Worn } from "../lib/petRenderer";
-import { placeAccessory } from "../lib/accessoryArt";
+import { placeAccessory, SIGNATURE, type GearId } from "../lib/accessoryArt";
 import type { AccessoryId } from "../lib/companion";
 import { sway, transitionFrame, transitionLength } from "../lib/petTransition";
 import { samplePetMotion } from "../lib/petMotion";
@@ -29,7 +29,7 @@ interface SpriteProps {
 interface PreparedAtlas {
   poses: Record<PetPose, SpriteLayers>;
   /** Where an outfit sits in a pose, measured on first use. */
-  wear: (id: AccessoryId | null, pose: PetPose) => Worn | null;
+  wear: (id: GearId | null, pose: PetPose) => Worn | null;
 }
 const atlases = new Map<string, Promise<PreparedAtlas>>();
 
@@ -149,7 +149,7 @@ export function PixelPetSprite({ character, pose = "idle", phone = false, animat
           const key = JSON.stringify([pose, current.phone, current.accessory, current.mad, current.energy, motion, gaze, lean, moving, beat]);
           if (key !== previousKey) {
             const pixels = renderSpritePixels(atlas.poses[pose], motion, gaze, current.phone && !moving,
-              atlas.wear(current.accessory, pose), current.mad, current.energy, { tween: moving?.tween, stretch: moving?.stretch, sway: lean, power: current.power, beat });
+              atlas.wear(current.accessory ?? SIGNATURE[character], pose), current.mad, current.energy, { tween: moving?.tween, stretch: moving?.stretch, sway: lean, power: current.power, beat });
             ctx.putImageData(new ImageData(pixels, size, size), 0, 0);
             previousKey = key;
           }

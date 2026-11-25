@@ -24,9 +24,9 @@ import { PanelTabs } from "./PanelShell";
 import { RULE_CATEGORIES, type SiteRule } from "../lib/sites";
 import { LuSearch, LuX } from "react-icons/lu";
 
-type SettingsTab = "companion" | "nudges" | "day" | "apps" | "general";
+type SettingsTab = "companion" | "nudges" | "apps" | "general";
 const TABS: { id: SettingsTab; label: string }[] = [
-  { id: "companion", label: "Companion" }, { id: "nudges", label: "Nudges" }, { id: "day", label: "Day" },
+  { id: "companion", label: "Companion" }, { id: "nudges", label: "Nudges" },
   { id: "apps", label: "Apps" }, { id: "general", label: "General" },
 ];
 
@@ -288,33 +288,38 @@ export function SettingsPanel({ onClose, onErase }: SettingsPanelProps) {
     });
   }, []);
 
-  const handleSave = useCallback(async () => {
-    if (!draft) return;
-    setSaving(true); // change button states
-    setSaveError(null);
-
+  // Changes save as you make them, like System Settings. Typing is given a moment to settle.
+  const write = useCallback(async (next: Settings) => {
+    const text = JSON.stringify(next);
+    if (text === loadedRef.current) return true;
+    setSaving(true);
     try {
-      await invoke("save_settings", { settings: draft });
-      applyTheme(draft.theme);
-      onClose();
+      await invoke("save_settings", { settings: next });
+      loadedRef.current = text;
+      setSaveError(null);
+      return true;
     } catch (err) {
       console.error("Failed to save settings:", err);
-      setSaveError("Couldn't save settings. Please try again.");
+      setSaveError("Couldn't save settings. Your changes are still here.");
+      return false;
     } finally {
       setSaving(false);
     }
-  }, [draft, onClose]);
+  }, []);
+  useEffect(() => {
+    if (!draft) return;
+    const id = setTimeout(() => void write(draft), 400);
+    return () => clearTimeout(id);
+  }, [draft, write]);
 
-  const closeWithoutSaving = () => {
-    if (themeLoadedRef.current) applyTheme(initialThemeRef.current);
+  const close = useCallback(async () => {
+    if (draft && !(await write(draft))) return;
+    if (draft) applyTheme(draft.theme);
+    else if (themeLoadedRef.current) applyTheme(initialThemeRef.current);
     onClose();
-  };
-
-  const dirty = draft !== null && loadedRef.current !== null && JSON.stringify(draft) !== loadedRef.current;
-  // Clicking outside the card closes it only when there is nothing to lose. With
-  // unsaved edits, closing takes an explicit Cancel (or Esc).
+  }, [draft, write, onClose]);
   const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget && !dirty) closeWithoutSaving();
+    if (e.target === e.currentTarget) void close();
   };
 
   // Render the panel chrome immediately so opening settings never shows a
@@ -348,7 +353,7 @@ export function SettingsPanel({ onClose, onErase }: SettingsPanelProps) {
             <button
               type="button"
               className="settings-close"
-              onClick={closeWithoutSaving}
+              onClick={() => void close()}
               aria-label="Close settings"
             >
               <LuX size={15} />
@@ -386,7 +391,7 @@ export function SettingsPanel({ onClose, onErase }: SettingsPanelProps) {
           <button
             type="button"
             className="settings-close"
-            onClick={closeWithoutSaving}
+            onClick={() => void close()}
             aria-label="Close settings"
           >
             <LuX size={15} />
@@ -513,9 +518,7 @@ export function SettingsPanel({ onClose, onErase }: SettingsPanelProps) {
             <Toggle label="Soft sounds" checked={pref("sounds")} onChange={sounds => set({ sounds })} />
             <Toggle label="Read steps aloud" hint="So you can look away from the screen." checked={pref("spoken_breaks")} onChange={spoken_breaks => set({ spoken_breaks })} />
           </section>
-          </div>
 
-          <div className="settings-tab-panel" role="tabpanel" id="settings-panel-day" aria-labelledby="settings-tab-day" hidden={tab !== "day"}>
           <section className="settings-section">
             <h3 className="settings-section-title">Little rhythms</h3>
             <p className="settings-hint">A single line at a quiet moment. They skip themselves when a nudge is close.</p>
@@ -691,26 +694,10 @@ export function SettingsPanel({ onClose, onErase }: SettingsPanelProps) {
         </div>
 
         <footer className="settings-footer">
-          {saveError && (
-            <p className="settings-error" role="alert">
-              {saveError}
-            </p>
-          )}
-          <button
-            type="button"
-            className="settings-btn secondary"
-            onClick={closeWithoutSaving}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="settings-btn primary"
-            onClick={() => void handleSave()}
-            disabled={saving}
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
+          <p className={saveError ? "settings-error" : "settings-hint spacer"} role={saveError ? "alert" : "status"}>
+            {saveError ?? (saving ? "Saving…" : "Changes save as you go.")}
+          </p>
+          <button type="button" className="settings-btn primary" onClick={() => void close()}>{saveError ? "Try again" : "Done"}</button>
         </footer>
       </div>
     </div>

@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+### Meet the cast
+- **Four characters, not four species.** Mika (the strongest, allegedly), Goro (monk of the second lunch), Yuzu (grandmaster, retired) and Hasami (everyone's self-appointed rival). Each has their own voice for nudges, snoozes, rests and passing thoughts, and their own signature gear: a sleep mask, prayer beads, a bath towel and a rival's headband.
+- **Sorcerer touches.** A napper rank badge in the pet's menu, an Academy collar to earn at Grade 1, and each pet says the opening of its Expansion its own way (Hasami shouts it).
+- **Rest powers the Expansion.** A rested pet opens its Do-Nothing Expansion; a worn-out one manages a small tantrum and asks you to rest first. The menu tells you which you'll get.
+
+### A new look
+- Printed like a weekly manga: ink on tinted newsprint, with paper in each character's colour, cut-out panels, caption boxes and screentone. Display type is Dela Gothic One; text is Zen Kaku Gothic New. Both fonts are bundled.
+- The website matches, and leads with the cast.
+
+### Fewer buttons
+- The pet's menu has three things to do (Rest, Focus, Expand) and two places to go (Home, Settings), down from nine. Rest starts straight away, and each verb says what it will do right now.
+- Home holds the garden, outfits and your pet's profile, and links to Activity, Notes, Guided resets and Wrap-up.
+- A nudge has one "Not yet", which asks again when you switch tasks or after your snooze time. It used to show three snooze buttons.
+- Settings save as you change them. There's no Save or Cancel any more, and clicking outside never loses an edit.
+- Setup is three steps: choose your fighter, set your rhythm, learn three moves.
+- Double-click your pet to play.
+- Settings has four tabs instead of five: the day's rhythms, active hours and wind-down now live under Nudges.
+- Activity's header just closes. Wrap up the day and Export CSV are labelled buttons at the bottom.
+- Your pet speaks mostly in its own voice now; the old one-liners are an occasional extra.
+- The website's pet art and share image are redrawn with the cast in their gear.
+
 ## 0.5.0 (unsigned beta)
 
 ### Pets you can tell the time by

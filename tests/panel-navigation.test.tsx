@@ -69,10 +69,10 @@ describe("Activity and onboarding keyboard navigation", () => {
     expect(document.activeElement).toBe(button("Continue"));
     expect(close).not.toHaveBeenCalled();
   });
-  it("walks five short steps, keeps typed minutes, allows going back, and saves once", async () => {
+  it("walks three short steps, keeps typed minutes, allows going back, and saves once", async () => {
     await act(async () => root.render(<OnboardingPanel onComplete={close} />));
-    expect(host.querySelector(".onboarding-progress")?.textContent).toBe("1 / 5");
-    for (let i = 0; i < 3; i++) await click("Continue");
+    expect(host.querySelector(".onboarding-progress")?.textContent).toBe("1 / 3");
+    await click("Continue");
     const every = [...host.querySelectorAll("label")].find(l => l.textContent === "Nudge me every")!;
     const input = host.querySelector<HTMLInputElement>(`#${CSS.escape(every.htmlFor)}`)!;
     // Clearing the field must not snap to 1 (which used to turn "45" into "145").
@@ -92,7 +92,7 @@ describe("Activity and onboarding keyboard navigation", () => {
   });
   it("keeps setup and its chosen values available after a failed save", async () => {
     await act(async () => root.render(<OnboardingPanel onComplete={close} />));
-    for (let i = 0; i < 4; i++) await click("Continue");
+    for (let i = 0; i < 2; i++) await click("Continue");
     bridge.invoke.mockRejectedValueOnce(new Error("Disk full"));
     await click("Get started");
     expect(close).not.toHaveBeenCalled();
@@ -142,7 +142,7 @@ describe("Settings behaves like a Mac settings window", () => {
     await key({ key: "k", code: "KeyK", metaKey: true, shiftKey: true });
     expect(shortcut().getAttribute("aria-pressed")).toBe("false");
     expect(shortcut().textContent).toContain("K");
-    await click("Save");
+    await click("Done");
     expect(bridge.invoke).toHaveBeenCalledWith("save_settings", { settings: expect.objectContaining({ pause_shortcut: "Shift+Cmd+KeyK" }) });
   });
 
@@ -169,20 +169,20 @@ describe("Settings behaves like a Mac settings window", () => {
     expect(input.value).toBe("240");
   });
 
-  it("does not throw away edits when you click outside the card", async () => {
+  it("keeps edits when you click outside the card", async () => {
     await act(async () => root.render(<SettingsPanel onClose={close} />));
     const backdrop = host.querySelector<HTMLDivElement>(".settings-backdrop")!;
     const input = field("Nudge me every");
     act(() => { input.focus(); setValue(input, "50"); input.blur(); });
-    act(() => backdrop.click());
-    expect(close).not.toHaveBeenCalled();
-    await click("Cancel");
+    await act(async () => backdrop.click());
+    expect(bridge.invoke).toHaveBeenCalledWith("save_settings", { settings: expect.objectContaining({ reminder_interval_mins: 50 }) });
     expect(close).toHaveBeenCalledOnce();
   });
 
   it("closes on an outside click when nothing changed", async () => {
     await act(async () => root.render(<SettingsPanel onClose={close} />));
-    act(() => host.querySelector<HTMLDivElement>(".settings-backdrop")!.click());
+    await act(async () => host.querySelector<HTMLDivElement>(".settings-backdrop")!.click());
     expect(close).toHaveBeenCalledOnce();
+    expect(bridge.invoke).not.toHaveBeenCalledWith("save_settings", expect.anything());
   });
 });

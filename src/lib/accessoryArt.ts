@@ -9,7 +9,58 @@ import { artWidth, type PixelArt } from "./pixelArt";
 export interface WornArt extends PixelArt { at: "crown" | "neck"; x: number; y: number }
 const art = (rows: string, palette: Record<string, string>) => ({ rows: rows.trim().split("\n").map(r => r.trim()), palette });
 
-export const WORN: Record<AccessoryId, WornArt> = {
+/** What each of the cast wears when they aren't dressed up as something else. */
+export type SignatureId = "sleep_mask" | "beads" | "towel" | "muffler";
+export type GearId = AccessoryId | SignatureId;
+export const SIGNATURE: Record<CompanionId, SignatureId> = { cat: "sleep_mask", panda: "beads", capybara: "towel", crab: "muffler" };
+
+export const WORN: Record<GearId, WornArt> = {
+  uniform: { at: "neck", x: 0, y: 7, ...art(`
+.kkkkkkkk.....kkkkkkkk.
+knnnnnnnkk...kknnnnnnnk
+knNnnnnnnnk.knnnnnnnNnk
+.knnnnnnnnkkknnnnnnnnk.
+..kknnnnnnkgknnnnnnkk..
+....kkknnnkGknnnkkk....
+.......kknnknnkk.......
+.........kkgkk.........
+...........G...........`, { k: "#0c0d14", n: "#20243a", N: "#3a4062", g: "#e8c25a", G: "#b8902e" }) },
+  sleep_mask: { at: "crown", x: 0, y: 8, ...art(`
+.kkkkkkkk....kkkkkkkk.
+kkvvvvvvvkkkkvvvvvvvkk
+kvvvyyvvvvvvvvvvvvvvvk
+kvvyyvvvvvvvvvvyvvvvvk
+kvvvyyvvvvkkvvvvvvvvvk
+.kkvvvvvkk..kkvvvvvkk.
+...kkkkk......kkkkk...`, { k: "#171226", v: "#3d3169", y: "#f4dc6a" }) },
+  beads: { at: "neck", x: 0, y: 8, ...art(`
+bb...................bb
+bBb.................bBb
+.bb.bb...........bb.bb.
+...bBb...........bBb...
+...bb.bb.......bb.bb...
+.....bBb.bb.bb.bBb.....
+.....bb.bBbbBb.bb......
+........bbrrbb.........
+.........rRRr..........
+.........rRRr..........
+..........rr...........
+..........r.r..........`, { b: "#7a4a2a", B: "#b57a48", r: "#c8402f", R: "#e8735c" }) },
+  towel: { at: "crown", x: 0, y: 3, ...art(`
+..wwwwwwwwwwww..
+.wwwwwwwwwwwwww.
+.wwwwwwwwwwwwWw.
+wWWWWWWWWWWWWWWw
+wwwwwwwwwwwwwwww
+wbbwbbwbbwbbwbbw
+.wwwwwwwwwwwwww.`, { w: "#fbf6ea", W: "#d8cfbc", b: "#5f93b8" }) },
+  muffler: { at: "crown", x: 0, y: 0, ...art(`
+.......rr
+kkkkkkrRr
+rrrrrrrr.
+RrrRrrRr.
+kkkkkkrr.
+......r.r`, { k: "#1b0d24", r: "#e23a3a", R: "#a31f2a" }) },
   leaf: { at: "crown", x: 1, y: 2, ...art(`
 ....ll.
 ..llgl.
@@ -123,7 +174,7 @@ export interface WornPlace { left: number; top: number }
 
 /** Where an outfit sits in one pose, measured from the artwork itself. Hats come off
  * under headphones and raised paws; neckwear comes off wherever the chest is covered. */
-export function placeAccessory(id: AccessoryId, rig: PetRig, pose: PetPose, character: CompanionId,
+export function placeAccessory(id: GearId, rig: PetRig, pose: PetPose, character: CompanionId,
   opaque: (x: number, y: number) => boolean): WornPlace | null {
   const worn = WORN[id];
   const width = artWidth(worn), height = worn.rows.length;

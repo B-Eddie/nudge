@@ -17,7 +17,7 @@ vi.mock("../src/lib/petMotion", async importOriginal => {
   };
 });
 vi.mock("../src/lib/petSheet", () => ({ sheetParts: () => ({}) }));
-vi.mock("../src/lib/petRig", () => ({ getPetRig: () => ({}) }));
+vi.mock("../src/lib/petRig", () => ({ getPetRig: () => ({ head: { x: 0, y: 0, width: 10, height: 10 }, eyes: [] }) }));
 vi.mock("../src/lib/petRenderer", () => ({
   LOGICAL_SIZE: 80,
   prepareSpritePixels: () => ({}),
