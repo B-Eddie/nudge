@@ -14,9 +14,9 @@ Open `http://localhost:4174/`. Check the desktop, mobile, keyboard, and Reduce M
 
 ## Deployment and canonical URL
 
-The repository homepage and live HTTP response were verified on October 1, 2026:
+The repository homepage and live HTTP response were verified on November 25, 2026:
 
-`https://nudge-nine-flame.vercel.app/`
+`https://try-nudge.vercel.app/`
 
 GitHub Pages is not configured. The site is currently served by Vercel. Deploy `website/` as the static output directory, with no SPA fallback; unknown routes should retain HTTP 404 status and use `404.html` where supported. Canonical URLs, Open Graph URLs, and sitemap entries use the verified Vercel origin.
 
