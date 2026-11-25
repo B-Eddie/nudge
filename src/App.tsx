@@ -11,6 +11,7 @@ import { BreakGuidePanel, durationLabel } from "./components/BreakGuidePanel";
 import { FocusPanel } from "./components/FocusPanel";
 import { HomePanel, type HomeTab } from "./components/HomePanel";
 import { LivingPet } from "./components/LivingPet";
+import { MadPanel } from "./components/MadPanel";
 import { OnboardingPanel } from "./components/OnboardingPanel";
 import { PetCard } from "./components/PetCard";
 import { RadialMenu } from "./components/RadialMenu";
@@ -32,6 +33,10 @@ import { distractionDue, recentDistraction, RollingUse } from "./lib/distraction
 import { breakEnergy, ENERGY_CELLS, energyFromTier, restMinutesFor, tierFromBreakProgress, tierFromWorkSeconds } from "./lib/energy";
 import { addRecord, allowCategory, extendFocus, focusOver, focusTimeLabel, parkThought, startFocus, tickFocus, toRecord, type FocusOutcome, type FocusSession } from "./lib/focus";
 import { blooms, dropsForRest, gardenLine, type Plant } from "./lib/garden";
+import { addGrudge, againLine, beatGrudge, dropGrudge, facedGrudge, findGrudge, grudgeDue, shortLabel, targetOf, type Target } from "./lib/grudges";
+import { napLine, REST_START, RESTED_LINES } from "./lib/napjutsu";
+import { tantrumLength } from "./lib/tantrum";
+import type { SceneKind } from "./lib/madScene";
 import { memories } from "./lib/memories";
 import { decide, drowsiness, holdLabel, receptivity, rulesFor, shouldDozeInstead, showLabel, snoozeActive, STYLE_RULES, type HoldReason, type NudgeOutcome, type PromptRules, type ShowReason, type Snooze } from "./lib/reminderPolicy";
 import { dueRhythm, newRhythmClock, resetRhythm, RHYTHMS, rhythmsAfterBreak, tickRhythms, type RhythmId } from "./lib/rhythms";
@@ -41,7 +46,7 @@ import { siteLine } from "./lib/siteLines";
 import { Wandering } from "./lib/wandering";
 import { playSound, speak, stopSpeaking } from "./lib/sounds";
 import { letterWeek, writeLetter, type Letter } from "./lib/weeklyLetter";
-import { COMPANIONS, applyTheme, type CompanionId } from "./types/appearance";
+import { COMPANIONS, applyTheme, knownCompanion, type CompanionId } from "./types/appearance";
 import { BREAK_ROUTINES, stepAt, type BreakRoutine } from "./types/breakRoutines";
 import { DEFAULT_PET_SIZE, petSize } from "./types/petSize";
 import { isDistractingCategory, pickDistractionNudge, pickPhrase, SLEEPY_PHRASES } from "./types/phrases";
@@ -53,11 +58,14 @@ const STATUS_POLL_MS = 10_000;
 const PROMPT_POLL_MS = 2_000;
 const MINUTE = 60_000;
 const PRIVATE_LABEL = "Private";
+/** How long "ten minutes, together" lasts, and how long to look at something before bristling. */
+const TOGETHER_MINUTES = 10;
+const BRISTLE_MS = 12_000;
 
 interface FrontmostApp { name: string; bundle_id: string | null; category: string; category_label: string }
 interface PresenceStatus { idle_seconds: number; should_auto_break: boolean; in_call?: boolean; watching?: boolean; music_playing?: boolean }
 
-type PanelId = "settings" | "summary" | "breaks" | "onboarding" | "notes" | "focus" | "garden" | "wrapup";
+type PanelId = "settings" | "summary" | "breaks" | "onboarding" | "notes" | "focus" | "garden" | "wrapup" | "mad";
 
 /** Prompts that wait for a good moment, most pressing first. */
 const PROMPTS = ["focus-end", "drift", "bedtime", "reminder", "letter", "found"] as const;
@@ -67,10 +75,12 @@ type Card =
   | { kind: "drift"; allow: string; site: string | null }
   | { kind: "focus-end" | "bedtime" | "letter" }
   | { kind: "found"; accessory: AccessoryId }
+  | { kind: "ugh"; target: Target | null }
+  | { kind: "won"; label: string }
   | { kind: "helped"; routine: BreakRoutine }
   | { kind: "resume"; minutes: number };
 /** Cards that tidy themselves away if nobody answers. */
-const CARD_LIFETIME_MS: Partial<Record<Card["kind"], number>> = { helped: 20_000, resume: 25_000, drift: 45_000, letter: 90_000, found: 60_000, bedtime: 180_000, "focus-end": 15 * 60_000 };
+const CARD_LIFETIME_MS: Partial<Record<Card["kind"], number>> = { helped: 20_000, resume: 25_000, drift: 45_000, ugh: 60_000, won: 60_000, letter: 90_000, found: 60_000, bedtime: 180_000, "focus-end": 15 * 60_000 };
 
 const POSITIONS: Record<string, string> = { bottom_left: "bl", bottom_right: "br", top_left: "tl", top_right: "tr", center: "center" };
 const formatClockTime = (timestamp: number) => new Date(timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -105,13 +115,16 @@ function App() {
   const [quietUntil, setQuietUntil] = useState(0);
   const [sprout, setSprout] = useState<Plant | null>(null);
   const [petRequest, setPetRequest] = useState<PetRequest>();
+  const [tantrum, setTantrum] = useState<number | null>(null);
+  const [ultimate, setUltimate] = useState(false);
+  const [scene, setScene] = useState<{ kind: SceneKind; label: string }>({ kind: "mad", label: "" });
   const [activityHydrated, setActivityHydrated] = useState(false);
   const [activityError, setActivityError] = useState<string | null>(null);
 
   const companion = useCompanion();
   const speech = useSpeech();
   const prefs = useMemo(() => preferences(settings), [settings]);
-  const character: CompanionId = settings?.character ?? "crab";
+  const character: CompanionId = knownCompanion(settings?.character);
   const characterSize = settings ? petSize(settings.character_size) : DEFAULT_PET_SIZE;
   const position = settings ? POSITIONS[settings.position] ?? "bl" : "";
   const petName = prefs.pet_name || (COMPANIONS.find(c => c.id === character)?.name ?? "Your companion");
@@ -132,7 +145,7 @@ function App() {
 
   /* Everything timers and listeners need, always current without re-subscribing. */
   const live = {
-    label, place, onBreak, panelOpen, characterHidden: concealed, card, prefs, quietUntil, ignoredAt, stats, history, petName, windDown,
+    label, place, app: frontmostApp, character, tantrum, onBreak, panelOpen, characterHidden: concealed, card, prefs, quietUntil, ignoredAt, stats, history, petName, windDown,
     timePassed, timeEvents, breakTime, breakNeeded, breakStartTier, breakRoutine, speaking: speech.shown !== "",
     ready: companion.ready,
   };
@@ -160,6 +173,7 @@ function App() {
   const inputStreak = useRef(0);
   const lastMomentAt = useRef(0);
   const askedNight = useRef({ soon: "", late: "" });
+  const tantrumTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const trayTitle = useRef<string | null>(null);
   const closeBarRef = useRef<() => void>(() => {});
 
@@ -176,6 +190,36 @@ function App() {
     if (save) { focusSavedAt.current = Date.now(); companion.update(s => ({ ...s, focus: next })); }
   }, [companion.update]);
 
+  /* ---------- mad on your behalf ---------- */
+  const endTantrum = useCallback(() => {
+    clearTimeout(tantrumTimer.current);
+    ref.current = { ...ref.current, tantrum: null };
+    setTantrum(null);
+  }, []);
+  useEffect(() => () => clearTimeout(tantrumTimer.current), []);
+  /** A few seconds of fury at whatever is in front. Never at the person. */
+  const throwTantrum = useCallback((after?: () => void, allOut = false) => {
+    const l = ref.current;
+    if (l.tantrum !== null || l.onBreak || l.panelOpen || l.characterHidden) return false;
+    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    // Full power only when asked for, and never over a call or for someone who wants less motion.
+    const full = allOut && l.prefs.throw_things && !still && !status.current.inCall;
+    const startedAt = Date.now();
+    setUltimate(full);
+    ref.current = { ...l, tantrum: startedAt };
+    clear();
+    setIgnoredAt(null);
+    setTantrum(startedAt);
+    companion.update(s => ({ ...s, tantrums: s.tantrums + 1 }));
+    const body = document.querySelector("[data-pet-body]")?.getBoundingClientRect();
+    if (l.prefs.throw_things && body && !still) {
+      void invoke("throw_at_front_window", { character: l.character, startedAt, petX: body.left + body.width / 2, petY: body.top + body.height * .45, ultimate: full }).catch(console.error);
+    }
+    clearTimeout(tantrumTimer.current);
+    tantrumTimer.current = setTimeout(() => { endTantrum(); if (!ref.current.onBreak && !ref.current.panelOpen && !ref.current.characterHidden) after?.(); }, tantrumLength(l.character, full));
+    return true;
+  }, [clear, companion.update, endTantrum]);
+
   /* ---------- panels ---------- */
   const suppressOverlay = useCallback(() => {
     document.documentElement.classList.add(OVERLAY_SUPPRESS_CLASS);
@@ -188,6 +232,7 @@ function App() {
 
   const openPanel = useCallback(async (id: PanelId) => {
     closeBarRef.current();
+    endTantrum();
     clearOverlay();
     suppressOverlay();
     try {
@@ -198,7 +243,7 @@ function App() {
     } finally {
       releaseOverlay();
     }
-  }, [clearOverlay, suppressOverlay, releaseOverlay]);
+  }, [clearOverlay, endTantrum, suppressOverlay, releaseOverlay]);
 
   const closePanel = useCallback(async (after?: () => void) => {
     suppressOverlay();
@@ -336,6 +381,7 @@ function App() {
     snooze.current = null;
     setHold(null);
     setIgnoredAt(null);
+    endTantrum();
     dropCard();
     breakWasAuto.current = !!options.auto;
     inputStreak.current = 0;
@@ -350,7 +396,7 @@ function App() {
     if (options.sleep) say("Your Mac is sleeping. I’ll keep your break going.");
     else if (options.auto) say("Stepping away? I’ll rest too.");
     else if (options.resumeMinutes) say("Back to resting.");
-    else if (!options.routine) say(`About ${minutesText(restMinutes)} of rest will refill your energy.`);
+    else if (!options.routine) say(REST_START(minutesText(restMinutes)));
     if (!options.auto) playSound("start", ref.current.prefs.sounds);
 
     setStats(prev => {
@@ -375,7 +421,7 @@ function App() {
     distraction.current.clear();
     lastDistractionNudge.current = 0;
     void invoke("reset_reminder_timer").catch(console.error);
-  }, [dropCard, recordNudge, say]);
+  }, [dropCard, endTantrum, recordNudge, say]);
 
   /** Ends the current break. `interrupted` means the person came back to the keyboard. */
   const endBreak = useCallback((interrupted: boolean) => {
@@ -415,7 +461,7 @@ function App() {
     const left = placeBeforeBreak.current;
     const thread = !task && left?.page && restedMs >= 2 * MINUTE && !isDistractingCategory(left.category ?? "") ? left.page : "";
     const long = restedMs >= 20 * MINUTE ? `Welcome back. That was a real break: ${formatDuration(restedMs / 1000)}.` : "";
-    const base = long || (progress >= 1 ? "Fully recharged. Glad you took a pause."
+    const base = long || (progress >= 1 ? pick(RESTED_LINES)
       : interrupted ? "Short and sweet." : "A little rest goes a long way.");
     say([base, event && gardenLine(event), task && `You were on “${task}”.`, thread && `You were in “${thread.length > 48 ? `${thread.slice(0, 47)}…` : thread}”.`].filter(Boolean).join(" "));
 
@@ -485,12 +531,27 @@ function App() {
   }, [activityHydrated, startBreak]);
 
   /* ---------- focus sessions ---------- */
+  /** Visible to the next check at once, so two prompts can never open over each other. */
+  const showCard = useCallback((next: Card) => {
+    ref.current = { ...ref.current, card: next };
+    setCard(next);
+  }, []);
+
   const beginFocus = useCallback((text: string, minutes: number | null) => {
     focusEndAsked.current = false;
     pending.current.delete("focus-end");
     setFocus(startFocus(text, minutes, Date.now()));
     void closePanel(() => say(minutes === null ? "Let’s begin. I’ll hold the sign." : `${minutes} minutes. I’ll hold the sign.`));
   }, [closePanel, say, setFocus]);
+
+  /** Starting is the worst part, so the pet starts with you. */
+  const faceTogether = useCallback((target: Target | null) => {
+    focusEndAsked.current = false;
+    pending.current.delete("focus-end");
+    setCard(null);
+    setFocus({ ...startFocus(target?.label ?? "This", TOGETHER_MINUTES, Date.now()), dreaded: true });
+    say(`${TOGETHER_MINUTES} minutes. Then we’re allowed to stop.`);
+  }, [say, setFocus]);
 
   const moreFocus = useCallback((minutes: number) => {
     if (!focusRef.current) return;
@@ -510,6 +571,7 @@ function App() {
     setFocusState(null);
     companion.update(s => {
       const logged: CompanionState = { ...s, focus: null, focusLog: addRecord(s.focusLog, toRecord(session, outcome)) };
+      if (session.dreaded && outcome === "done") { logged.beaten += 1; logged.grudges = beatGrudge(logged.grudges, session.text); }
       return session.focusedSeconds >= 600 ? care(logged, "focus", now) : logged;
     });
     if (session.focusedSeconds >= 60) setStats(prev => ({ ...prev, focusSessions: (prev.focusSessions ?? 0) + 1 }));
@@ -522,8 +584,9 @@ function App() {
     say((outcome === "done" ? `Done: “${session.text}”. Well earned.`
       : outcome === "partly" ? "Some of it is more than none of it."
       : outcome === "stuck" ? "Stuck happens. A short walk often loosens it." : "Okay. Sign down.") + parked);
+    if (session.dreaded && outcome === "done") showCard({ kind: "won", label: session.text });
     if (outcome === "stuck" && !pending.current.has("reminder")) pending.current.set("reminder", now);
-  }, [companion.update, say]);
+  }, [companion.update, say, showCard]);
 
   /* ---------- prompts ---------- */
   const rulesForPrompt = useCallback((kind: Prompt): PromptRules => {
@@ -539,12 +602,6 @@ function App() {
     }
   }, []);
 
-  /** Visible to the next check at once, so two prompts can never open over each other. */
-  const showCard = useCallback((next: Card) => {
-    ref.current = { ...ref.current, card: next };
-    setCard(next);
-  }, []);
-
   const present = useCallback(async (kind: Prompt, because: ShowReason) => {
     const { prefs: p, stats: today, label: category } = ref.current;
     pending.current.delete(kind);
@@ -553,7 +610,10 @@ function App() {
       case "focus-end": if (focusRef.current) showCard({ kind: "focus-end" }); return;
       case "drift": {
         const site = ref.current.place?.site ?? null;
-        if (focusRef.current && category) showCard({ kind, allow: site ?? category, site });
+        if (!focusRef.current || !category) return;
+        showCard({ kind, allow: site ?? category, site });
+        // The one place it gets cross without being asked: at what interrupted you.
+        if (p.chattiness !== "quiet") throwTantrum();
         return;
       }
       case "bedtime": if (ref.current.windDown === "late") showCard({ kind }); return;
@@ -579,7 +639,7 @@ function App() {
         }
       }
     }
-  }, [clear, companion.latest, companion.update, pin, say, showCard]);
+  }, [clear, companion.latest, companion.update, pin, say, showCard, throwTantrum]);
 
   const readStatus = useCallback(async (): Promise<PresenceStatus> => {
     const latest = await invoke<PresenceStatus>("get_auto_break_status");
@@ -692,7 +752,14 @@ function App() {
       else say(pick(date.getHours() < 12 ? ["Good morning.", "Morning! Ready when you are.", "Oh good, you’re here."] : ["Hello again.", "There you are.", "Good to see you."]));
       return;
     }
-    if (focusing) return;
+    if (focusing || l.tantrum !== null) return;
+    // Something it promised to stay mad at.
+    const grudge = l.prefs.chattiness === "quiet" ? null : findGrudge(state.grudges, l.place, l.app);
+    if (grudge && grudgeDue(grudge, now) && now - front.current.since >= BRISTLE_MS) {
+      companion.update(s => ({ ...s, grudges: facedGrudge(s.grudges, grudge.key, now) }));
+      throwTantrum(() => say(againLine()));
+      return;
+    }
     if (l.windDown === "soon" && askedNight.current.soon !== nightKey(date)) {
       askedNight.current.soon = nightKey(date);
       say(`Getting sleepy. Bedtime’s at ${formatMinuteOfDay(l.prefs.bedtime)}.`);
@@ -725,7 +792,7 @@ function App() {
       const ready = writeLetter({ history: l.history, focusLog: state.focusLog, petName: l.petName, blooms: 0, now, settings: l.prefs });
       if (ready) queue("letter");
     }
-  }, [companion.latest, companion.update, pin, queue, say]);
+  }, [companion.latest, companion.update, pin, queue, say, throwTantrum]);
 
   // Presence every few seconds: automatic breaks, music, and small moments.
   useEffect(() => {
@@ -852,6 +919,16 @@ function App() {
             : "snack",
         }));
         break;
+      case "ugh": {
+        const l = ref.current;
+        if (l.onBreak) { say("Not now. We’re resting."); break; }
+        const target = targetOf(l.place, l.app);
+        // A nudge that was waiting for an answer waits its turn.
+        if (l.card?.kind === "reminder") pending.current.set("reminder", Date.now());
+        dropCard();
+        throwTantrum(() => { if (!ref.current.card) showCard({ kind: "ugh", target }); }, true);
+        break;
+      }
       case "settings": void openPanel("settings"); break;
       case "break": void openPanel("breaks"); break;
       case "endbreak": endBreak(false); break;
@@ -863,7 +940,7 @@ function App() {
       case "wrapup": void openPanel("wrapup"); break;
       case "note": void openPanel("notes"); break;
     }
-  }, [character, companion.update, endBreak, openPanel]);
+  }, [character, companion.update, dropCard, endBreak, openPanel, say, showCard, throwTantrum]);
 
   const petAnchor = usePetLayout(position || "bl", overlayHidden || !settings, characterSize, settings?.monitor_index ?? 0);
   const petFacingPosition = petAnchor ? (petAnchor.left + characterSize / 2 > innerWidth / 2 ? "br" : "bl") : position || "bl";
@@ -885,7 +962,7 @@ function App() {
   }, [petted, clear, companion.update]);
 
   // Hop onto the window in use, once it has been in front for a moment.
-  const busy = dragging || hovered || barOpen || overlayHidden || concealed || onBreak || card !== null;
+  const busy = dragging || hovered || barOpen || overlayHidden || concealed || onBreak || card !== null || tantrum !== null;
   const busyRef = useRef(busy);
   busyRef.current = busy;
   useEffect(() => {
@@ -915,10 +992,10 @@ function App() {
   // Hide-character shortcut: hides only the character until pressed again.
   const toggleCharacterHidden = useCallback(() => {
     setCharacterHidden(prev => {
-      if (!prev) { closeBar(); clearOverlay(); }
+      if (!prev) { closeBar(); endTantrum(); clearOverlay(); }
       return !prev;
     });
-  }, [closeBar, clearOverlay]);
+  }, [closeBar, clearOverlay, endTantrum]);
   usePauseTrackingShortcut(toggleCharacterHidden);
 
   const quietNudges = useCallback((until: number) => {
@@ -956,7 +1033,9 @@ function App() {
       case "resume-nudges": resumeNudges(); break;
       default:
         if (characterHidden) toggleCharacterHidden();
-        handleAction(action);
+        // A hidden pet has to be back on screen before it can make a scene.
+        if (characterHidden && action === "ugh") setTimeout(() => handleAction(action), 100);
+        else handleAction(action);
     }
   };
   useEffect(() => {
@@ -971,7 +1050,7 @@ function App() {
   chat.current = () => {
     if (overlayHidden || concealed) { clear(); return; }
     // Don't interrupt a line that is still being said; wait for the next turn.
-    if (onBreak || Date.now() < quietUntil || speech.shown !== "" || card || !label || prefs.chattiness === "quiet") return;
+    if (onBreak || tantrum !== null || Date.now() < quietUntil || speech.shown !== "" || card || !label || prefs.chattiness === "quiet") return;
     if (focusRef.current || status.current.inCall || status.current.watching) return;
     const recent = recentDistraction(distraction.current, prefs.distraction_limit_mins, Date.now());
     const remembered = memories(companion.latest.current, history, Date.now());
@@ -980,6 +1059,7 @@ function App() {
     else if (isDistractingCategory(label) && recent >= prefs.distraction_limit_mins * 60) say(pickDistractionNudge(label, recent));
     else if (here && Math.random() < 0.4) say(here);
     else if (remembered.length && Math.random() < 0.2) say(pick(remembered));
+    else if (Math.random() < 0.4) say(napLine(energyFromTier(timeEvents)));
     else say(pickPhrase(Math.min(5, Math.max(1, timeEvents)), label, timePassed));
   };
   // The interval lives in the effect body so its cleanup always clears it.
@@ -1044,11 +1124,12 @@ function App() {
   const suggested = useMemo(() => card?.kind === "reminder" || panel === "breaks" ? suggestions() : BREAK_ROUTINES, [card, panel, suggestions]);
   const pos = position || "bl";
   const dismiss = () => setCard(null);
+  const openScene = (kind: SceneKind, label: string) => { setScene({ kind, label }); void openPanel("mad"); };
   const showUi = !overlayHidden && !concealed;
 
   const renderCard = (current: Card) => {
     switch (current.kind) {
-      case "reminder": return <PetCard position={pos} titleId="reminder-prompt-title" eyebrow={prefs.pet_name || "A gentle nudge"} title="Ready for a small pause?"
+      case "reminder": return <PetCard position={pos} titleId="reminder-prompt-title" eyebrow={prefs.pet_name || "Rest energy low"} title="Ready for a small pause?"
         actions={[
           { label: `${suggested[0].title} · ${durationLabel(suggested[0].durationSeconds)}`, kind: "primary", onClick: () => startRoutine(suggested[0]) },
           { label: "Other ideas", onClick: () => handleAction("break") },
@@ -1071,6 +1152,20 @@ function App() {
         { label: "Stuck", onClick: () => finishFocus("stuck") },
         { label: "10 more min", onClick: () => { moreFocus(10); dismiss(); } },
       ]}><p>How did it go?</p></PetCard>;
+      case "ugh": {
+        const { target } = current;
+        const remembered = !!target && companion.state.grudges.some(g => g.key === target.key);
+        return <PetCard position={pos} eyebrow="Expansion complete" title={target ? target.label : "That thing"} actions={[
+          ...(focus ? [] : [{ label: `${TOGETHER_MINUTES} minutes, together`, kind: "primary" as const, onClick: () => faceTogether(target) }]),
+          ...(target && !remembered ? [{ label: "Stay mad at it", onClick: () => { companion.update(s => ({ ...s, grudges: addGrudge(s.grudges, target, Date.now()) })); dismiss(); say("I won’t forget."); } }] : []),
+          { label: "Make a GIF", onClick: () => openScene("mad", target?.label ?? "") },
+          { label: "That helped", onClick: dismiss },
+        ]}><p>{focus ? "Back to it when you’re ready." : "Shall we get it over with?"}</p></PetCard>;
+      }
+      case "won": return <PetCard position={pos} eyebrow="We did it" title={`${shortLabel(current.label)} is done`} actions={[
+        { label: "Make a GIF", kind: "primary", onClick: () => openScene("won", current.label) },
+        { label: "On to better things", onClick: dismiss },
+      ]}><p>You didn’t want to, and you did it anyway.</p></PetCard>;
       case "helped": return <PetCard position={pos} eyebrow={current.routine.title} title="Did that help?" actions={[
         { label: "Yes", kind: "primary", onClick: () => { companion.update(s => rememberRoutine(s, current.routine.id, Date.now(), "helped")); dismiss(); } },
         { label: "Not really", onClick: () => { companion.update(s => rememberRoutine(s, current.routine.id, Date.now(), "notReally")); dismiss(); } },
@@ -1107,7 +1202,7 @@ function App() {
           {card && showUi && !onBreak && !barOpen && renderCard(card)}
           {breakRoutine && onBreak && showUi && <BreakCoach routine={breakRoutine} elapsedSeconds={elapsed} position={pos} onFinish={() => endBreak(false)} />}
 
-          {!barOpen && !dragging && !card && !breakRoutine && speech.shown !== "" && showUi && (
+          {!barOpen && !dragging && !card && !breakRoutine && tantrum === null && speech.shown !== "" && showUi && (
             <p data-pet-popover id="messages" className={`messages interactive${speech.pinned ? " messages--pinned" : ""}`}>
               {speech.pinned && (
                 <button type="button" className="messages-close interactive" onClick={clear} aria-label="Close reminder note"><LuX size={12} /></button>
@@ -1116,7 +1211,7 @@ function App() {
             </p>
           )}
 
-          {!barOpen && !overlayHidden && !dragging && speech.shown === "" && !card && !breakRoutine && hovered && (
+          {!barOpen && !overlayHidden && !dragging && speech.shown === "" && !card && !breakRoutine && tantrum === null && hovered && (
             <div id="hoverInfo" data-pet-popover>
               <p className="hoverInfo-stat">
                 <span className="hoverInfo-text">{onBreak ? "On a pause" : formatDuration(stats.currentStretchSeconds)}</span>
@@ -1135,7 +1230,7 @@ function App() {
               motionPaused={barOpen || overlayHidden || card !== null}
               position={petFacingPosition} energy={energy} onMenu={toggleBar} onPet={pet}
               accessory={accessory} performing={performing} breathe={coachStep?.step.breathe} drowsy={drowsy}
-              hopping={hopping} music={musicPlaying} sign={focusing && !card && speech.shown === "" && !barOpen && !hovered ? focus.text : undefined}
+              hopping={hopping} ultimate={ultimate} announcing={card?.kind === "reminder"} tantrum={overlayHidden ? null : tantrum} music={musicPlaying} sign={focusing && tantrum === null && !card && speech.shown === "" && !barOpen && !hovered ? focus.text : undefined}
               sprout={card || barOpen ? null : sprout} />
           )}
         </div>
@@ -1156,8 +1251,10 @@ function App() {
       )}
       {panel === "garden" && (
         <HomePanel key={homeTab} state={companion.state} character={character} petName={petName} now={now} initialTab={homeTab}
+          onForgive={key => companion.update(s => ({ ...s, grudges: dropGrudge(s.grudges, key) }))}
           onWear={id => companion.update(s => ({ ...s, wearing: id }))} onClose={close} />
       )}
+      {panel === "mad" && <MadPanel kind={scene.kind} label={scene.label} character={character} accessory={accessory} petName={petName} onClose={close} />}
       {panel === "wrapup" && (
         <WrapUpPanel stats={stats} petName={petName} tomorrow={companion.state.tomorrow}
           finished={companion.state.focusLog.filter(f => f.outcome === "done" && dateKey(f.startedAt) === dateKey(now))}

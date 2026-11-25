@@ -4,7 +4,7 @@ import type { AccessoryId } from "./companion";
 import type { PetRig } from "./petRig";
 import { artWidth, type PixelArt } from "./pixelArt";
 
-/* Drawn on the pet's 60-unit grid. `x`/`y` offset the art's bottom center from its anchor:
+/* Drawn on the pet's 80-unit grid. `x`/`y` offset the art's bottom center from its anchor:
  * the crown of the head, or the neck. */
 export interface WornArt extends PixelArt { at: "crown" | "neck"; x: number; y: number }
 const art = (rows: string, palette: Record<string, string>) => ({ rows: rows.trim().split("\n").map(r => r.trim()), palette });
@@ -99,6 +99,13 @@ yYyYyYyYyYyY`, { p: "#e27d9d", w: "#fdf3f0", b: "#7bb6cf", y: "#f3cf63", Y: "#d8
 wwyycyyggpppggbbcbbww
 wcwgyyygGgggGggbbbwcw
 www.gGggg.g.gggGg.www`, { p: "#ee9db1", P: "#d6798f", y: "#f6da7e", Y: "#dcb74f", b: "#9fb4e4", B: "#7b92c9", w: "#fffaf0", c: "#d8963f", g: "#86a866", G: "#648549" }) },
+  headband: { at: "crown", x: 0, y: 9, ...art(`
+.rrrrrrrrrrrrrrrrrr...
+rrrrrrrrwwrrrrrrrrrr..
+rRrrrrrwwwwrrrrrrRrrr.
+.RRRRRRRwwRRRRRRRRRrrr
+..................Rr.r
+...................Rr.`, { r: "#4d68bd", R: "#37498a", w: "#fff4e0" }) },
   star: { at: "crown", x: 0, y: -2, ...art(`
 .....yy.....
 .....yy.....
@@ -126,7 +133,6 @@ export function placeAccessory(id: AccessoryId, rig: PetRig, pose: PetPose, char
   if (worn.at === "crown") {
     if (pose === "music" && id !== "star") return null;
     if (pose === "lifted" && character === "crab") return null;
-    if (pose === "stretch" && character !== "crab") return null;
     // The crown is the skin between the ears: the topmost row with fur across the middle.
     let crown = head.y;
     for (; crown < head.y + head.height; crown++) {
@@ -134,15 +140,22 @@ export function placeAccessory(id: AccessoryId, rig: PetRig, pose: PetPose, char
       for (let dx = -3; dx <= 3; dx++) if (opaque(Math.round(center + dx), crown)) filled++;
       if (filled >= 6) break;
     }
+    if (character === "crab") {
+      // Hats balance across both eyeballs; small things go on one of them.
+      const small = width <= 9, eyeTop = head.y;
+      const x = small ? head.x + head.width - 4 - width / 2 : center - width / 2;
+      const y = id === "headband" ? eyeTop + 7 : id === "star" ? eyeTop - height - 1 : eyeTop - height + (small ? 2 : 3);
+      return { left: Math.max(0, Math.min(80 - width, Math.round(x))), top: Math.max(0, Math.round(y)) };
+    }
     const left = Math.round(center - width / 2 + worn.x);
     const top = Math.round(crown - height + worn.y);
     // Tall hats would leave the canvas on a raised head; sit them lower instead.
-    return { left: Math.max(0, Math.min(60 - width, left)), top: Math.max(0, top) };
+    return { left: Math.max(0, Math.min(80 - width, left)), top: Math.max(0, top) };
   }
   // Books, laptops and raised paws cover the chest in these poses.
   if (["sleep", "lifted", "stretch", "groom", "focus", "read", "music", "play"].includes(pose)) return null;
   // Below the chin: the head mask stops at the neck join. A crab wears it under its smile.
-  const y = head.y + head.height;
+  const y = character === "crab" ? 60 : head.y + head.height;
   let l = -1, r = -1;
   for (let x = head.x; x < head.x + head.width; x++) if (opaque(x, y)) { if (l < 0) l = x; r = x; }
   const chest = l < 0 || character === "crab" ? center : (l + r) / 2;

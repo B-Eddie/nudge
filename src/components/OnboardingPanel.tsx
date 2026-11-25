@@ -135,8 +135,8 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
           {stepId === "welcome" && (
             <>
               <div className="onboarding-companion-scene" aria-hidden="true">
-                <PixelPetSprite character={draft.character ?? "crab"} pose="happy" displaySize={90} />
-                <span>A little company. A better workday.</span>
+                <PixelPetSprite character={draft.character ?? "crab"} pose="happy" />
+                <span>Master the art of doing nothing.</span>
               </div>
               <p className="onboarding-lead">
                 A small companion that lives on your desktop, gets tired as
@@ -213,7 +213,7 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
           {stepId === "done" && (
             <>
               <div className="onboarding-companion-scene" aria-hidden="true">
-                <PixelPetSprite character={draft.character ?? "crab"} pose="delighted" displaySize={90} />
+                <PixelPetSprite character={draft.character ?? "crab"} pose="delighted" />
                 <span>Your companion is ready.</span>
               </div>
               <ul className="onboarding-tips">

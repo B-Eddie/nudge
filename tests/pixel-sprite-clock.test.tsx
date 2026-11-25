@@ -16,19 +16,14 @@ vi.mock("../src/lib/petMotion", async importOriginal => {
     },
   };
 });
-vi.mock("../src/lib/spriteAtlas", () => ({
-  isolateAtlas: () => ({
-    frames: Array.from({ length: 16 }, () => ({ x: 0, y: 0, width: 1, height: 1 })),
-    labels: new Uint16Array(16),
-  }),
-  framePixels: () => new Uint8ClampedArray(4),
-}));
+vi.mock("../src/lib/petSheet", () => ({ sheetParts: () => ({}) }));
 vi.mock("../src/lib/petRig", () => ({ getPetRig: () => ({}) }));
 vi.mock("../src/lib/petRenderer", () => ({
+  LOGICAL_SIZE: 80,
   prepareSpritePixels: () => ({}),
   renderSpritePixels: (...args: unknown[]) => {
     clock.render(...args);
-    return new Uint8ClampedArray(60 * 60 * 4);
+    return new Uint8ClampedArray(80 * 80 * 4);
   },
 }));
 

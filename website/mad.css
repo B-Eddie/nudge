@@ -1,0 +1,33 @@
+@font-face { font-family: "PPNeueBit-Bold"; src: url("assets/fonts/ppneuebit-bold.otf") format("opentype"); font-weight: 700; font-display: swap; }
+.mad-page .navigation { justify-content: space-between; }
+.mad-main { width: min(1000px, calc(100% - 40px)); margin: 56px auto 96px; text-align: center; }
+.mad-main h1 { font-size: clamp(40px, 6.5vw, 72px); line-height: 1.04; letter-spacing: -.045em; }
+.mad-intro { margin: 18px auto 0; color: var(--muted); font-size: 19px; line-height: 1.5; }
+.mad-maker { display: grid; grid-template-columns: minmax(0, 440px) minmax(0, 1fr); gap: 44px; align-items: center; margin-top: 44px; text-align: left; }
+.mad-maker canvas { display: block; width: 100%; height: auto; aspect-ratio: 1; border-radius: 28px; background: #dfe9f6; image-rendering: pixelated; }
+.mad-controls label { display: block; margin-bottom: 10px; font-size: 15px; font-weight: 500; }
+.mad-controls input { width: 100%; min-height: 60px; padding: 0 20px; border: 1px solid var(--line); border-radius: 18px; background: #fff; color: var(--ink); font-size: 24px; letter-spacing: -.02em; }
+.mad-controls input::placeholder { color: #747b86; }
+.mad-pets { display: flex; gap: 8px; margin-top: 20px; }
+.mad-pets button { flex: 1; display: grid; place-items: center; min-height: 76px; padding: 6px 0; border: 1px solid transparent; border-radius: 18px; background: var(--cloud); }
+.mad-pets button:hover { background: #e0e7f2; }
+.mad-pets button[aria-pressed="true"] { border-color: var(--blue); background: #fff; }
+.mad-pets img { image-rendering: pixelated; }
+.mad-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+.button.mad-quiet { background: var(--cloud); color: var(--ink); }
+.button.mad-quiet:hover { background: #e0e7f2; }
+.button.mad-quiet[aria-pressed="true"] { background: #fdeec9; }
+.mad-status { min-height: 24px; margin-top: 16px; font-size: 15px; overflow-wrap: anywhere; }
+.mad-note { margin-top: 4px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.mad-app { margin-top: 84px; padding: 56px 28px; border-radius: 32px; background: linear-gradient(180deg, #e7f0ff, #fff8ed); }
+.mad-app h2 { font-size: clamp(30px, 4vw, 46px); }
+.mad-app p { max-width: 520px; margin: 16px auto 26px; color: var(--muted); font-size: 18px; line-height: 1.55; }
+/* On the home page */
+.mad-teaser { display: grid; grid-template-columns: 1fr auto; gap: 28px; align-items: center; padding: 40px 48px; border-radius: var(--radius); background: #fdf3e0; }
+.mad-teaser h2 { font-size: clamp(32px, 4vw, 48px); }
+.mad-teaser p { max-width: 460px; margin: 16px 0 22px; color: #665f52; font-size: 18px; line-height: 1.5; }
+.mad-teaser-art { width: 240px; height: 240px; background: url("assets/mad/cat.webp") 0 0 / 2400px 240px no-repeat; image-rendering: pixelated; }
+@media (max-width: 800px) { .mad-maker { grid-template-columns: 1fr; gap: 26px; } .mad-maker canvas { max-width: 440px; margin: 0 auto; } }
+@media (max-width: 600px) { .mad-main { margin-top: 36px; } .mad-maker { margin-top: 28px; } .mad-actions .button { flex: 1 1 40%; } .mad-teaser { grid-template-columns: 1fr; padding: 30px 26px; } }
+@media (prefers-reduced-motion: no-preference) { .mad-teaser:hover .mad-teaser-art { animation: mad-shake .14s steps(2, jump-none) infinite; } }
+@keyframes mad-shake { from { transform: translateX(-3px); } to { transform: translateX(3px); } }

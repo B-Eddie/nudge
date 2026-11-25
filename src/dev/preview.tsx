@@ -41,7 +41,7 @@ const apps: Record<string, { name: string; category: string; user_override?: boo
 };
 const settings = {
   monitor_index: 0, reminder_interval_mins: 30, reminder_snooze_mins: 10, position: "bottom_left",
-  character: params.get("pet") ?? "red_panda", character_size: 120, theme, pause_shortcut: "Cmd+Option+Shift+KeyP",
+  character: params.get("pet") ?? "panda", character_size: 120, theme, pause_shortcut: "Cmd+Option+Shift+KeyP",
   app_categories: apps, onboarding_complete: view !== "onboarding", pending_notes: ["Drink some water", "Text mom back"],
   auto_idle_break_mins: 5, window_titles: true, site_rules: [{ contains: "Quercus", category: "Learning" }, { contains: "My Bank", category: "Private" }], launch_at_login: true, hide_helper_apps: false,
 };
@@ -138,7 +138,7 @@ async function main() {
       const { SummaryPanel } = await import("../components/SummaryPanel");
       const { writeLetter } = await import("../lib/weeklyLetter");
       const letter = writeLetter({ history, focusLog: [], petName: "Biscuit", blooms: 14, now: Date.now(), settings: { reminder_interval_mins: 30, wind_down_enabled: false, rhythm_eyes: false } });
-      root.render(frame(<SummaryPanel stats={stats} history={history} energy={3} onBreak={false} onClose={noop} letter={letter} character="red_panda"
+      root.render(frame(<SummaryPanel stats={stats} history={history} energy={3} onBreak={false} onClose={noop} letter={letter} character="panda"
         initialTab={view === "letter" ? "letter" : params.get("tab") === "week" ? "week" : "today"} onApply={async () => {}} onWrapUp={noop} />)); break;
     }
     case "garden": case "focus": case "wrapup": {
@@ -186,13 +186,45 @@ async function main() {
       const { ACCESSORY_IDS } = await import("../lib/companion");
       const { PET_POSES } = await import("../types/pixelPets");
       const only = params.get("wear");
-      const pets = ["panda", "cat", "red_panda", "capybara", "crab"] as const;
+      const pets = ["panda", "cat", "capybara", "crab"] as const;
       const poses = Object.keys(PET_POSES) as (keyof typeof PET_POSES)[];
       root.render(<div style={{ padding: 8, background: "#e8ecef" }}>{only
         ? pets.map(pet => <div key={pet} style={{ display: "flex", flexWrap: "wrap", width: 1000 }}>{poses.map(pose =>
           <div key={pose} style={{ width: 120, height: 120 }}><PixelPetSprite character={pet} pose={pose} accessory={only as "leaf"} /></div>)}</div>)
         : pets.map(pet => <div key={pet} style={{ display: "flex" }}>{ACCESSORY_IDS.map(id =>
           <div key={id} style={{ width: 120, height: 120 }}><PixelPetSprite character={pet} accessory={id} /></div>)}</div>)}</div>); break;
+    }
+    case "change": {
+      // Flips between two poses on a button, to watch the change: &from=idle&to=read
+      const { PixelPetSprite } = await import("../components/PixelPetSprite");
+      const Flip = () => {
+        const [second, flip] = React.useReducer((v: boolean) => !v, false);
+        return <button id="flip" onClick={flip} style={{ border: 0, background: "#e8ecef", width: 220, height: 220 }}><PixelPetSprite character={settings.character as "cat"} animated pose={(params.get(second ? "to" : "from") ?? "idle") as "idle"} energy={Number(params.get("energy") ?? 5)} /></button>;
+      };
+      root.render(<Flip />); break;
+    }
+    case "tired": {
+      const { PixelPetSprite } = await import("../components/PixelPetSprite");
+      const pets = ["panda", "cat", "capybara", "crab"] as const;
+      root.render(<div style={{ padding: 8, background: "#e8ecef" }}>{pets.map(pet => <div key={pet} style={{ display: "flex" }}>{[5, 4, 3, 2, 1].map(energy =>
+        <div key={energy} style={{ width: 200, height: 200 }}><div style={{ transform: "scale(1.6)", transformOrigin: "0 0" }}><PixelPetSprite character={pet} energy={energy} /></div></div>)}</div>)}</div>); break;
+    }
+    case "poses": {
+      const { PixelPetSprite } = await import("../components/PixelPetSprite");
+      const { PET_POSES } = await import("../types/pixelPets");
+      root.render(<div style={{ padding: 8, background: "#e8ecef" }}>{(["panda", "cat", "capybara", "crab"] as const).map(pet => <div key={pet} style={{ display: "flex", flexWrap: "wrap", width: 1000 }}>{(Object.keys(PET_POSES) as (keyof typeof PET_POSES)[]).map(pose =>
+        <div key={pose} style={{ width: 125, height: 125 }}><PixelPetSprite character={pet} pose={pose} energy={4} /></div>)}</div>)}</div>); break;
+    }
+    case "mad": {
+      const { PixelPetSprite } = await import("../components/PixelPetSprite");
+      const pets = ["panda", "cat", "capybara", "crab"] as const;
+      const poses = ["idle", "curious", "lifted", "walkA", "walkB", "stretch", "delighted", "yawn", "play", "read"] as const;
+      root.render(<div style={{ padding: 8, background: "#e8ecef" }}>{pets.map(pet => <div key={pet} style={{ display: "flex" }}>{poses.map(pose =>
+        <div key={pose} style={{ width: 120, height: 120 }}><PixelPetSprite character={pet} pose={pose} mad /></div>)}</div>)}</div>); break;
+    }
+    case "gif": {
+      const { MadPanel } = await import("../components/MadPanel");
+      root.render(frame(<MadPanel kind={params.get("kind") === "won" ? "won" : "mad"} label={params.get("label") ?? "Taxes"} character={settings.character as "cat"} accessory={params.get("wear") as "leaf" | null} petName="Biscuit" onClose={noop} />)); break;
     }
     case "menu": {
       const { RadialMenu } = await import("../components/RadialMenu");
@@ -209,6 +241,7 @@ async function main() {
         if (view === "reminder") emit("show-reminder");
         if (view === "openmenu") document.querySelector<HTMLButtonElement>("[data-pet-menu]")?.click();
         if (view === "coach") { emit("show-reminder"); setTimeout(() => document.querySelector<HTMLButtonElement>(".reminder-prompt-primary")?.click(), 800); }
+        if (view === "ugh") emit("tray-action", "ugh");
         if (view === "bubble") emit("tray-action", "quiet-hour");
       }, 600);
     }

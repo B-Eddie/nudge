@@ -36,7 +36,7 @@ export function FocusPanel({ session, log, character, accessory, petName, now, i
       footer={<><button type="button" className="settings-btn secondary" onClick={() => onExtend(10)}>10 more min</button>
         <button type="button" className="settings-btn primary" onClick={onEnd}>Finish</button></>}>
       <div className="focus-now">
-        <PixelPetSprite character={character} pose="focus" displaySize={72} accessory={accessory} />
+        <PixelPetSprite character={character} pose="focus" accessory={accessory} />
         <div><strong>{session.text}</strong><span role="timer">{focusTimeLabel(session, now)}</span></div>
       </div>
       <div className="panel-group">

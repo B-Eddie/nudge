@@ -3,6 +3,7 @@ use tauri::Manager;
 
 #[cfg(target_os = "macos")]
 mod mac {
+    use crate::stage::Rect;
     use cocoa::appkit::{NSEvent, NSWindow};
     use cocoa::base::{id, nil};
     use cocoa::foundation::{NSPoint, NSRect, NSString};
@@ -38,6 +39,7 @@ mod mac {
         x: f64,
         y: f64,
         width: f64,
+        height: f64,
         owner: i32,
     }
     unsafe fn get(dict: id, key: &str) -> id {
@@ -76,7 +78,8 @@ mod mac {
             }
             let bounds = get(entry, "kCGWindowBounds");
             let width = number(bounds, "Width");
-            if width < 160.0 || number(bounds, "Height") < 100.0 {
+            let height = number(bounds, "Height");
+            if width < 160.0 || height < 100.0 {
                 continue;
             }
             result.push(Surface {
@@ -84,6 +87,7 @@ mod mac {
                 x: number(bounds, "X"),
                 y: number(bounds, "Y"),
                 width,
+                height,
                 owner: number(entry, "kCGWindowOwnerPID") as i32,
             });
         }
@@ -117,7 +121,8 @@ mod mac {
             );
             let y = foot.y.clamp(
                 frame.origin.y + body_size * 0.1 + 8.0,
-                frame.origin.y + frame.size.height - body_size * 0.9 - 12.0,
+                // Room for a stretch, a hop or a raised claw below the menu bar.
+                frame.origin.y + frame.size.height - body_size * 1.15 - 14.0,
             );
             let d = (x - foot.x).hypot(y - foot.y);
             if d < distance {
@@ -378,12 +383,68 @@ mod mac {
         }
         true
     }
+    /// The pet's screen, the pet, and the front window of `pid` (or whichever window is on
+    /// top, when it has none), all in top-left global
+    /// points. `pet_x` and `pet_y` are within the overlay.
+    pub fn front_window_on_pet_screen(
+        window: &tauri::WebviewWindow,
+        pid: Option<i32>,
+        pet_x: f64,
+        pet_y: f64,
+    ) -> Option<(Rect, (f64, f64), Option<Rect>)> {
+        let ptr = window.ns_window().ok()?;
+        unsafe {
+            let open = surfaces(None);
+            let frame = (ptr as id).frame();
+            let primary = primary_height();
+            let pet = (
+                frame.origin.x + pet_x,
+                primary - frame.origin.y - frame.size.height + pet_y,
+            );
+            let screens: id = msg_send![class!(NSScreen), screens];
+            let count: usize = msg_send![screens, count];
+            for i in 0..count {
+                let screen: id = msg_send![screens, objectAtIndex:i];
+                let f: NSRect = msg_send![screen, frame];
+                let area = Rect {
+                    x: f.origin.x,
+                    y: primary - f.origin.y - f.size.height,
+                    width: f.size.width,
+                    height: f.size.height,
+                };
+                if pet.0 >= area.x
+                    && pet.0 < area.x + area.width
+                    && pet.1 >= area.y
+                    && pet.1 < area.y + area.height
+                {
+                    let rect = |s: &Surface| Rect {
+                        x: s.x,
+                        y: s.y,
+                        width: s.width,
+                        height: s.height,
+                    };
+                    let here = |s: &&Surface| crate::stage::aim(area, pet, rect(s)).is_some();
+                    let target = open
+                        .iter()
+                        .filter(here)
+                        .find(|s| Some(s.owner) == pid)
+                        .or_else(|| open.iter().find(here))
+                        .map(rect);
+                    return Some((area, pet, target));
+                }
+            }
+            None
+        }
+    }
     pub fn detach() {
         let mut state = MOVEMENT.lock().unwrap();
         state.drag = None;
         state.perch = None;
     }
 }
+
+#[cfg(target_os = "macos")]
+pub use mac::front_window_on_pet_screen;
 
 #[tauri::command]
 pub fn pet_drag(

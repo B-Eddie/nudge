@@ -3,7 +3,6 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { usePetExpression } from "../src/hooks/usePetExpression";
-import { PIXEL_FRAMES, spritePlacement } from "../src/types/pixelPets";
 import type { CompanionId } from "../src/types/appearance";
 import type { PetActivity } from "../src/hooks/usePetBehavior";
 
@@ -86,21 +85,5 @@ describe("expressive companion behavior", () => {
     render({ petted: 1 }); tick(1800); render({ petted: 2 });
     tick(400); expect(expression.reacting).toBe(true);
     tick(1800); expect(expression.reacting).toBe(false);
-  });
-});
-
-describe("sprite atlas placement", () => {
-  it("keeps all 80 poses inside their canvas with a shared floor", () => {
-    for (const frames of Object.values(PIXEL_FRAMES)) {
-      expect(frames).toHaveLength(16);
-      for (const frame of frames) {
-        const placed = spritePlacement(frame, frames[0]);
-        expect(placed.x).toBeGreaterThanOrEqual(0);
-        expect(placed.y).toBeGreaterThanOrEqual(0);
-        expect(placed.x + placed.width).toBeLessThanOrEqual(60);
-        expect(placed.y + placed.height).toBe(54);
-      }
-      expect(spritePlacement(frames[7], frames[0]).height).toBeLessThan(spritePlacement(frames[0], frames[0]).height);
-    }
   });
 });

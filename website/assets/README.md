@@ -3,7 +3,7 @@
 ## Current companion artwork
 
 `pets/{character}/{pose}.webp` contains all sixteen current app poses for crab,
-panda, red panda, cat, and capybara. These are technical exports of
+panda, cat, and capybara. These are technical exports of
 `src/assets/pets/pixel/*.png`; no companion artwork was generated or changed.
 
 The exporter uses the app's exact connected-component extraction from

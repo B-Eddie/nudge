@@ -1,7 +1,6 @@
 const CHARACTERS = {
   crab: "Crab",
   panda: "Panda",
-  red_panda: "Red panda",
   cat: "Cat",
   capybara: "Capybara",
 };

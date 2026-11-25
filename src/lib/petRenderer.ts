@@ -1,32 +1,20 @@
 import type { PetMotionFrame, PixelOffset } from "./petMotion";
 import type { EyeAnchor, PetRect, PetRig } from "./petRig";
+import type { Tween } from "./petTransition";
 import { WORN, type WornPlace } from "./accessoryArt";
 import type { AccessoryId } from "./companion";
 
-/** Logical grid. Rig geometry and motion offsets are calibrated in these units. */
-export const LOGICAL_SIZE = 60;
-
-/* Rendering happens on a finer raster of `LOGICAL_SIZE * scale` pixels so the art keeps
- * its detail. All rig rectangles and motion offsets are multiplied by `scale`; at
- * scale 1 the output is identical to the original 60×60 compositor. */
+/** Everything is drawn on one grid and enlarged whole, so no pixel is ever split. */
+export const LOGICAL_SIZE = 80;
+/** Where the 64×64 the pet is drawn in sits on that grid: the rest is headroom for stretching. */
+export const INSET = { x: 8, y: 14, size: 64 };
+const N = LOGICAL_SIZE;
 
 type Rgba = readonly [number, number, number, number];
-interface Grid { size: number; scale: number }
-interface SpriteLayer { pixels: Uint8ClampedArray; rect: PetRect }
-interface PreparedEye {
-  anchor: EyeAnchor; bounds: PetRect; shape: Uint8Array; pixels: Uint8ClampedArray; lidColor: Rgba;
-}
-export interface SpriteLayers {
-  rig: PetRig;
-  grid: Grid;
-  body: SpriteLayer;
-  head: SpriteLayer;
-  leftPaw: SpriteLayer | null;
-  rightPaw: SpriteLayer | null;
-  prop: SpriteLayer | null;
-  joints: SpriteLayer;
-  eyes: PreparedEye[];
-}
+export const PART_NAMES = ["body", "head", "leftPaw", "rightPaw", "prop", "feature1", "feature2", "feature3", "feature4", "feature5", "tiredBody", "tiredHead"] as const;
+/** One 80×80 RGBA raster per part. Each is complete underneath the parts in front of it. */
+export type SpriteParts = Record<(typeof PART_NAMES)[number], Uint8ClampedArray>;
+export interface SpriteLayers { rig: PetRig; parts: SpriteParts }
 
 const inside = (x: number, y: number, rect: PetRect) =>
   x >= rect.x && y >= rect.y && x < rect.x + rect.width && y < rect.y + rect.height;
@@ -35,311 +23,276 @@ const color = (hex: string): Rgba => {
   const value = hex.replace("#", "");
   return [Number.parseInt(value.slice(0, 2), 16), Number.parseInt(value.slice(2, 4), 16), Number.parseInt(value.slice(4, 6), 16), 255];
 };
-const scaled = (rect: PetRect, k: number): PetRect =>
-  ({ x: rect.x * k, y: rect.y * k, width: rect.width * k, height: rect.height * k });
-const times = (offset: PixelOffset, k: number): PixelOffset => ({ x: offset.x * k, y: offset.y * k });
 
-/** Extract once per atlas frame. Exclusive ownership prevents a moved paw or
- * head leaving its former outline behind in the body or another prop layer. */
-export function prepareSpritePixels(base: Uint8ClampedArray, rig: PetRig, scale = 1): SpriteLayers {
-  const k = Math.max(1, Math.round(scale));
-  const N = LOGICAL_SIZE * k;
-  const LENGTH = N * N * 4;
-  if (base.length !== LENGTH) throw new Error(`Pet artwork must be a ${N}×${N} RGBA raster`);
-  const layer = (rect: PetRect): SpriteLayer => ({ pixels: new Uint8ClampedArray(LENGTH), rect: scaled(rect, k) });
-  const all: PetRect = { x: 0, y: 0, width: LOGICAL_SIZE, height: LOGICAL_SIZE };
-  const head = scaled(rig.head, k);
-  const output: SpriteLayers = {
-    rig, grid: { size: N, scale: k }, body: layer(all), head: layer(rig.head),
-    leftPaw: rig.leftPaw ? layer(rig.leftPaw) : null,
-    rightPaw: rig.rightPaw ? layer(rig.rightPaw) : null,
-    prop: rig.prop ? layer(rig.prop) : null,
-    joints: layer(all), eyes: [],
-  };
-  const ownership = new Uint8Array(N * N);
-  const parts = [output.body, output.head, output.leftPaw, output.rightPaw, output.prop];
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    const index = (y * N + x) * 4;
-    const owner = output.leftPaw && inside(x, y, output.leftPaw.rect) ? output.leftPaw
-      : output.rightPaw && inside(x, y, output.rightPaw.rect) ? output.rightPaw
-      : output.prop && inside(x, y, output.prop.rect) ? output.prop
-      : inside(x, y, head) ? output.head : output.body;
-    ownership[y * N + x] = parts.indexOf(owner);
-    owner.pixels.set(base.subarray(index, index + 4), index);
-  }
-  // A rectangular calibration region often intersects another opaque part:
-  // the neck, a cheek behind headphones, or an arm crossing a book. Backfill
-  // only those *interior* cuts on every side, with the source fur itself. Outer
-  // silhouette edges still disappear when moved, so ears/paws never duplicate.
-  const joint = new Uint8Array(N * N);
-  const maximum = (owner: number) => (owner === 1 ? rig.joints.maxHeadOffset
-    : owner === 4 ? 1 : rig.joints.maxPawOffset) * k;
-  const someNeighbor = (pixel: number, test: (neighbor: number) => boolean) => {
-    const x = pixel % N, y = (pixel - x) / N;
-    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-      if ((!dx && !dy) || x + dx < 0 || y + dy < 0 || x + dx >= N || y + dy >= N) continue;
-      if (test((y + dy) * N + x + dx)) return true;
-    }
-    return false;
-  };
-  for (let pixel = 0; pixel < ownership.length; pixel++) {
-    if (!ownership[pixel] || !maximum(ownership[pixel]) || base[pixel * 4 + 3] < 230) continue;
-    if (someNeighbor(pixel, neighbor => base[neighbor * 4 + 3] >= 230
-      && ownership[neighbor] !== ownership[pixel])) joint[pixel] = 1;
-  }
-  // A paw can move two logical pixels, requiring that many source rows/columns
-  // behind its shoulder. Expand only through opaque pixels of that same part.
-  for (let depth = 1; depth < 2 * k; depth++) {
-    const previous = joint.slice();
-    for (let pixel = 0; pixel < ownership.length; pixel++) {
-      const owner = ownership[pixel];
-      if (!owner || joint[pixel] || maximum(owner) <= depth || base[pixel * 4 + 3] < 230) continue;
-      if (someNeighbor(pixel, neighbor => previous[neighbor] === 1 && ownership[neighbor] === owner)) joint[pixel] = 1;
-    }
-  }
-  for (let pixel = 0; pixel < joint.length; pixel++) {
-    if (joint[pixel]) output.joints.pixels.set(base.subarray(pixel * 4, pixel * 4 + 4), pixel * 4);
-  }
-  output.eyes = rig.eyes.map(anchor => {
-    const bounds = scaled(anchor.bounds, k);
-    const { width, height, x: left, y: top } = bounds;
-    const shape = new Uint8Array(width * height);
-    const pixels = new Uint8ClampedArray(shape.length * 4);
-    const logicalWidth = anchor.bounds.width, logicalHeight = anchor.bounds.height;
-    for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
-      const index = y * width + x;
-      const source = ((top + y) * N + left + x) * 4;
-      // Clip to the rounded eye, not its rectangular calibration area. The mask is
-      // decided per logical pixel (where the eye bounds were calibrated); the
-      // original artwork still supplies each iris/pupil pixel and its shading.
-      const lx = Math.floor(x / k), ly = Math.floor(y / k);
-      const nx = (lx - (logicalWidth - 1) / 2) / Math.max(.5, logicalWidth / 2);
-      const ny = (ly - (logicalHeight - 1) / 2) / Math.max(.5, logicalHeight / 2);
-      shape[index] = nx * nx + ny * ny <= 1.08 && base[source + 3] ? 1 : 0;
-      pixels.set(base.subarray(source, source + 4), index * 4);
-    }
-    // Close onto the surrounding fur/patch, rather than turning the eye's
-    // entire rectangle black. The most common nearby shade avoids sampling a
-    // catchlight or a contrasting cheek at the edge of the calibration area.
-    const shades = new Map<string, { count: number; rgba: Rgba }>();
-    for (let y = top - 1; y <= top + height; y++) for (let x = left - 1; x <= left + width; x++) {
-      if (x < 0 || y < 0 || x >= N || y >= N || inside(x, y, bounds)) continue;
-      const source = (y * N + x) * 4;
-      if (base[source + 3] < 200) continue;
-      const rgba: Rgba = [base[source], base[source + 1], base[source + 2], 255];
-      const key = rgba.slice(0, 3).map(channel => Math.round(channel / 32)).join();
-      const shade = shades.get(key);
-      if (shade) shade.count++;
-      else shades.set(key, { count: 1, rgba });
-    }
-    const surrounding = [...shades.values()].sort((a, b) => b.count - a.count)[0];
-    return { anchor, bounds, shape, pixels, lidColor: surrounding?.rgba ?? color(anchor.palette.iris) };
-  });
-  return output;
+export function prepareSpritePixels(parts: SpriteParts, rig: PetRig): SpriteLayers {
+  if (PART_NAMES.some(name => parts[name].length !== N * N * 4)) throw new Error("Pet artwork must be 80×80 RGBA rasters");
+  return { rig, parts };
 }
 
-function paint(output: Uint8ClampedArray, N: number, x: number, y: number, rgba: Rgba) {
-  if (x < 0 || y < 0 || x >= N || y >= N || !rgba[3]) return;
-  const index = (y * N + x) * 4;
-  if (rgba[3] === 255 || !output[index + 3]) {
-    output.set(rgba, index); return;
-  }
-  const alpha = rgba[3] / 255;
-  const destinationAlpha = output[index + 3] / 255;
-  const blended = alpha + destinationAlpha * (1 - alpha);
-  for (let channel = 0; channel < 3; channel++) {
-    output[index + channel] = (rgba[channel] * alpha + output[index + channel] * destinationAlpha * (1 - alpha)) / blended;
-  }
-  output[index + 3] = blended * 255;
+function paint(output: Uint8ClampedArray, x: number, y: number, rgba: Rgba) {
+  if (x >= 0 && y >= 0 && x < N && y < N && rgba[3]) output.set(rgba, (y * N + x) * 4);
 }
-
-/** Paints one logical pixel as a k×k block. */
-function block(output: Uint8ClampedArray, grid: Grid, x: number, y: number, rgba: Rgba) {
-  const k = grid.scale;
-  for (let dy = 0; dy < k; dy++) for (let dx = 0; dx < k; dx++) paint(output, grid.size, x * k + dx, y * k + dy, rgba);
-}
-
-function draw(output: Uint8ClampedArray, N: number, source: SpriteLayer | null, offset: PixelOffset) {
-  if (!source) return;
-  const { rect, pixels } = source;
-  for (let y = Math.max(0, rect.y); y < Math.min(N, rect.y + rect.height); y++) {
-    for (let x = Math.max(0, rect.x); x < Math.min(N, rect.x + rect.width); x++) {
-      const index = (y * N + x) * 4;
-      if (pixels[index + 3]) paint(output, N, x + offset.x, y + offset.y,
-        [pixels[index], pixels[index + 1], pixels[index + 2], pixels[index + 3]]);
-    }
+function draw(output: Uint8ClampedArray, part: Uint8ClampedArray, offset: PixelOffset) {
+  for (let i = 0; i < N * N; i++) {
+    if (part[i * 4 + 3]) paint(output, i % N + offset.x, Math.floor(i / N) + offset.y, [part[i * 4], part[i * 4 + 1], part[i * 4 + 2], part[i * 4 + 3]]);
   }
 }
 
-function backfillJoints(output: Uint8ClampedArray, N: number, source: SpriteLayer, offset: PixelOffset) {
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    const sourceIndex = (y * N + x) * 4;
-    if (!source.pixels[sourceIndex + 3]) continue;
-    const targetX = x + offset.x, targetY = y + offset.y;
-    if (targetX < 0 || targetY < 0 || targetX >= N || targetY >= N) continue;
-    const target = (targetY * N + targetX) * 4;
-    if (output[target + 3] >= 230) continue;
-    const foreground: Rgba = [output[target], output[target + 1], output[target + 2], output[target + 3]];
-    output.set(source.pixels.subarray(sourceIndex, sourceIndex + 4), target);
-    paint(output, N, targetX, targetY, foreground);
-  }
-}
-
-function drawEye(output: Uint8ClampedArray, grid: Grid, eye: PreparedEye, head: PixelOffset, gaze: PixelOffset, blink: boolean) {
-  const { anchor, bounds, pixels, shape } = eye;
-  const { size: N, scale: k } = grid;
-  const dx = bounded(gaze.x, anchor.maxGazeX) * k;
-  const dy = bounded(gaze.y, anchor.maxGazeY) * k;
-  if (blink || dx || dy) {
-    for (let y = 0; y < bounds.height; y++) for (let x = 0; x < bounds.width; x++) {
-      const index = y * bounds.width + x;
-      if (!shape[index]) continue;
-      const sx = x - dx, sy = y - dy;
-      const source = sy * bounds.width + sx;
-      const shifted = sx >= 0 && sy >= 0 && sx < bounds.width && sy < bounds.height && shape[source];
-      const rgba: Rgba = blink ? eye.lidColor
-        : shifted ? [pixels[source * 4], pixels[source * 4 + 1], pixels[source * 4 + 2], pixels[source * 4 + 3]]
-        : [pixels[index * 4], pixels[index * 4 + 1], pixels[index * 4 + 2], pixels[index * 4 + 3]];
-      paint(output, N, bounds.x + x + head.x, bounds.y + y + head.y, rgba);
+function drawEye(output: Uint8ClampedArray, head: Uint8ClampedArray, eye: EyeAnchor, offset: PixelOffset, gaze: PixelOffset, blink: boolean, energy: number) {
+  const { bounds } = eye, pupil = eye.byEnergy?.[energy - 1] ?? eye.pupil;
+  if (!blink) {
+    const dx = offset.x + bounded(gaze.x, 1), dy = offset.y + bounded(gaze.y, 1);
+    const ink = color(eye.color);
+    for (let y = 0; y < pupil.height; y++) for (let x = 0; x < pupil.width; x++) {
+      // Round off a pupil big enough to have corners.
+      if (pupil.width >= 4 && pupil.height >= 4 && (x === 0 || x === pupil.width - 1) && (y === 0 || y === pupil.height - 1)) continue;
+      const tx = pupil.x + x + dx, ty = pupil.y + y + dy;
+      // A pupil never leaves the white of its eye.
+      if (!eye.sclera || inside(tx - offset.x, ty - offset.y, bounds)) paint(output, tx, ty, ink);
     }
-  }
-  if (blink) {
-    // The closed-lid line is drawn in logical pixels so it reads the same at every scale.
-    const lid = color(anchor.palette.pupil);
-    const width = anchor.bounds.width, height = anchor.bounds.height;
-    for (let x = 1; x < width - 1; x++) {
-      const y = Math.floor(height / 2) - (x === 1 || x === width - 2 ? 1 : 0);
-      for (let by = 0; by < k; by++) for (let bx = 0; bx < k; bx++) {
-        const hx = x * k + bx, hy = y * k + by;
-        if (shape[hy * bounds.width + hx]) paint(output, N, bounds.x + hx + head.x, bounds.y + hy + head.y, lid);
-      }
-    }
+    if (eye.shine) for (let x = 0; x < (pupil.width > 4 ? 2 : 1); x++) paint(output, pupil.x + Math.min(1, pupil.width - 1) + x + dx, pupil.y + 1 + dy, color(eye.shine));
     return;
   }
-  // A calibrated catchlight that survives reduction. In particular, the curious
-  // panda's viewer-right source highlight otherwise disappears at 60px.
-  const highlight = color(anchor.palette.highlight);
-  const spot = k === 1 ? 1 : Math.max(1, Math.round(k * .75));
-  for (let y = 0; y < anchor.highlight.height * spot; y++) for (let x = 0; x < anchor.highlight.width * spot; x++) {
-    let localX = anchor.highlight.x * k + x + dx - bounds.x;
-    let localY = anchor.highlight.y * k + y + dy - bounds.y;
-    if (localX < 0 || localY < 0 || localX >= bounds.width || localY >= bounds.height
-      || !shape[localY * bounds.width + localX]) {
-      let nearest = -1, distance = Number.POSITIVE_INFINITY;
-      for (let candidate = 0; candidate < shape.length; candidate++) {
-        if (!shape[candidate]) continue;
-        const cx = candidate % bounds.width, cy = Math.floor(candidate / bounds.width);
-        const delta = (cx - localX) ** 2 + (cy - localY) ** 2;
-        if (delta < distance) { nearest = candidate; distance = delta; }
-      }
-      if (nearest < 0) continue;
-      localX = nearest % bounds.width; localY = Math.floor(nearest / bounds.width);
+  const lid = color(eye.lid), line = color(eye.line);
+  if (eye.sclera) {
+    const white = color(eye.sclera);
+    for (let y = bounds.y; y < bounds.y + bounds.height; y++) for (let x = bounds.x; x < bounds.x + bounds.width; x++) {
+      const i = (y * N + x) * 4;
+      if (head[i + 3] && head[i] === white[0] && head[i + 1] === white[1] && head[i + 2] === white[2]) paint(output, x + offset.x, y + offset.y, lid);
     }
-    paint(output, N, bounds.x + localX + head.x, bounds.y + localY + head.y, highlight);
   }
+  const middle = bounds.x + (bounds.width - 1) / 2, y = bounds.y + Math.floor(bounds.height / 2);
+  for (let i = 0; i < 4; i++) paint(output, Math.round(middle - 1.5) + i + offset.x, y - (i % 3 ? 0 : 1) + offset.y, line);
 }
 
-function propDetail(output: Uint8ClampedArray, grid: Grid, source: SpriteLayer | null, offset: PixelOffset, motion: PetMotionFrame) {
-  if (!source) return;
-  const { size: N, scale: k } = grid;
-  const { rect, pixels } = source;
-  const logical = scaled(rect, 1 / k);
-  // Marks are placed in logical pixels and painted over each k×k block.
-  const mark = (lx: number, ly: number, folded: boolean) => {
-    for (let by = 0; by < k; by++) for (let bx = 0; bx < k; bx++) {
-      const x = lx * k + bx, y = ly * k + by;
-      if (!inside(x, y, rect)) continue;
-      const index = (y * N + x) * 4;
-      if (!pixels[index + 3]) continue;
-      const original = [pixels[index], pixels[index + 1], pixels[index + 2]];
-      if (folded && Math.max(...original) < 65) continue;
-      const increase = folded ? 20 : 12;
-      paint(output, N, x + offset.x, y + offset.y,
-        [Math.min(255, original[0] + increase), Math.min(255, original[1] + increase), Math.min(255, original[2] + increase), pixels[index + 3]]);
-    }
+function propDetail(output: Uint8ClampedArray, part: Uint8ClampedArray, rect: PetRect, offset: PixelOffset, motion: PetMotionFrame) {
+  const lighten = (x: number, y: number, by: number) => {
+    const i = (y * N + x) * 4;
+    if (!inside(x, y, rect) || !part[i + 3]) return;
+    paint(output, x + offset.x, y + offset.y, [Math.min(255, part[i] + by), Math.min(255, part[i + 1] + by), Math.min(255, part[i + 2] + by), 255]);
   };
   if (motion.pageTurn) {
-    const center = logical.x + Math.floor(logical.width / 2);
-    for (let y = logical.y + 2; y < logical.y + logical.height - 2; y++) mark(center + Math.floor((y - logical.y) / 5), y, true);
+    const center = rect.x + Math.floor(rect.width / 2);
+    for (let y = rect.y + 2; y < rect.y + rect.height - 2; y++) lighten(center + Math.floor((y - rect.y) / 5), y, 34);
   }
-  if (motion.screenPulse) {
-    const y = logical.y + Math.min(3, Math.floor(logical.height / 3));
-    for (let x = logical.x + 2; x < Math.min(logical.x + logical.width - 2, logical.x + 6); x++) mark(x, y, false);
-  }
+  if (motion.screenPulse) for (let x = rect.x + 2; x < Math.min(rect.x + rect.width - 2, rect.x + 6); x++) lighten(x, rect.y + Math.min(3, Math.floor(rect.height / 3)), 26);
 }
 
-function drawPhone(output: Uint8ClampedArray, grid: Grid, offset: PixelOffset, screenPulse: boolean) {
-  const x = 39 + offset.x, y = 38 + offset.y;
+function drawPhone(output: Uint8ClampedArray, offset: PixelOffset, screenPulse: boolean) {
+  const x = INSET.x + 39 + offset.x, y = INSET.y + 38 + offset.y;
   for (let py = 0; py < 15; py++) for (let px = 0; px < 9; px++) {
     if ((py === 0 || py === 14) && (px === 0 || px === 8)) continue;
     const screen = px >= 2 && px <= 6 && py >= 2 && py <= 10;
-    block(output, grid, x + px, y + py, screen ? [164, 197, 177, 255] : [59, 57, 68, 255]);
+    paint(output, x + px, y + py, screen ? [164, 197, 177, 255] : [59, 57, 68, 255]);
   }
   const shift = screenPulse ? 1 : 0;
-  for (let px = 0; px < 3; px++) block(output, grid, x + 3 + px, y + 4 + shift, [232, 223, 189, 255]);
-  for (let px = 0; px < 2; px++) block(output, grid, x + 3 + px, y + 7 + shift, [232, 223, 189, 255]);
-  block(output, grid, x + 4, y + 12, [194, 191, 200, 255]);
+  for (let px = 0; px < 3; px++) paint(output, x + 3 + px, y + 4 + shift, [232, 223, 189, 255]);
+  for (let px = 0; px < 2; px++) paint(output, x + 3 + px, y + 7 + shift, [232, 223, 189, 255]);
+  paint(output, x + 4, y + 12, [194, 191, 200, 255]);
 }
 
-function drawPhoneGrip(output: Uint8ClampedArray, grid: Grid, paw: SpriteLayer | null, pawOffset: PixelOffset, phoneOffset: PixelOffset) {
-  if (!paw) return;
-  const { size: N, scale: k } = grid;
-  const left = (39 + phoneOffset.x) * k, top = (42 + phoneOffset.y) * k;
-  const shift = times(pawOffset, k);
-  // Only a slim thumb/claw grip can overlap the case. The five-pixel screen
-  // stays readable even for the crab's much wider claw, while its original
-  // articulated paw still moves beside and in front of the phone's edge.
-  for (let y = top; y < top + 5 * k; y++) for (let x = left; x < left + 2 * k; x++) {
-    const sourceX = x - shift.x, sourceY = y - shift.y;
-    if (sourceX < 0 || sourceY < 0 || sourceX >= N || sourceY >= N
-      || !inside(sourceX, sourceY, paw.rect)) continue;
-    const source = (sourceY * N + sourceX) * 4;
-    paint(output, N, x, y, [paw.pixels[source], paw.pixels[source + 1], paw.pixels[source + 2], paw.pixels[source + 3]]);
+function drawPhoneGrip(output: Uint8ClampedArray, paw: Uint8ClampedArray, pawOffset: PixelOffset, phoneOffset: PixelOffset) {
+  // Only a slim thumb or claw overlaps the case, so the screen stays readable.
+  for (let y = INSET.y + 42 + phoneOffset.y; y < INSET.y + 47 + phoneOffset.y; y++) for (let x = INSET.x + 39 + phoneOffset.x; x < INSET.x + 41 + phoneOffset.x; x++) {
+    const sx = x - pawOffset.x, sy = y - pawOffset.y;
+    if (sx < 0 || sy < 0 || sx >= N || sy >= N) continue;
+    const i = (sy * N + sx) * 4;
+    paint(output, x, y, [paw[i], paw[i + 1], paw[i + 2], paw[i + 3]]);
   }
 }
 
 export interface Worn { id: AccessoryId; place: WornPlace }
 
-function drawWorn(output: Uint8ClampedArray, grid: Grid, worn: Worn, offset: PixelOffset) {
+function drawWorn(output: Uint8ClampedArray, worn: Worn, offset: PixelOffset) {
   const { rows, palette } = WORN[worn.id];
   rows.forEach((row, y) => [...row].forEach((key, x) => {
-    if (palette[key]) block(output, grid, worn.place.left + x + offset.x, worn.place.top + y + offset.y, color(palette[key]));
+    if (palette[key]) paint(output, worn.place.left + x + offset.x, worn.place.top + y + offset.y, color(palette[key]));
   }));
 }
 
+/** Furrowed brows: steep, heavy and pulled toward the middle of the face. Drawn over the
+ * finished eyes, so a cross pet can still look around. */
+function drawScowl(output: Uint8ClampedArray, rig: PetRig, offset: PixelOffset) {
+  const centers = rig.brows.map(b => b.x + b.width / 2);
+  // A pet seen side-on shows one eye and looks to the right.
+  const middle = centers.length > 1 ? centers.reduce((a, b) => a + b, 0) / centers.length : Infinity;
+  for (const b of rig.brows) {
+    const inward = b.x + b.width / 2 < middle ? 1 : -1;
+    const width = b.width + 3, outer = inward > 0 ? b.x - 2 : b.x + b.width + 1;
+    for (let i = 0; i < width; i++) {
+      const x = outer + i * inward + offset.x, y = b.y - 2 + Math.floor(i * 4 / width) + offset.y;
+      // A pale edge keeps the brow readable on dark fur.
+      const under = (y - 1) * N + x;
+      if (under >= 0 && output[under * 4 + 3] && output[under * 4] + output[under * 4 + 1] + output[under * 4 + 2] < 240) {
+        paint(output, x, y - 1, [198, 188, 178, 255]);
+      }
+      paint(output, x, y, [38, 22, 24, 255]);
+      paint(output, x, y + 1, [38, 22, 24, 255]);
+    }
+  }
+}
+
+/** How far the head hangs at each energy, 1 to 5. */
+const SINK = [3, 2, 1, 0, 0];
+/** Rows of eyelid over an eye this tall, at each energy. */
+const lidRows = (height: number, energy: number) => energy >= 4 ? 0 : energy === 3 ? Math.ceil(height * .25) : Math.ceil(height * .5);
+const BLUE = color("#3f5fd0"), FUMES = color("#4fa35c"), CROSS = color("#5b2a2e");
+
+/** The same signs of wear as the first drawings: heavy lids, bags, blue lines, then crosses. */
+function drawWear(output: Uint8ClampedArray, skin: Uint8ClampedArray, rig: PetRig, offset: PixelOffset, energy: number, blink: boolean, pale: number) {
+  if (energy >= 4) return;
+  // Lids stay on the head, so a round eye never grows corners.
+  const onHead = (x: number, y: number, rgba: Rgba) => { if (x >= 0 && y >= 0 && x < N && y < N && skin[(y * N + x) * 4 + 3]) paint(output, x + offset.x, y + offset.y, rgba); };
+  for (const eye of rig.eyes) {
+    const keepsTime = eye.byEnergy !== null, { bounds } = eye, lid = [...fade(new Uint8ClampedArray(color(eye.lid)), pale)] as unknown as Rgba;
+    if (!blink && energy === 1 && !keepsTime) {
+      const size = 5, left = Math.round(bounds.x + bounds.width / 2 - size / 2), top = Math.round(bounds.y + bounds.height / 2 - size / 2);
+      const bright = (0.3 * lid[0] + .59 * lid[1] + .11 * lid[2]) < 60 ? color("#d9cfc6") : CROSS;
+      for (let y = -1; y <= size; y++) for (let x = -1; x <= size; x++) if ((x >= 0 && x < size) || (y >= 0 && y < size)) onHead(left + x, top + y, lid);
+      for (let i = 0; i < size; i++) { onHead(left + i, top + i, bright); onHead(left + size - 1 - i, top + i, bright); }
+      continue;
+    }
+    if (!blink) {
+      // A pet that tells the time with its eyes keeps more of them showing.
+      const rows = keepsTime ? (energy <= 2 ? 1 : 0) : lidRows(bounds.height, energy);
+      for (let y = 0; y < rows; y++) for (let x = 0; x < bounds.width; x++) onHead(bounds.x + x, bounds.y + y, lid);
+      for (let x = 0; x < bounds.width; x++) if (rows && !keepsTime) onHead(bounds.x + x, bounds.y + rows - 1, [Math.round(lid[0] * .45), Math.round(lid[1] * .45), Math.round(lid[2] * .45), 255]);
+    }
+    // Bags.
+    if (energy <= 2) for (let x = 1; x < bounds.width - 1; x++) {
+      const px = bounds.x + x + offset.x, py = bounds.y + bounds.height + 1 + offset.y, i = (py * N + px) * 4;
+      if (output[i + 3]) paint(output, px, py, [Math.round(output[i] * .62), Math.round(output[i + 1] * .58), Math.round(output[i + 2] * .7), 255]);
+    }
+  }
+  if (energy > 2) return;
+  // Blue lines down the brow.
+  const lines = energy === 1 ? 4 : 3, small = rig.head.width < 24, left = small ? INSET.x + 26 : rig.head.x + Math.round(rig.head.width * .62);
+  for (let n = 0; n < lines; n++) for (let y = 0, drawn = 0; y < 14 && drawn < (n % 2 ? 4 : 6); y++) {
+    const px = left + n * 3 + offset.x, py = small ? rig.head.y + rig.head.height + 1 + y : rig.head.y + 3 + y + offset.y;
+    if (py < 0 || py >= N || !output[(py * N + px) * 4 + 3]) continue;
+    paint(output, px, py, BLUE); drawn++;
+  }
+  if (energy > 1) return;
+  // Fumes, only where there's room around the pet.
+  for (const [x, y] of [[2, 6], [1, 22], [60, 18], [61, 34], [20, 1], [44, 2], [3, 36]]) for (let i = 0; i < 4; i++) {
+    const px = INSET.x + x + (i % 2), py = INSET.y + y + i;
+    if (px < N && py < N && !output[(py * N + px) * 4 + 3]) paint(output, px, py, FUMES);
+  }
+}
+/** Colour drains a little as the day wears on. */
+function fade(output: Uint8ClampedArray, amount: number): Uint8ClampedArray {
+  if (!amount) return output;
+  for (let i = 0; i < output.length; i += 4) if (output[i + 3]) {
+    const grey = output[i] * .3 + output[i + 1] * .59 + output[i + 2] * .11;
+    for (let c = 0; c < 3; c++) output[i + c] = Math.round(output[i + c] + (grey - output[i + c]) * amount);
+  }
+  return output;
+}
+
+const FLOOR = INSET.y + 60;
+/** Squashes or stretches the finished picture against the floor, whole pixels at a time. */
+function squash(source: Uint8ClampedArray, stretch: number): Uint8ClampedArray {
+  const output = new Uint8ClampedArray(source.length), wide = 1 + (1 - stretch) * .6;
+  for (let y = 0; y < N; y++) {
+    const sy = y > FLOOR ? y : Math.round(FLOOR - (FLOOR - y) / stretch);
+    if (sy < 0) continue;
+    for (let x = 0; x < N; x++) {
+      const sx = Math.round((x - (N - 1) / 2) / wide + (N - 1) / 2);
+      if (sx < 0 || sx >= N) continue;
+      const from = (sy * N + sx) * 4;
+      if (source[from + 3]) output.set(source.subarray(from, from + 4), (y * N + x) * 4);
+    }
+  }
+  return output;
+}
+/** Leans a part sideways: nothing at the floor, `lean` pixels at the top. */
+function leaned(part: Uint8ClampedArray, lean: number): Uint8ClampedArray {
+  let low = N, high = -1;
+  for (let i = 0; i < N * N; i++) if (part[i * 4 + 3]) { low = Math.min(low, i % N); high = Math.max(high, i % N); }
+  // Never past the edge of the canvas.
+  lean = Math.max(-low, Math.min(N - 1 - high, lean));
+  if (Math.abs(lean) < .5) return part;
+  const output = new Uint8ClampedArray(part.length);
+  for (let i = 0; i < N * N; i++) if (part[i * 4 + 3]) {
+    const y = Math.floor(i / N), x = i % N + Math.round(lean * Math.max(0, (INSET.y + 46 - y) / 46));
+    if (x >= 0 && x < N) output.set(part.subarray(i * 4, i * 4 + 4), (y * N + x) * 4);
+  }
+  return output;
+}
+
+/** Power shows as burning eyes and a bright edge that won't sit still. */
+function empower(output: Uint8ClampedArray, power: { power: string; glow: string }, beat: number) {
+  const edge = color(power.power), hot = color(power.glow), before = output.slice();
+  const solid = (x: number, y: number) => x >= 0 && y >= 0 && x < N && y < N && before[(y * N + x) * 4 + 3] > 0;
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    if (solid(x, y)) continue;
+    const near = solid(x - 1, y) || solid(x + 1, y) || solid(x, y - 1) || solid(x, y + 1);
+    if (near) paint(output, x, y, (x * 7 + y * 3 + beat) % 5 ? edge : hot);
+    else if ((solid(x, y + 2) || solid(x, y + 3)) && (x * 13 + y + beat * 5) % 4 === 0) paint(output, x, y, edge);
+  }
+}
+function empowerEyes(output: Uint8ClampedArray, rig: PetRig, head: PixelOffset, power: { power: string; glow: string }) {
+  const edge = color(power.power), hot = color(power.glow);
+  for (const b of rig.brows) for (let y = 0; y < b.height; y++) for (let x = 0; x < b.width; x++) {
+    const cx = (x - (b.width - 1) / 2) / (b.width / 2), cy = (y - (b.height - 1) / 2) / (b.height / 2);
+    if (cx * cx + cy * cy <= 1.05) paint(output, b.x + x + head.x, b.y + y + head.y, cx * cx + cy * cy < .3 ? hot : edge);
+  }
+}
+
+export interface Life { tween?: Tween | null; stretch?: number; sway?: number; power?: { power: string; glow: string } | null; beat?: number }
+
 export function renderSpritePixels(layers: SpriteLayers, motion: PetMotionFrame,
-  gaze: PixelOffset, phone = false, worn: Worn | null = null): Uint8ClampedArray {
-  const { grid } = layers;
-  const { size: N, scale: k } = grid;
+  gaze: PixelOffset, phone = false, worn: Worn | null = null, mad = false, energy = 5, life: Life = {}): Uint8ClampedArray {
+  const { parts, rig } = layers;
+  // Asleep is the cure, so it doesn't show the symptoms.
+  const resting = rig.asleep;
   const output = new Uint8ClampedArray(N * N * 4);
-  // Offsets are decided in logical pixels, then applied on the fine raster.
   const body = { x: bounded(motion.body.x, 1), y: bounded(motion.body.y, 1) };
-  const awake = !motion.blink && layers.eyes.length > 0;
+  const awake = !motion.blink && rig.eyes.length > 0;
   const head = {
-    x: body.x + bounded(motion.head.x + (awake ? bounded(gaze.x, 1) : 0), layers.rig.joints.maxHeadOffset),
-    y: body.y + bounded(motion.head.y + (awake ? bounded(gaze.y, 1) : 0), layers.rig.joints.maxHeadOffset),
+    x: body.x + bounded(motion.head.x + (awake ? bounded(gaze.x, 1) : 0), rig.maxHeadOffset),
+    y: body.y + bounded(motion.head.y + (awake ? bounded(gaze.y, 1) : 0), rig.maxHeadOffset),
   };
   const attached = (offset: PixelOffset, maximum = 2) => ({
     x: body.x + bounded(offset.x, maximum), y: body.y + bounded(offset.y, maximum),
   });
-  const prop = attached(motion.prop, 1);
-  const leftPaw = attached(motion.leftPaw, layers.rig.joints.maxPawOffset);
-  const rightPaw = attached(motion.rightPaw, layers.rig.joints.maxPawOffset);
-  draw(output, N, layers.body, times(body, k));
-  draw(output, N, layers.head, times(head, k));
-  for (const eye of layers.eyes) drawEye(output, grid, eye, times(head, k), gaze, motion.blink);
+  const { tween } = life;
+  const moved = (offset: PixelOffset, by: PixelOffset | undefined) => by ? { x: offset.x + by.x, y: offset.y + by.y } : offset;
+  Object.assign(head, moved(head, tween?.head));
+  const prop = moved(attached(motion.prop, 1), tween?.prop);
+  const leftPaw = moved(attached(motion.leftPaw, rig.maxPawOffset), tween?.leftPaw);
+  const rightPaw = moved(attached(motion.rightPaw, rig.maxPawOffset), tween?.rightPaw);
+  const level = Math.max(1, Math.min(5, Math.round(energy) || 5));
+  const feature = parts[`feature${level as 1 | 2 | 3 | 4 | 5}`];
+  const spent = level <= 2 && !resting;
+  if (!resting) head.y += SINK[level - 1];
+  draw(output, spent ? parts.tiredBody : parts.body, body);
+  draw(output, spent ? parts.tiredHead : parts.head, head);
+  for (const eye of rig.eyes) drawEye(output, parts.head, eye, head, gaze, motion.blink, level);
+  const pale = resting || level > 2 ? 0 : level === 1 ? .4 : .2;
+  fade(output, pale);
+  if (rig.feature === "behind") {
+    // The timer itself never fades: it slides in behind what's already drawn.
+    const timer = new Uint8ClampedArray(N * N * 4);
+    draw(timer, leaned(feature, life.sway ?? 0), body);
+    for (let i = 0; i < timer.length; i += 4) if (timer[i + 3] && !output[i + 3]) output.set(timer.subarray(i, i + 4), i);
+  }
+  if (!resting) drawWear(output, spent ? parts.tiredHead : parts.head, rig, head, level, motion.blink, pale);
+  if (mad) drawScowl(output, rig, head);
+  if (life.power && rig.brows.length) empowerEyes(output, rig, head, life.power);
   // Hats sit over the head but under paws and props, so a raised paw stays in front.
   const neckwear = worn && WORN[worn.id].at === "neck";
-  if (worn && !neckwear) drawWorn(output, grid, worn, head);
-  draw(output, N, layers.prop, times(prop, k));
-  propDetail(output, grid, layers.prop, times(prop, k), motion);
-  draw(output, N, layers.leftPaw, times(leftPaw, k));
-  draw(output, N, layers.rightPaw, times(rightPaw, k));
-  backfillJoints(output, N, layers.joints, times(body, k));
-  if (worn && neckwear) drawWorn(output, grid, worn, body);
+  if (worn && !neckwear) drawWorn(output, worn, head);
+  draw(output, parts.prop, prop);
+  if (rig.prop) propDetail(output, parts.prop, rig.prop, prop, motion);
+  draw(output, fade(parts.leftPaw.slice(), pale), leftPaw);
+  const right = rig.feature === "rightPaw" ? feature : parts.rightPaw;
+  draw(output, fade(right.slice(), pale), rightPaw);
+  if (worn && neckwear) drawWorn(output, worn, body);
   if (phone) {
-    drawPhone(output, grid, prop, motion.screenPulse);
-    drawPhoneGrip(output, grid, layers.rightPaw, rightPaw, prop);
+    drawPhone(output, prop, motion.screenPulse);
+    drawPhoneGrip(output, right, rightPaw, prop);
   }
-  return output;
+  if (life.power) empower(output, life.power, life.beat ?? 0);
+  return life.stretch && Math.abs(life.stretch - 1) > .004 ? squash(output, life.stretch) : output;
 }

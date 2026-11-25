@@ -21,7 +21,7 @@ Nudge makes screen time tangible with a desktop companion that gets tired as you
 ## Features
 - Visual progression: character animation depends on time spent on computer without a break
 - Taking a break will restore the character: resting long enough to compensate for time spent without break will recover the companion
-- Choose a crab, panda, red panda, tuxedo cat, or capybara, with detailed pixel-art sprites and expressive movement
+- Choose a crab, panda, tuxedo cat, or capybara, hand-drawn in pixel art, with expressive movement
 - Light, Dark, or Match Mac appearance (follows Light and Dark Mode live); resize your pet from 50% to 150% in Settings
 - App awareness: waits for a stable category, puts the old activity away, and eases into the next
 - Looks toward your pointer, enjoys strokes and clicks, and can be picked up and dragged
@@ -37,8 +37,9 @@ Nudge makes screen time tangible with a desktop companion that gets tired as you
 - Optional tab and document awareness in any browser, with your own rules; titles are never saved
 - Locking your Mac counts as a break, full-screen video hides the pet, and it can sit on the window you're using
 - Focus sessions: your pet holds your intention on a sign, notices drift, and parks stray thoughts
+- **Mad at it for you:** choose “Expand” and your pet unleashes its Do-Nothing Expansion on the window in front, then starts the thing with you for ten minutes. Save it as a GIF
 - A garden that grows with every pause (14 plants, some seasonal) and never wilts; save it as a postcard
-- A friendship that deepens with care, never screen time, and ten outfits to find
+- A friendship that deepens with care, never screen time, and eleven outfits to find
 - Fourteen step-by-step resets your pet does with you, suggested for the moment; every pause can be ended early
 - Optional wind-down, active hours, and eye, posture and water rhythms
 - Wrap up the day with a mood and one thing for tomorrow; read a weekly letter written on your Mac
@@ -88,30 +89,25 @@ npm run tauri build -- --target universal-apple-darwin
 
 ## Companion artwork
 
-The live desktop pet and picker use generated transparent pixel-art sprite sheets in
-`src/assets/pets/pixel/`. Each of the five companions has sixteen expressions and poses:
-idle, blink, pleased, delighted, curious, lifted, yawning, sleeping, two walking steps,
-stretching, grooming, coding, reading, listening to music, and gaming.
+The four companions are pixel art drawn in code, in [`art/pets.mjs`](art/pets.mjs), on one 64×64 grid.
+They are real animals with real bulk: proportions follow published measurements, with only the heads enlarged.
+Each has sixteen poses.
 
-Generation used the built-in ImageGen tool; full prompts are recorded in
-`src/assets/pets/pixel/PROMPTS.md`. The original atlases stay intact. The renderer
-area-averages each isolated pose onto a pixel grid sized so one art pixel covers about two
-physical pixels (120×120 for the default size on a Retina display), with stable body
-scale and a shared floor. Every output pixel is fully opaque or fully clear, and colour
-ignores the sheets' pale anti-aliased fringe, so there's no halo on dark or light windows.
-Articulation (head, paws, eyes, props) is calibrated on a 60-unit grid and scaled to the
-render grid, so poses line up identically at every resolution. Pose bounds follow the actual connected artwork rather than
-fixed grid lines, preventing clipped ears and neighboring-frame fragments. Walking
-frames are normalized to one facing direction. App changes still wait for a stable
-category and a neutral settling pose.
+Each one also wears its own break timer, so you can tell how long you've worked without reading a number:
+the panda eats its bamboo down, the capybara loses a yuzu from its tower, the cat's pupils open from slits to full moons, and the crab's claw grows until it's ridiculous.
+They also look more tired at every step, from heavy lids to crossed-out eyes. Resting puts it all back.
+
+`npm run art` draws the sheets and measures the rig into `src/assets/pets/pixel/`. Body, head, paws, props,
+eyes and the timer are separate layers. The tests fail if the sheets and the drawing code disagree.
+
+App changes wait for a stable category and a neutral settling pose.
 
 Blinks and little habits have variable timings. Cats favor grooming; capybaras favor
 yawns and curious pauses; tired companions yawn more. Focus work gets longer quiet stretches.
 Petting follows a pleased → delighted → settled sequence, and dragging takes priority
 over other reactions. Menus, direct attention, and Reduce Motion pause automatic habits.
 
-Previous rendered illustrations and legacy crab art remain available in `src/assets/pets/`
-and `src/assets/characters/crab/`; the legacy art retains its original attribution and license.
+Older artwork remains in `src/assets/pets/` and `src/assets/characters/`, unused by the app; the legacy crab keeps its original attribution and license.
 
 ## Interacting with your companion
 
@@ -134,7 +130,7 @@ No account or cloud sync is required.
 - `companion.json` is stored the same way; an unreadable copy is moved aside and the backup used.
 - Tab awareness is off by default and uses macOS Accessibility to read only the front window's
   title and full-screen state. Titles are classified in memory and not written to disk, unless you
-  choose one as a focus session. Because builds are ad-hoc signed, macOS may ask again after an update.
+  choose one as a focus session or ask your pet to stay mad at it. Because builds are ad-hoc signed, macOS may ask again after an update.
 - Call awareness reads only whether a microphone or camera is in use and which apps are playing
   sound. Nothing is captured, and no permission is needed. It can be turned off in Settings.
 - Settings live in memory and every change is written atomically, so a crash can't leave a

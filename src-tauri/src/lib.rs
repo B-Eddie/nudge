@@ -11,12 +11,13 @@ mod companion;
 mod pet_desktop;
 mod presence;
 mod settings;
+mod stage;
 mod storage;
 mod tray;
 mod window_context;
 pub use activity::{
-    erase_activity, export_activity_csv, export_postcard, get_activity, persist_activity,
-    save_activity, ActivityStore,
+    erase_activity, export_activity_csv, export_gif, export_postcard, get_activity,
+    persist_activity, save_activity, ActivityStore,
 };
 pub use app_categories::get_app_category_options;
 pub use companion::{get_companion, replace_companion, save_companion, CompanionStore};
@@ -555,6 +556,30 @@ fn frontmost_app() -> Option<FrontmostApp> {
     })
 }
 
+/// The last app other than nudge to be in front. Zero until one has been seen.
+#[cfg(target_os = "macos")]
+static LAST_FRONT: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
+
+/// The app in front or, while nudge's own panel is, the one the person was just using.
+#[cfg(target_os = "macos")]
+fn working_pid() -> Option<i32> {
+    use objc2::rc::autoreleasepool;
+    use objc2_app_kit::{NSApplicationActivationPolicy, NSWorkspace};
+
+    // Menu-bar helpers have no window to work in, so they don't count.
+    let front = autoreleasepool(|_| {
+        let app = unsafe { NSWorkspace::sharedWorkspace().frontmostApplication() }?;
+        let regular = unsafe { app.activationPolicy() } == NSApplicationActivationPolicy::Regular;
+        let pid = unsafe { app.processIdentifier() };
+        (regular && pid > 0 && pid != std::process::id() as i32).then_some(pid)
+    });
+    if let Some(pid) = front {
+        LAST_FRONT.store(pid, AtomicOrdering::SeqCst);
+        return Some(pid);
+    }
+    Some(LAST_FRONT.load(AtomicOrdering::SeqCst)).filter(|pid| *pid > 0)
+}
+
 #[cfg(target_os = "macos")]
 fn frontmost_pid() -> Option<i32> {
     use objc2::rc::autoreleasepool;
@@ -622,6 +647,8 @@ fn get_frontmost_app(
 ) -> Result<Option<FrontmostApp>, String> {
     #[cfg(target_os = "macos")]
     {
+        // Polled twice a second, so the last app in use is always known.
+        working_pid();
         let mut front = frontmost_app();
         if let Some(info) = front.as_mut() {
             if let Some(bid) = info.bundle_id.as_deref() {
@@ -720,6 +747,8 @@ pub fn run() {
             erase_activity,
             export_activity_csv,
             export_postcard,
+            export_gif,
+            stage::throw_at_front_window,
             get_companion,
             save_companion,
             replace_companion,

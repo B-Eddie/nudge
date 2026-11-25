@@ -334,6 +334,21 @@ pub fn export_postcard(app: AppHandle, file_name: String, png: Vec<u8>) -> Resul
     export_to_downloads(&app, &file_name, ".png", &png)
 }
 
+const MAX_GIF_BYTES: usize = 16 * 1024 * 1024;
+
+fn valid_gif(gif: &[u8]) -> bool {
+    gif.len() <= MAX_GIF_BYTES && gif.starts_with(b"GIF89a")
+}
+
+/// Saves an animation drawn by the overlay to Downloads and reveals it in Finder.
+#[tauri::command]
+pub fn export_gif(app: AppHandle, file_name: String, gif: Vec<u8>) -> Result<String, String> {
+    if !valid_gif(&gif) {
+        return Err("the animation is not a GIF".into());
+    }
+    export_to_downloads(&app, &file_name, ".gif", &gif)
+}
+
 pub fn persist_activity(app: &AppHandle) -> Result<(), String> {
     app.state::<ActivityStore>().persist(app)
 }
@@ -387,6 +402,12 @@ mod tests {
         assert!(valid_postcard(b"\x89PNG\r\n\x1a\nrest"));
         assert!(!valid_postcard(b"#!/bin/sh"));
         assert!(!valid_postcard(b""));
+    }
+
+    #[test]
+    fn animations_must_be_gif_images() {
+        assert!(valid_gif(b"GIF89a..."));
+        assert!(!valid_gif(b"\x89PNG\r\n\x1a\n"));
     }
 
     #[test]

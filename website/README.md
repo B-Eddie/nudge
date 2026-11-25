@@ -27,7 +27,7 @@ After deployment, verify `/`, `/privacy.html`, `/robots.txt`, `/sitemap.xml`, `/
 ## Content and privacy
 
 - Product facts come from the repository README and app source. Current release: `v0.4.0`, with a universal Apple silicon and Intel DMG. The verified release installer is 24,354,776 bytes; avoid the old “~10 MB” claim.
-- Nudge has five companions: crab, panda, red panda, tuxedo cat, and capybara. It reads the active app/category, input idle time, pointer state, and window geometry; summaries and settings are saved locally.
+- Nudge has four companions: crab, panda, tuxedo cat, and capybara. It reads the active app/category, input idle time, pointer state, and window geometry; summaries and settings are saved locally.
 - `src-tauri/src/activity.rs` stores activity data in `activity.json`; `src-tauri/src/settings.rs` stores preferences, app-category metadata, and pending notes in `settings.json`. `src/App.tsx` retains up to 31 daily activity records. `src-tauri/src/pet_desktop.rs` uses window bounds without screenshots.
 - Keep the privacy page accurate when adding browser storage, analytics, external resources, accounts, or new desktop data handling. The current site uses local assets and has no analytics scripts or advertising trackers. Vercel still handles normal request metadata as the host.
 - Keep download instructions honest about the community build's lack of notarization. Do not invent testimonials, ratings, medical outcomes, resource benchmarks, or supported Windows behavior.
@@ -44,6 +44,10 @@ Primary references:
 - [Google: building and submitting a sitemap](https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap)
 - [Vercel privacy notice](https://vercel.com/legal/privacy-notice)
 - [Nudge releases](https://github.com/B-Eddie/nudge/releases/latest)
+
+## Mad at it for you
+
+`mad.html` is a small shareable toy: type something you don't want to do, pick a pet, save a GIF or copy a link. Words in a link live after the `#`, so they never reach the host. `mad.js` and `assets/mad/` are generated from the app's renderer by `scripts/build-mad.mjs`; rebuild them after changing `src/lib/tantrum*.ts`, `src/lib/madScene.ts` or `src/web/`.
 
 ## Interaction checks
 

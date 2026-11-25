@@ -10,6 +10,7 @@ const TRAY_ID: &str = "nudge";
 /// Menu ids forwarded to the overlay as the `tray-action` event payload.
 pub const FORWARDED_ACTIONS: &[&str] = &[
     "toggle-companion",
+    "ugh",
     "break",
     "focus",
     "garden",
@@ -43,6 +44,7 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
             &MenuItem::with_id(app, "version", version, false, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
             &item("toggle-companion", "Show or Hide Companion")?,
+            &item("ugh", "Do-Nothing Expansion")?,
             &item("break", "Take a Break…")?,
             &item("focus", "Focus Session…")?,
             &item("garden", "Garden…")?,

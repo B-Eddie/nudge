@@ -44,7 +44,7 @@ export function CompanionPicker({ value, onChange }: CompanionPickerProps) {
           onClick={() => onChange(companion.id)}
         >
           <span className="companion-option-art">
-            <PixelPetSprite character={companion.id} displaySize={60} />
+            <PixelPetSprite character={companion.id} />
           </span>
           <span className="companion-option-name">{companion.name}</span>
           <span className="companion-option-description">{companion.description}</span>

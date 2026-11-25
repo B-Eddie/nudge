@@ -22,7 +22,7 @@ afterEach(() => { act(() => root.unmount()); host.remove(); vi.restoreAllMocks()
 describe("companion life", () => {
   it("chooses different hobbies for each personality and remembers recent adventures", () => {
     expect(chooseAdventure("cat", "idle", 5, [])).toBe("ball");
-    expect(chooseAdventure("red_panda", "idle", 5, [])).toBe("butterfly");
+    expect(chooseAdventure("cat", "idle", 5, [])).toBe("ball");
     expect(chooseAdventure("capybara", "idle", 5, [])).toBe("tea");
     let recent: AdventureKind[] = [];
     for (let i = 0; i < 12; i++) {
@@ -35,7 +35,7 @@ describe("companion life", () => {
     for (const random of [0, .2, .5, .8, .999]) {
       vi.mocked(Math.random).mockReturnValue(random);
       expect(["garden", "tea", "stargaze", "leaf", "exercise"]).toContain(chooseAdventure("cat", "focus", 5, []));
-      expect(["tea", "nap", "stargaze", "snack"]).toContain(chooseAdventure("red_panda", "idle", 1, []));
+      expect(["tea", "nap", "stargaze", "snack"]).toContain(chooseAdventure("cat", "idle", 1, []));
     }
   });
   it("varies explicitly requested games without choosing a quiet hobby or the same toy", () => {

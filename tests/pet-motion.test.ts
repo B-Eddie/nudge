@@ -4,7 +4,7 @@ import { PET_POSES, type PetPose } from "../src/types/pixelPets";
 import type { CompanionId } from "../src/types/appearance";
 
 const poses = Object.keys(PET_POSES) as PetPose[];
-const characters: CompanionId[] = ["panda", "red_panda", "cat", "capybara", "crab"];
+const characters: CompanionId[] = ["panda", "cat", "capybara", "crab"];
 const coordinates = (frame: PetMotionFrame) => [frame.body, frame.head, frame.leftPaw, frame.rightPaw, frame.prop];
 
 describe("articulated companion motion", () => {

@@ -49,9 +49,9 @@ describe("the bond", () => {
     expect(care(s, "pet", now + 90 * DAY).bond).toBeGreaterThan(5);
   });
   it("names each level and its progress", () => {
-    expect(bondLevel(0)).toMatchObject({ name: "New friends", progress: 0 });
-    expect(bondLevel(25).name).toBe("Getting comfy");
-    expect(bondLevel(9999)).toMatchObject({ name: "Kindred spirits", next: null, progress: 1 });
+    expect(bondLevel(0)).toMatchObject({ name: "Grade 4 napper", progress: 0 });
+    expect(bondLevel(25).name).toBe("Grade 3 napper");
+    expect(bondLevel(9999)).toMatchObject({ name: "Special grade napper", next: null, progress: 1 });
   });
   it("announces each outfit and milestone once", () => {
     let s = newCompanion(now);

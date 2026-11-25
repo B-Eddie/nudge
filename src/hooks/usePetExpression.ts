@@ -10,6 +10,8 @@ interface ExpressionContext {
   near: boolean; busy: boolean; energy: number; reducedMotion: boolean;
   /** A pose to hold while doing a break routine together. */
   performing?: PetPose;
+  /** A pose from a tantrum. */
+  mad?: PetPose;
   /** 0 awake to 3 asleep: how long a nudge has gone unanswered. */
   drowsy?: number;
 }
@@ -69,6 +71,7 @@ export function usePetExpression(c: ExpressionContext) {
 
   let pose: PetPose;
   if (c.dragging) pose = "lifted";
+  else if (c.mad) pose = c.mad;
   else if (reaction) pose = reaction;
   else if (c.performing) pose = c.performing;
   else if (c.hovered) pose = "curious";

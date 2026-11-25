@@ -23,7 +23,6 @@ export const ADVENTURES: Record<AdventureKind, { label: string; pose: PetPose; d
 const PERSONALITIES: Record<CompanionId, AdventureKind[]> = {
   crab: ["garden", "bubbles", "leaf", "ball", "exercise", "peek", "snack", "butterfly", "tea", "stargaze", "nap"],
   panda: ["garden", "snack", "tea", "butterfly", "ball", "stargaze", "exercise", "bubbles", "leaf", "nap", "peek"],
-  red_panda: ["butterfly", "ball", "peek", "leaf", "bubbles", "garden", "snack", "exercise", "tea", "stargaze", "nap"],
   cat: ["ball", "butterfly", "peek", "leaf", "nap", "bubbles", "exercise", "snack", "garden", "stargaze", "tea"],
   capybara: ["tea", "bubbles", "stargaze", "snack", "nap", "garden", "butterfly", "leaf", "exercise", "ball", "peek"],
 };

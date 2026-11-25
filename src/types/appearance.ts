@@ -1,10 +1,9 @@
 import pandaPreview from "../assets/pets/pixel/panda.png";
 import catPreview from "../assets/pets/pixel/cat.png";
-import redPandaPreview from "../assets/pets/pixel/red_panda.png";
 import capybaraPreview from "../assets/pets/pixel/capybara.png";
 import crabPreview from "../assets/pets/pixel/crab.png";
 
-export type CompanionId = "panda" | "red_panda" | "cat" | "capybara" | "crab";
+export type CompanionId = "panda" | "cat" | "capybara" | "crab";
 /** "system" follows the macOS Light/Dark appearance; the others are fixed. */
 export type ThemeId = "system" | "bamboo" | "night_garden";
 
@@ -14,6 +13,10 @@ export interface CompanionOption {
   description: string;
   preview: string;
 }
+
+/** A saved companion that no longer exists becomes the panda. */
+export const knownCompanion = (id: string | undefined, fallback: CompanionId = "crab"): CompanionId =>
+  id === undefined ? fallback : COMPANIONS.find(c => c.id === id)?.id ?? "panda";
 
 export const COMPANIONS: CompanionOption[] = [
   {
@@ -27,12 +30,6 @@ export const COMPANIONS: CompanionOption[] = [
     name: "Panda",
     description: "Your original calm companion",
     preview: pandaPreview,
-  },
-  {
-    id: "red_panda",
-    name: "Red panda",
-    description: "Curious, with a busy little tail",
-    preview: redPandaPreview,
   },
   {
     id: "cat",

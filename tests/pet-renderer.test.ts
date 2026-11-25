@@ -1,258 +1,124 @@
 import { describe, expect, it } from "vitest";
 import { samplePetMotion, type PetMotionFrame } from "../src/lib/petMotion";
-import { prepareSpritePixels, renderSpritePixels } from "../src/lib/petRenderer";
+import { prepareSpritePixels, renderSpritePixels, type SpriteParts } from "../src/lib/petRenderer";
+import { sheetParts } from "../src/lib/petSheet";
 import type { EyeAnchor, PetRect, PetRig } from "../src/lib/petRig";
-import { getPetRig } from "../src/lib/petRig";
 
 type Rgba = [number, number, number, number];
-const pixel = (pixels: Uint8ClampedArray, x: number, y: number) => Array.from(pixels.subarray((y * 60 + x) * 4, (y * 60 + x) * 4 + 4));
-const rect = (pixels: Uint8ClampedArray, bounds: PetRect, rgba: Rgba) => {
-  for (let y = bounds.y; y < bounds.y + bounds.height; y++) {
-    for (let x = bounds.x; x < bounds.x + bounds.width; x++) pixels.set(rgba, (y * 60 + x) * 4);
-  }
+const pixel = (pixels: Uint8ClampedArray, x: number, y: number) => Array.from(pixels.subarray((y * 80 + x) * 4, (y * 80 + x) * 4 + 4));
+const raster = (...fills: [PetRect, Rgba][]) => {
+  const pixels = new Uint8ClampedArray(25600);
+  for (const [r, rgba] of fills) for (let y = r.y; y < r.y + r.height; y++) for (let x = r.x; x < r.x + r.width; x++) pixels.set(rgba, (y * 80 + x) * 4);
+  return pixels;
 };
+const FUR: Rgba = [190, 150, 110, 255], BODY: Rgba = [160, 120, 80, 255], WHITE: Rgba = [251, 244, 230, 255], PAW: Rgba = [48, 38, 58, 255], PROP: Rgba = [170, 185, 195, 255], INK = [16, 23, 22, 255];
 const still = (): PetMotionFrame => samplePetMotion("focus", 0);
-const rig = (eyes: EyeAnchor[] = []): PetRig => ({
-  head: { x: 18, y: 10, width: 25, height: 22 },
-  leftPaw: { x: 17, y: 35, width: 7, height: 8 },
-  rightPaw: { x: 37, y: 35, width: 7, height: 8 },
-  prop: { x: 25, y: 37, width: 11, height: 12 }, eyes,
-  joints: { headOverlap: 2, maxHeadOffset: 1, maxPawOffset: 2 },
-});
-const eye = (): EyeAnchor => ({
-  bounds: { x: 28, y: 19, width: 5, height: 5 },
-  pupil: { x: 30, y: 21, width: 1, height: 1 },
-  highlight: { x: 30, y: 20, width: 1, height: 1 },
-  palette: { iris: "#d2ba90", pupil: "#101716", highlight: "#fff5da" },
-  maxGazeX: 1, maxGazeY: 1,
+const eye = (extra: Partial<EyeAnchor> = {}): EyeAnchor => ({
+  bounds: { x: 28, y: 19, width: 5, height: 5 }, pupil: { x: 29, y: 20, width: 2, height: 2 }, color: "#101716",
+  byEnergy: null, shine: null, sclera: "#fbf4e6", lid: "#be966e", line: "#101716", ...extra,
 });
 function fixture(eyes: EyeAnchor[] = []) {
-  const pixels = new Uint8ClampedArray(60 * 60 * 4), geometry = rig(eyes);
-  rect(pixels, { x: 20, y: 28, width: 21, height: 25 }, [160, 120, 80, 255]);
-  rect(pixels, geometry.head, [190, 150, 110, 255]);
-  rect(pixels, geometry.leftPaw!, [38, 48, 58, 255]);
-  rect(pixels, geometry.rightPaw!, [48, 38, 58, 255]);
-  rect(pixels, geometry.prop!, [170, 185, 195, 255]);
-  for (const anchor of eyes) {
-    rect(pixels, anchor.bounds, [210, 186, 144, 255]);
-    rect(pixels, anchor.pupil, [16, 23, 22, 255]);
-    rect(pixels, anchor.highlight, [255, 245, 218, 255]);
-  }
-  return { pixels, geometry };
+  const rig: PetRig = {
+    head: { x: 18, y: 10, width: 25, height: 22 }, leftPaw: { x: 17, y: 35, width: 7, height: 8 }, rightPaw: { x: 37, y: 35, width: 7, height: 8 },
+    prop: { x: 25, y: 37, width: 11, height: 12 }, eyes, feature: null, brows: eyes.map(e => e.bounds), asleep: false, maxHeadOffset: 1, maxPawOffset: 2,
+  };
+  const parts: SpriteParts = {
+    body: raster([{ x: 20, y: 26, width: 21, height: 27 }, BODY]),
+    head: raster([rig.head, FUR], ...eyes.filter(e => e.sclera).map((e): [PetRect, Rgba] => [e.bounds, WHITE])),
+    leftPaw: raster([rig.leftPaw!, PAW]), rightPaw: raster([rig.rightPaw!, PAW]), prop: raster([rig.prop!, PROP]), feature1: raster(), feature2: raster(), feature3: raster(), feature4: raster(), feature5: raster(), tiredBody: raster([{ x: 20, y: 26, width: 21, height: 27 }, BODY]), tiredHead: raster([rig.head, FUR], ...eyes.filter(e => e.sclera).map((e): [PetRect, Rgba] => [e.bounds, WHITE])),
+  };
+  return prepareSpritePixels(parts, rig);
 }
 
 describe("pixel companion compositor", () => {
-  it("reassembles the exact neutral raster and never mutates cached artwork", () => {
-    const { pixels, geometry } = fixture();
-    const original = pixels.slice(), layers = prepareSpritePixels(pixels, geometry);
-    expect(renderSpritePixels(layers, still(), { x: 0, y: 0 })).toEqual(original);
-    const motion = { ...still(), head: { x: 1, y: -1 }, leftPaw: { x: 0, y: 2 } };
-    renderSpritePixels(layers, motion, { x: 0, y: 0 });
-    expect(pixels).toEqual(original);
-    expect(renderSpritePixels(layers, still(), { x: 0, y: 0 })).toEqual(original);
+  it("stacks parts in order and never mutates the artwork", () => {
+    const art = fixture(), before = art.parts.head.slice();
+    const out = renderSpritePixels(art, still(), { x: 0, y: 0 });
+    expect(pixel(out, 25, 28)).toEqual(FUR);
+    expect(pixel(out, 22, 36)).toEqual(PAW);
+    expect(pixel(out, 30, 40)).toEqual(PROP);
+    renderSpritePixels(art, { ...still(), head: { x: 1, y: -1 } }, { x: 1, y: 1 });
+    expect(art.parts.head).toEqual(before);
+    expect(renderSpritePixels(art, still(), { x: 0, y: 0 })).toEqual(out);
   });
-
-  it("moves one head and paw without leaving a second former outline", () => {
-    const { pixels, geometry } = fixture(), layers = prepareSpritePixels(pixels, geometry);
-    const motion = { ...still(), head: { x: 1, y: 0 }, leftPaw: { x: 0, y: 2 } };
-    const moved = renderSpritePixels(layers, motion, { x: 0, y: 0 });
-    expect(pixel(moved, 18, 10)).toEqual([0, 0, 0, 0]);
-    expect(pixel(moved, 19, 10)).toEqual([190, 150, 110, 255]);
-    expect(pixel(moved, 17, 44)).toEqual([38, 48, 58, 255]);
-    // Only interior shoulder joins remain. Exterior edges leave no old paw.
-    expect(pixel(layers.joints.pixels, 20, 35)).toEqual([38, 48, 58, 255]);
-    expect(pixel(layers.joints.pixels, 17, 35)).toEqual([0, 0, 0, 0]);
-    expect(pixel(layers.joints.pixels, 17, 38)).toEqual([0, 0, 0, 0]);
-    expect(pixel(layers.joints.pixels, 18, 15)).toEqual([0, 0, 0, 0]);
+  it("shows the body, not a hole, where a part moved away", () => {
+    const out = renderSpritePixels(fixture(), { ...still(), head: { x: 0, y: -1 }, leftPaw: { x: 0, y: 2 } }, { x: 0, y: 0 });
+    expect(pixel(out, 25, 31)).toEqual(BODY);
+    expect(pixel(out, 21, 35)).toEqual(BODY);
+    expect(pixel(out, 18, 35)).toEqual([0, 0, 0, 0]);
+    expect(pixel(out, 18, 44)).toEqual(PAW);
   });
-
-  it("keeps translucent edges from accumulating opacity at retained fur joints", () => {
-    const { pixels, geometry } = fixture();
-    rect(pixels, { x: 18, y: 31, width: 1, height: 1 }, [120, 100, 80, 100]);
-    const layers = prepareSpritePixels(pixels, geometry);
-    expect(pixel(layers.body.pixels, 18, 31)).toEqual([0, 0, 0, 0]);
-    expect(pixel(renderSpritePixels(layers, still(), { x: 0, y: 0 }), 18, 31)).toEqual([120, 100, 80, 100]);
+  it("looks around inside the eye, and limits wild gaze", () => {
+    const art = fixture([eye()]);
+    const ahead = renderSpritePixels(art, still(), { x: 0, y: 0 });
+    expect(pixel(ahead, 29, 20)).toEqual(INK);
+    const right = renderSpritePixels(art, still(), { x: 1, y: 0 });
+    // One for the head, one for the pupil.
+    expect(pixel(right, 32, 20)).toEqual(INK);
+    expect(pixel(right, 30, 20)).toEqual(WHITE);
+    expect(renderSpritePixels(art, still(), { x: 900, y: 0 })).toEqual(right);
+    const tight = fixture([eye({ pupil: { x: 28, y: 19, width: 5, height: 5 } })]);
+    const left = renderSpritePixels(tight, still(), { x: -1, y: 0 });
+    expect(pixel(left, 26, 21)).toEqual(FUR);
   });
-
-  it("fills interior cut lines even when real artwork opacity is252 rather than255", () => {
-    const { pixels, geometry } = fixture();
-    for (let index = 3; index < pixels.length; index += 4) if (pixels[index]) pixels[index] = 252;
-    const layers = prepareSpritePixels(pixels, geometry);
-    // Neutral composition must remain byte-for-byte identical, without double
-    // alpha over fur joins. Backfill is used only when an articulated part
-    // actually exposes a cut, rather than permanently painting a second head.
-    expect(renderSpritePixels(layers, still(), { x: 0, y: 0 })).toEqual(pixels);
-    for (const x of [-1, 0, 1]) {
-      const moved = renderSpritePixels(layers, { ...still(), head: { x, y: -1 } }, { x: 0, y: 0 });
-      for (let shoulderX = 20; shoulderX < 41; shoulderX++) {
-        expect(pixel(moved, shoulderX, 31)[3], `neck(${shoulderX},31)`).toBeGreaterThanOrEqual(230);
-      }
-    }
+  it("blinks to the lid colour with a soft line", () => {
+    const out = renderSpritePixels(fixture([eye()]), { ...still(), blink: true }, { x: 1, y: 1 });
+    expect(pixel(out, 28, 19)).toEqual(FUR);
+    expect(pixel(out, 30, 21)).toEqual(INK);
   });
-
-  it("bridges side cuts where an arm or prop intersects the head, not just the bottom neck row", () => {
-    const pixels = new Uint8ClampedArray(60 * 60 * 4);
-    rect(pixels, { x: 18, y: 14, width: 27, height: 36 }, [175, 140, 110, 252]);
-    const geometry: PetRig = {
-      ...rig(), head: { x: 18, y: 14, width: 27, height: 20 }, leftPaw: null,
-      rightPaw: { x: 36, y: 25, width: 9, height: 19 }, prop: { x: 22, y: 30, width: 14, height: 18 },
-    };
-    const layers = prepareSpritePixels(pixels, geometry);
-    const shifted = renderSpritePixels(layers, { ...still(), head: { x: 1, y: -1 }, rightPaw: { x: 1, y: 2 } }, { x: 0, y: 0 });
-    for (let y = 25; y < 33; y++) expect(pixel(shifted, 36, y)[3], `arm/head(${36},${y})`).toBeGreaterThanOrEqual(230);
-    for (let x = 23; x < 35; x++) expect(pixel(shifted, x, 29)[3], `prop/head(${x},29)`).toBeGreaterThanOrEqual(230);
+  it("keeps a catchlight with its eye", () => {
+    const art = fixture([eye({ sclera: null, shine: "#ffffff" })]);
+    for (const x of [-1, 0, 1]) expect(pixel(renderSpritePixels(art, still(), { x, y: 0 }), 30 + x * 2, 21)).toEqual([255, 255, 255, 255]);
   });
-
-  it("fills diagonal corners beside a head/paw cut when the head looks up and sideways", () => {
-    const geometry = getPetRig("panda", "curious"), pixels = new Uint8ClampedArray(60 * 60 * 4);
-    rect(pixels, { x: 15, y: 15, width: 36, height: 39 }, [180, 140, 110, 252]);
-    const layers = prepareSpritePixels(pixels, geometry);
-    // (39,36) is diagonally adjacent to the right-paw corner at(40,37).
-    // Four cardinal-neighbor cut detection misses that exposed corner.
-    const shifted = renderSpritePixels(layers, samplePetMotion("curious", 0), { x: -1, y: -1 });
-    expect(pixel(shifted, 39, 36)[3]).toBeGreaterThanOrEqual(230);
+  it("tells the time with its body: a feature per energy, and pupils that can grow", () => {
+    const art = fixture([eye({ byEnergy: [5, 4, 3, 2, 1].map(width => ({ x: 28, y: 20, width, height: 2 })) })]);
+    art.rig.feature = "behind";
+    art.parts.feature2 = raster([{ x: 2, y: 2, width: 1, height: 1 }, PAW]);
+    const at = (energy: number) => renderSpritePixels(art, still(), { x: 0, y: 0 }, false, null, false, energy);
+    expect(pixel(at(2), 2, 2)).toEqual(PAW);
+    expect(pixel(at(3), 2, 2)).toEqual([0, 0, 0, 0]);
+    expect(pixel(at(5), 30, 20)).toEqual(WHITE);
+    // The head has sunk three rows by now.
+    expect(Math.max(...pixel(at(1), 30, 24).slice(0, 3))).toBeLessThan(40);
+    expect(at(-4)).toEqual(at(1)); expect(at(99)).toEqual(at(5));
   });
-
-  it("restores the curious panda's missing right-eye catchlight at neutral gaze", () => {
-    const anchor: EyeAnchor = {
-      ...eye(), bounds: { x: 38, y: 22, width: 5, height: 6 },
-      pupil: { x: 39, y: 23, width: 3, height: 4 },
-      highlight: { x: 40, y: 23, width: 1, height: 1 },
-    };
-    const { pixels, geometry } = fixture([anchor]);
-    rect(pixels, anchor.highlight, [8, 6, 9, 255]);
-    const fixed = renderSpritePixels(prepareSpritePixels(pixels, geometry), still(), { x: 0, y: 0 });
-    expect(pixel(fixed, 40, 23)).toEqual([255, 245, 218, 255]);
-    // Repair only the catchlight; the surrounding shaded panda eye survives.
-    expect(pixel(fixed, 41, 25)).toEqual(pixel(pixels, 41, 25));
+  it("looks more tired at every step, and not at all while asleep", () => {
+    const art = fixture([eye()]), at = (energy: number) => renderSpritePixels(art, still(), { x: 0, y: 0 }, false, null, false, energy);
+    const differs = (a: Uint8ClampedArray) => at(5).reduce((n, v, i) => n + (v !== a[i] ? 1 : 0), 0);
+    expect(differs(at(4))).toBe(0);
+    expect(differs(at(3))).toBeGreaterThan(0);
+    expect(differs(at(2))).toBeGreaterThan(differs(at(3)));
+    expect(differs(at(1))).toBeGreaterThan(differs(at(2)));
+    art.rig.asleep = true;
+    expect(at(1)).toEqual(at(5));
   });
-
-  it("retains a bright pixel in both actual curious panda eye bounds for all nine gaze directions", () => {
-    const geometry = getPetRig("panda", "curious"), pixels = new Uint8ClampedArray(60 * 60 * 4);
-    rect(pixels, geometry.head, [235, 221, 190, 255]);
-    for (const anchor of geometry.eyes) rect(pixels, anchor.bounds, [8, 6, 9, 255]);
-    const layers = prepareSpritePixels(pixels, geometry);
-    for (const x of [-1, 0, 1]) for (const y of [-1, 0, 1]) {
-      const rendered = renderSpritePixels(layers, samplePetMotion("curious", 0), { x, y });
-      for (const anchor of geometry.eyes) {
-        let highlights = 0;
-        for (let py = anchor.bounds.y + y; py < anchor.bounds.y + anchor.bounds.height + y; py++) {
-          for (let px = anchor.bounds.x + x; px < anchor.bounds.x + anchor.bounds.width + x; px++) {
-            if (pixel(rendered, px, py).join() === "255,245,218,255") highlights++;
-          }
-        }
-        expect(highlights, `gaze(${x},${y}) eye${anchor.bounds.x}`).toBeGreaterThan(0);
-      }
-    }
+  it("scowls only when mad", () => {
+    const art = fixture([eye()]), calm = renderSpritePixels(art, still(), { x: 0, y: 0 });
+    const mad = renderSpritePixels(art, still(), { x: 0, y: 0 }, false, null, true);
+    expect(mad).not.toEqual(calm);
+    for (let i = 0; i < 6400; i++) if (mad[i * 4] !== calm[i * 4]) expect(Math.floor(i / 80)).toBeLessThan(24);
   });
-
-  it("tracks pupils and their catchlights together, clipped inside the eye's rounded shape", () => {
-    const { pixels, geometry } = fixture([eye()]), layers = prepareSpritePixels(pixels, geometry);
-    const lookingRight = renderSpritePixels(layers, still(), { x: 1, y: 0 });
-    expect(pixel(lookingRight, 32, 21)).toEqual([16, 23, 22, 255]);
-    expect(pixel(lookingRight, 32, 20)).toEqual([255, 245, 218, 255]);
-    // Corners are outside the rounded eye; they retain their original texture
-    // after the one-pixel head shift instead of becoming rectangular patches.
-    expect(pixel(lookingRight, 29, 19)).toEqual(pixel(pixels, 28, 19));
-    const extreme = renderSpritePixels(layers, still(), { x: 1000, y: -1000 });
-    const bounded = renderSpritePixels(layers, still(), { x: 1, y: -1 });
-    expect(extreme).toEqual(bounded);
-    renderSpritePixels(layers, still(), { x: -1, y: 1 });
-    expect(renderSpritePixels(layers, still(), { x: 1, y: 0 })).toEqual(lookingRight);
+  it("limits page and screen effects to the prop", () => {
+    const art = fixture(), plain = renderSpritePixels(art, still(), { x: 0, y: 0 });
+    const lit = renderSpritePixels(art, { ...still(), pageTurn: true, screenPulse: true }, { x: 0, y: 0 });
+    let changed = 0;
+    for (let i = 0; i < 6400; i++) if (lit[i * 4] !== plain[i * 4]) { changed++; expect(pixel(plain, i % 80, Math.floor(i / 80))).toEqual(PROP); }
+    expect(changed).toBeGreaterThan(0);
   });
-
-  it("blinks without a bright catchlight and never opens closed or sleeping eyes for gaze", () => {
-    const { pixels, geometry } = fixture([eye()]);
-    const blinking = renderSpritePixels(prepareSpritePixels(pixels, geometry), { ...still(), blink: true }, { x: 1, y: 1 });
-    expect(pixel(blinking, 30, 20)).toEqual([190, 150, 110, 255]);
-    expect(pixel(blinking, 30, 21)).toEqual([16, 23, 22, 255]);
-    const closed = fixture(), closedLayers = prepareSpritePixels(closed.pixels, closed.geometry);
-    const sleeping = samplePetMotion("sleep", 2500);
-    expect(renderSpritePixels(closedLayers, sleeping, { x: -1, y: 1 }))
-      .toEqual(renderSpritePixels(closedLayers, sleeping, { x: 0, y: 0 }));
+  it("holds a phone without leaking off the canvas or covering its screen", () => {
+    const out = renderSpritePixels(fixture(), { ...still(), body: { x: 1000, y: 1000 }, prop: { x: 1000, y: 1000 } }, { x: 1, y: -1 }, true);
+    expect(out).toHaveLength(25600);
+    expect(pixel(renderSpritePixels(fixture(), still(), { x: 0, y: 0 }, true), 51, 57)).toEqual([164, 197, 177, 255]);
   });
-
-  it("limits page and screen effects to opaque prop pixels", () => {
-    const { pixels, geometry } = fixture(), layers = prepareSpritePixels(pixels, geometry);
-    const normal = renderSpritePixels(layers, still(), { x: 0, y: 0 });
-    const detailed = renderSpritePixels(layers, { ...still(), pageTurn: true, screenPulse: true }, { x: 0, y: 0 });
-    let changes = 0;
-    for (let y = 0; y < 60; y++) for (let x = 0; x < 60; x++) {
-      if (pixel(normal, x, y).join() === pixel(detailed, x, y).join()) continue;
-      changes++;
-      expect(x).toBeGreaterThanOrEqual(geometry.prop!.x);
-      expect(x).toBeLessThan(geometry.prop!.x + geometry.prop!.width);
-      expect(y).toBeGreaterThanOrEqual(geometry.prop!.y);
-      expect(y).toBeLessThan(geometry.prop!.y + geometry.prop!.height);
-      expect(pixel(normal, x, y)[3]).toBeGreaterThan(0);
-    }
-    expect(changes).toBeGreaterThan(0);
+  it("rejects artwork of the wrong size", () => {
+    const art = fixture();
+    expect(() => prepareSpritePixels({ ...art.parts, head: new Uint8ClampedArray(16) }, art.rig)).toThrow("80×80");
   });
-
-  it("draws an optional phone without leaking outside the 60px canvas", () => {
-    const { pixels, geometry } = fixture(), layers = prepareSpritePixels(pixels, geometry);
-    const motion = { ...still(), body: { x: 1000, y: 1000 }, prop: { x: 1000, y: 1000 } };
-    const withPhone = renderSpritePixels(layers, motion, { x: 1, y: -1 }, true);
-    expect(withPhone).toHaveLength(60 * 60 * 4);
-    for (let coordinate = 0; coordinate < 60; coordinate++) {
-      expect(pixel(withPhone, coordinate, 0)[3]).toBe(0);
-      expect(pixel(withPhone, coordinate, 59)[3]).toBe(0);
-      expect(pixel(withPhone, 0, coordinate)[3]).toBe(0);
-      expect(pixel(withPhone, 59, coordinate)[3]).toBe(0);
-    }
-    expect(pixel(withPhone, 46, 48)[3]).toBe(255);
-    expect(() => prepareSpritePixels(new Uint8ClampedArray(16), geometry)).toThrow("60×60");
-  });
-
-  it("keeps a phone screen readable in front of the actual crab claw while its tapping grip moves", () => {
-    const geometry = getPetRig("crab", "curious"), pixels = new Uint8ClampedArray(60 * 60 * 4);
-    rect(pixels, geometry.head, [205, 105, 70, 252]);
-    rect(pixels, geometry.rightPaw!, [210, 80, 45, 252]);
-    const layers = prepareSpritePixels(pixels, geometry);
-    const neutral = renderSpritePixels(layers, samplePetMotion("curious", 0, "crab", true), { x: 0, y: 0 }, true);
-    expect(pixel(neutral, 43, 43)).toEqual([164, 197, 177, 255]);
-    expect(pixel(neutral, 43, 42)).toEqual([232, 223, 189, 255]);
-    const tapping = renderSpritePixels(layers, samplePetMotion("curious", 960, "crab", true), { x: 0, y: 0 }, true);
-    expect(pixel(tapping, 43, 43)).toEqual([232, 223, 189, 255]);
-    expect(pixel(tapping, 55, 54)[3]).toBeGreaterThan(0);
-    expect(pixel(neutral, 55, 54)[3]).toBe(0);
-    // The narrow grip can cover the case, never the actual display.
-    expect(pixel(tapping, 43, 46)[3]).toBe(255);
-  });
-});
-
-describe("fine-raster rendering", () => {
-  const upscale = (source: Uint8ClampedArray, k: number) => {
-    const n = 60 * k, out = new Uint8ClampedArray(n * n * 4);
-    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
-      const from = (Math.floor(y / k) * 60 + Math.floor(x / k)) * 4;
-      out.set(source.subarray(from, from + 4), (y * n + x) * 4);
-    }
-    return out;
-  };
-  const frames: [string, PetMotionFrame, { x: number; y: number }, boolean][] = [
-    ["still", still(), { x: 0, y: 0 }, false],
-    ["head and paws moved", { ...still(), head: { x: 1, y: -1 }, leftPaw: { x: 0, y: 2 }, rightPaw: { x: -1, y: 1 } }, { x: 0, y: 0 }, false],
-    ["looking aside", still(), { x: 1, y: -1 }, false],
-    ["blinking", { ...still(), blink: true }, { x: 0, y: 0 }, false],
-    ["body bob with props", { ...still(), body: { x: 0, y: 1 }, prop: { x: 1, y: 0 }, pageTurn: true, screenPulse: true }, { x: 0, y: 0 }, false],
-    ["holding a phone", { ...still(), screenPulse: true, rightPaw: { x: -1, y: 1 } }, { x: -1, y: 0 }, true],
-  ];
-  it.each(frames)("scale 2 matches the logical render pixel for pixel (%s)", (_name, motion, gaze, phone) => {
-    const { pixels, geometry } = fixture([eye()]);
-    const logical = renderSpritePixels(prepareSpritePixels(pixels, geometry), motion, gaze, phone);
-    const fine = renderSpritePixels(prepareSpritePixels(upscale(pixels, 2), geometry, 2), motion, gaze, phone);
-    expect(fine).toEqual(upscale(logical, 2));
-  });
-  it("keeps every character pose inside the fine raster at scale 3", () => {
-    const { pixels, geometry } = fixture([eye()]);
-    const layers = prepareSpritePixels(upscale(pixels, 3), geometry, 3);
-    const out = renderSpritePixels(layers, { ...still(), head: { x: 1, y: 1 } }, { x: 1, y: 1 });
-    expect(out.length).toBe(180 * 180 * 4);
-    expect(out.some((value, index) => index % 4 === 3 && value === 255)).toBe(true);
-  });
-  it("rejects artwork whose size does not match the requested scale", () => {
-    const { pixels, geometry } = fixture();
-    expect(() => prepareSpritePixels(pixels, geometry, 2)).toThrow("120×120");
+  it("cuts the right column and row out of a sheet", () => {
+    const width = 1280, rgba = new Uint8ClampedArray(width * 960 * 4);
+    rgba.set([1, 2, 3, 255], ((80 + 4) * width + 3 * 80 + 7) * 4);
+    const parts = sheetParts(rgba, width, 3);
+    expect(pixel(parts.head, 7, 4)).toEqual([1, 2, 3, 255]);
+    expect(parts.body.some(Boolean)).toBe(false);
   });
 });

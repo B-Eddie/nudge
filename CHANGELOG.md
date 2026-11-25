@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.5.0 (unreleased)
+
+### Pets you can tell the time by
+- **No numbers needed.** The panda eats down a bamboo stalk, the capybara drops yuzu from a tower, the cat's pupils open to full moons, and the crab's claw gets out of hand. A break puts it right, and you can watch it happen.
+- The red panda has retired; anyone who had one now has the panda.
+- **They get tired with you.** First the lids droop, then come the eye bags, blue lines and a flat mouth, then crossed-out eyes and fumes, with a slump and slower breathing. Sleeping is the cure, and now there's a bed for it. A megaphone announces each nudge.
+- **They move between poses** instead of swapping: a dip, then head and paws travel across and settle, props get picked up and put down, and tails, stalks and towers sway.
+- **All four pets redrawn** as pixel art with real animal proportions, in sixteen poses.
+
+### Napjutsu
+- **The pets are fighters, and the strongest technique is doing nothing.** Choose **Expand** and your pet opens its **Do-Nothing Expansion** over the window in front: Moonevolent Shrine, Unlimited Bamvoid, Chillmera Citrus Garden, or Shell-Embodiment of Perfection. It fills that window and nothing else: pixel art, burning eyes, and a straight face afterwards.
+- Friendship is now a napper rank, breaks are training arcs, and rest is the power system.
+- Only when you ask, never during a call, and never with Reduce Motion. Two soft flashes at most.
+
+### Mad at it for you
+- On something you'd rather not be doing? Choose **Expand** from your pet's menu or the menu bar. Your pet glares, stomps and throws something soft at the window in front, then offers to start it with you for ten minutes.
+- Every pet does it its own way: the cat pretends nothing happened, the capybara takes its time.
+- **Stay mad at it** and your pet bristles when it sees that site, document or app again, at most every 45 minutes and never in calls, videos or focus sessions. Forgive it any time under Garden → Us.
+- In a focus session, it takes a drift out on the tab, not on you.
+- Finish something you dreaded and it counts: two milestones, a fighting headband, and a picture worth sharing.
+- Save either moment as a GIF, with only the words you choose.
+- Throwing can be turned off in Settings. Reduce Motion keeps the scowl and skips the rest.
+
 ## 0.4.0 (unsigned beta)
 
 ### Nudges that know when to speak

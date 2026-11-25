@@ -1,4 +1,4 @@
-.companion-picker { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.companion-picker { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .companion-option, .theme-option {
   min-width: 0;
   border: 1px solid transparent;

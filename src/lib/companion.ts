@@ -1,6 +1,8 @@
 /** Everything the companion remembers. Pure updates over one saved document. */
 import { blooms, MAX_DROPS_PER_DAY, MAX_PLANTS, SPECIES, water, type GardenEvent, type Plant, type SpeciesId } from "./garden";
 import type { FocusRecord, FocusSession } from "./focus";
+import { RANKS } from "./napjutsu";
+import { MAX_GRUDGES, type Grudge } from "./grudges";
 import type { RoutineMemory } from "./breakSuggestion";
 
 export type BondKind = "pet" | "treat" | "play" | "rest" | "focus" | "hello" | "goodnight";
@@ -11,11 +13,11 @@ const BOND: Record<BondKind, { points: number; perDay: number }> = {
   goodnight: { points: 2, perDay: 1 },
 };
 export const BOND_LEVELS = [
-  { name: "New friends", at: 0 }, { name: "Getting comfy", at: 25 }, { name: "Good company", at: 80 },
-  { name: "Close friends", at: 180 }, { name: "Old friends", at: 350 }, { name: "Kindred spirits", at: 600 },
+  { name: RANKS[0], at: 0 }, { name: RANKS[1], at: 25 }, { name: RANKS[2], at: 80 },
+  { name: RANKS[3], at: 180 }, { name: RANKS[4], at: 350 }, { name: RANKS[5], at: 600 },
 ];
 
-export const ACCESSORY_IDS = ["leaf", "flower", "bow_tie", "scarf", "beanie", "straw_hat", "nightcap", "party_hat", "flower_crown", "star"] as const;
+export const ACCESSORY_IDS = ["leaf", "flower", "bow_tie", "scarf", "beanie", "straw_hat", "nightcap", "party_hat", "flower_crown", "star", "headband"] as const;
 export type AccessoryId = (typeof ACCESSORY_IDS)[number];
 
 export interface CompanionState {
@@ -32,6 +34,11 @@ export interface CompanionState {
   routines: Record<string, RoutineMemory>;
   focus: FocusSession | null;
   focusLog: FocusRecord[];
+  /** Things the person asked the pet to stay mad at. */
+  grudges: Grudge[];
+  /** Tantrums thrown on the person's behalf, and dreaded things finished. Only counts. */
+  tantrums: number;
+  beaten: number;
   tomorrow: string;
   greetedOn: string;
   letterOn: string;
@@ -46,7 +53,7 @@ export const dateKey = (now: number) => {
 export function newCompanion(now: number, metAt = now): CompanionState {
   return {
     version: 1, metAt: Math.min(metAt, now), bond: 0, breaks: 0, goodnights: 0, plants: [], wearing: null,
-    found: ["leaf"], milestones: [], routines: {}, focus: null, focusLog: [], tomorrow: "", greetedOn: "", letterOn: "",
+    found: ["leaf"], milestones: [], routines: {}, focus: null, focusLog: [], grudges: [], tantrums: 0, beaten: 0, tomorrow: "", greetedOn: "", letterOn: "",
     today: { date: dateKey(now), counts: {}, drops: 0 },
   };
 }
@@ -64,7 +71,7 @@ function readFocus(v: unknown): FocusSession | null {
   return {
     text: text(v.text, 60), startedAt: num(v.startedAt), endsAt: v.endsAt === null ? null : num(v.endsAt) || null,
     focusedSeconds: num(v.focusedSeconds), drift: num(v.drift), nextDriftAt: num(v.nextDriftAt),
-    allowed: list(v.allowed).map(x => text(x)).filter(Boolean), parked: list(v.parked).map(x => text(x)).filter(Boolean),
+    allowed: list(v.allowed).map(x => text(x)).filter(Boolean), ...(v.dreaded === true ? { dreaded: true } : {}), parked: list(v.parked).map(x => text(x)).filter(Boolean),
   };
 }
 
@@ -97,6 +104,9 @@ export function readCompanion(raw: unknown, now: number, metAt = now): Companion
       text: text(r.text, 60), startedAt: num(r.startedAt), seconds: num(r.seconds),
       outcome: r.outcome === "done" || r.outcome === "partly" || r.outcome === "stuck" ? r.outcome : "ended",
     })),
+    grudges: list(raw.grudges).filter(isObject).map((g): Grudge => ({ label: text(g.label, 40), key: text(g.key, 80), faced: num(g.faced), beaten: num(g.beaten), lastAt: num(g.lastAt) }))
+      .filter(g => g.label && g.key).slice(-MAX_GRUDGES),
+    tantrums: num(raw.tantrums), beaten: num(raw.beaten),
     tomorrow: text(raw.tomorrow), greetedOn: text(raw.greetedOn), letterOn: text(raw.letterOn),
     today: { date: text(today.date) || base.today.date, counts, drops: num(today.drops) },
   };
@@ -131,7 +141,7 @@ export function rememberRoutine(state: CompanionState, id: string, now: number, 
 
 /** Clears what reveals how days were spent. The garden and the friendship stay. */
 export const forgetHistory = (state: CompanionState): CompanionState =>
-  ({ ...state, focus: null, focusLog: [], tomorrow: "", routines: {}, letterOn: "" });
+  ({ ...state, focus: null, focusLog: [], grudges: [], tomorrow: "", routines: {}, letterOn: "" });
 
 export const daysTogether = (state: CompanionState, now: number) =>
   Math.max(1, Math.floor((new Date(dateKey(now)).getTime() - new Date(dateKey(state.metAt)).getTime()) / 86_400_000) + 1);
@@ -149,14 +159,15 @@ const bonded = (index: number) => (s: CompanionState) => bondLevel(s.bond).index
 export const ACCESSORIES: Record<AccessoryId, Accessory> = {
   leaf: { name: "Little leaf", hint: "Yours from the start", unlocked: () => true },
   flower: { name: "Flower", hint: "Grow your first bloom", unlocked: s => blooms(s.plants) >= 1 },
-  bow_tie: { name: "Bow tie", hint: "Become “Getting comfy”", unlocked: bonded(1) },
-  scarf: { name: "Scarf", hint: "Become “Good company”", unlocked: bonded(2) },
+  bow_tie: { name: "Bow tie", hint: `Become a ${RANKS[1]}`, unlocked: bonded(1) },
+  scarf: { name: "Scarf", hint: `Become a ${RANKS[2]}`, unlocked: bonded(2) },
   beanie: { name: "Beanie", hint: "Take 25 pauses", unlocked: s => s.breaks >= 25 },
   straw_hat: { name: "Straw hat", hint: "Grow 5 blooms", unlocked: s => blooms(s.plants) >= 5 },
   nightcap: { name: "Nightcap", hint: "Wrap up a day together", unlocked: s => s.goodnights >= 1 },
   party_hat: { name: "Party hat", hint: "Spend 30 days together", unlocked: (s, now) => daysTogether(s, now) >= 30 },
   flower_crown: { name: "Flower crown", hint: "Grow 12 blooms", unlocked: s => blooms(s.plants) >= 12 },
-  star: { name: "Lucky star", hint: "Become “Kindred spirits”", unlocked: bonded(5) },
+  headband: { name: "Fighting headband", hint: "Finish 5 things you dreaded", unlocked: s => s.beaten >= 5 },
+  star: { name: "Lucky star", hint: `Become a ${RANKS[5]}`, unlocked: bonded(5) },
 };
 export const unlocked = (state: CompanionState, now: number) =>
   ACCESSORY_IDS.filter(id => state.found.includes(id) || ACCESSORIES[id].unlocked(state, now));
@@ -172,11 +183,13 @@ export const MILESTONES: Milestone[] = [
   { id: "break-1", text: "Our first pause together", reached: s => s.breaks >= 1 },
   { id: "bloom-1", text: "Our first bloom", reached: s => blooms(s.plants) >= 1 },
   { id: "day-7", text: "One week together", reached: (s, now) => daysTogether(s, now) >= 7 },
+  { id: "beat-1", text: "First dreaded thing, done", reached: s => s.beaten >= 1 },
   { id: "break-25", text: "25 pauses", reached: s => s.breaks >= 25 },
   { id: "day-30", text: "One month together", reached: (s, now) => daysTogether(s, now) >= 30 },
   { id: "bloom-12", text: "A dozen blooms", reached: s => blooms(s.plants) >= 12 },
   { id: "break-100", text: "100 pauses", reached: s => s.breaks >= 100 },
   { id: "day-100", text: "100 days together", reached: (s, now) => daysTogether(s, now) >= 100 },
+  { id: "beat-25", text: "25 dreaded things, done", reached: s => s.beaten >= 25 },
   { id: "break-500", text: "500 pauses", reached: s => s.breaks >= 500 },
   { id: "day-365", text: "A whole year together", reached: (s, now) => daysTogether(s, now) >= 365 },
 ];

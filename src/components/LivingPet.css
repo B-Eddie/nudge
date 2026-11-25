@@ -1,13 +1,15 @@
 .living-pet { position: relative; width: 120px; height: 120px; }
 .pet-body { position: relative; display: block; width: 120px; height: 120px; border: 0; padding: 0; background: none; cursor: grab; touch-action: none; transition: transform 3.2s steps(16, end); }
 .pet-body:focus-visible { border-radius: 12px; }
-.pixel-pet-sprite { display: block; width: 120px; height: 120px; image-rendering: pixelated; }
+.pixel-pet-sprite { position: relative; display: block; width: 120px; height: 120px; pointer-events: none; }
+/* 80 grid units over a 64-unit box: 8 to each side, 14 above, 2 below. */
+.pixel-pet-sprite > canvas { position: absolute; left: -12.5%; top: -21.875%; width: 125%; height: 125%; image-rendering: pixelated; }
 .pet-rig, .pet-breath, .pet-attention, .pet-facing-left, .pet-facing-right { display: block; }
-.pet-rig { transform-origin: 60px 108px; transition: transform .25s steps(2, end); }
+.pet-rig { transform-origin: 60px 112px; transition: transform .25s steps(2, end); }
 .pet-breath, .pet-attention { transform: none; }
 .pet-facing-left { transform: scaleX(-1); }
 /* Grounding: a soft contact shadow under the feet, readable on light and dark windows. */
-.pet-shadow { position: absolute; left: 24px; bottom: 8px; width: 72px; height: 9px; border-radius: 50%; background: radial-gradient(closest-side, rgb(12 15 22 / .38), rgb(12 15 22 / .16) 62%, transparent); transition: transform .3s ease, opacity .3s ease; }
+.pet-shadow { position: absolute; left: 16px; bottom: 4px; width: 88px; height: 9px; border-radius: 50%; background: radial-gradient(closest-side, rgb(12 15 22 / .38), rgb(12 15 22 / .16) 62%, transparent); transition: transform .3s ease, opacity .3s ease; }
 .mood-sleep .pet-shadow { transform: scaleX(1.12); }
 .mood-lifted .pet-body { cursor: grabbing; }
 .mood-lifted .pet-rig { transform: translateY(-8px); }
@@ -117,7 +119,7 @@
 .pet-stage .pixel-pet-sprite { filter: var(--pet-edge) var(--pet-light); }
 
 /* Put down: squash on contact, then settle. Origin at the feet so it lands, not shrinks. */
-.pet-landing .pet-breath { transform-origin: 60px 108px; animation: pet-land .42s cubic-bezier(.3, 1.6, .5, 1) both; }
+.pet-landing .pet-breath { transform-origin: 60px 112px; animation: pet-land .42s cubic-bezier(.3, 1.6, .5, 1) both; }
 .pet-landing .pet-shadow { animation: pet-land-shadow .42s ease-out both; }
 @keyframes pet-land { 0% { transform: scale(1.06, .9); } 55% { transform: scale(.97, 1.04); } 100% { transform: none; } }
 @keyframes pet-land-shadow { 0% { transform: scale(1.15); opacity: 1; } 100% { transform: none; } }
@@ -135,10 +137,10 @@
 @keyframes pet-sprout-in { 0% { transform: scale(.2); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } 100% { transform: none; } }
 .pet-note { position: absolute; top: 12px; right: 4px; color: var(--pet-note, #8aa0d8); font: 18px/1 var(--font-body); text-shadow: 0 0 2px rgb(255 255 255 / .8); pointer-events: none; animation: pet-note 2.4s steps(8, end) infinite; }
 @keyframes pet-note { 0% { opacity: 0; transform: translate(0, 8px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(6px, -12px); } }
-.pet-swaying .pet-breath { transform-origin: 60px 108px; animation: pet-sway 1.8s steps(6, end) infinite alternate; }
+.pet-swaying .pet-breath { transform-origin: 60px 112px; animation: pet-sway 1.8s steps(6, end) infinite alternate; }
 @keyframes pet-sway { from { transform: rotate(-2deg); } to { transform: rotate(2deg); } }
 /* Breathing together: the pet fills and empties at the pace of the step. */
-.pet-breathe-in .pet-breath, .pet-breathe-out .pet-breath { transform-origin: 60px 108px; transition: transform 4s ease-in-out; }
+.pet-breathe-in .pet-breath, .pet-breathe-out .pet-breath { transform-origin: 60px 112px; transition: transform 4s ease-in-out; }
 .pet-breathe-in .pet-breath { transform: scale(1.1, 1.08); }
 .pet-breathe-out .pet-breath { transition-duration: 6s; transform: scale(.98, .95); }
 @media (prefers-reduced-motion: reduce) { .pet-note { opacity: 1; } .pet-breathe-in .pet-breath, .pet-breathe-out .pet-breath { transform: none; } }
@@ -150,3 +152,33 @@
 
 .pet-hopping .pet-breath { transition: transform .18s ease-in, opacity .18s ease-in; transform: translateY(-26px) scale(.94, 1.08); opacity: 0; }
 .pet-hopping .pet-shadow { opacity: 0; }
+
+/* Cross at whatever is on screen, on your behalf. */
+.pet-mad .pet-breath { transform-origin: 60px 112px; }
+.pet-act-shake .pet-breath { animation: pet-mad-shake .14s steps(2, jump-none) infinite; }
+.pet-act-stomp .pet-breath { animation: pet-mad-stomp .45s steps(4, end) infinite; }
+.pet-act-lunge .pet-breath { animation: pet-mad-lunge .6s steps(6, end) infinite; }
+.pet-act-loom .pet-breath { animation: pet-mad-loom .5s steps(5, end) both; }
+.pet-mad .pet-shadow { transform: scaleX(1.1); }
+.pet-vein { position: absolute; top: 2px; right: 8px; width: 20px; height: 20px; pointer-events: none; animation: pet-vein .5s steps(2, jump-none) infinite alternate; }
+.pet-shout { position: absolute; z-index: 5; bottom: 122px; left: 50%; padding: 4px 10px 3px; border: 2px solid #3a3f4c; background: #fff; color: #333843; font: 700 19px/1.1 var(--font-brand); white-space: nowrap; pointer-events: none; transform: translateX(-50%); animation: pet-shout .16s steps(3, end) both; }
+.pet-shout.loud { color: #c0393a; font-size: 24px; }
+@keyframes pet-mad-shake { from { transform: translateX(-2px); } to { transform: translateX(2px); } }
+@keyframes pet-mad-stomp { 35% { transform: translateY(-6px); } 70% { transform: scale(1.04, .95); } }
+@keyframes pet-mad-lunge { 25% { transform: translate(calc(var(--pet-side) * 9px), -5px); } 60% { transform: none; } }
+@keyframes pet-mad-loom { to { transform: scale(1.12); } }
+@keyframes pet-vein { from { transform: scale(.85); } to { transform: scale(1.1); } }
+@keyframes pet-shout { from { transform: translateX(-50%) scale(.6); } to { transform: translateX(-50%) scale(1); } }
+
+/* Worn out: breathing gets slow and heavy, and the whole body sags. */
+.pet-tired:not(.mood-sleep):not(.pet-mad):not(.pet-swaying) .pet-breath { transform-origin: 60px 112px; animation: pet-sag 4.2s steps(8, end) infinite; }
+.pet-spent:not(.mood-sleep):not(.pet-mad):not(.pet-swaying) .pet-breath { animation: pet-sag-low 5.4s steps(10, end) infinite; }
+@keyframes pet-sag { 0%, 100% { transform: none; } 50% { transform: scale(1.015, .97); } }
+@keyframes pet-sag-low { 0%, 100% { transform: scale(1.02, .96) rotate(-1deg); } 50% { transform: scale(1.04, .92) rotate(1.5deg); } }
+.pet-megaphone { position: absolute; z-index: 5; bottom: 52px; filter: drop-shadow(1px 0 #2a2a30) drop-shadow(-1px 0 #2a2a30) drop-shadow(0 1px #2a2a30) drop-shadow(0 -1px #2a2a30); pointer-events: none; animation: pet-megaphone .5s steps(2, jump-none) infinite alternate; }
+.pet-megaphone.on-right { left: 114px; }
+.pet-megaphone.on-left { right: 114px; scale: -1 1; }
+@keyframes pet-megaphone { from { transform: rotate(-6deg); } to { transform: rotate(4deg); } }
+
+.pet-act-charge .pet-breath { animation: pet-charge 1.55s steps(14, end) both; }
+@keyframes pet-charge { 0% { transform: none; } 30% { transform: scale(1.05, .93); } 60% { transform: translateY(-8px); } 70% { transform: translate(1px, -10px); } 80% { transform: translate(-1px, -11px); } 90% { transform: translate(1px, -12px); } 100% { transform: translateY(-12px); } }

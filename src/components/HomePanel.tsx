@@ -14,8 +14,9 @@ export type HomeTab = "garden" | "outfits" | "us";
 const TABS: { id: HomeTab; label: string }[] = [{ id: "garden", label: "Garden" }, { id: "outfits", label: "Outfits" }, { id: "us", label: "Us" }];
 const ROW = 6, MIN_PLOTS = 18;
 
-export function HomePanel({ state, character, petName, now, initialTab = "garden", onWear, onClose }: {
+export function HomePanel({ state, character, petName, now, initialTab = "garden", onWear, onForgive, onClose }: {
   state: CompanionState; character: CompanionId; petName: string; now: number; initialTab?: HomeTab;
+  onForgive?: (key: string) => void;
   onWear: (id: AccessoryId | null) => void; onClose: () => void;
 }) {
   const [tab, setTab] = useState<HomeTab>(initialTab);
@@ -61,7 +62,7 @@ export function HomePanel({ state, character, petName, now, initialTab = "garden
               return <li key={i} className="garden-plot" title={name}><PlantArt species={plant.species} stage={stage} scale={2.4} /><span className="sr-only">{name}</span></li>;
             })}
           </ul>
-          <span className="garden-pet" aria-hidden="true"><PixelPetSprite character={character} pose="happy" displaySize={90} accessory={state.wearing} /></span>
+          <span className="garden-pet" aria-hidden="true"><PixelPetSprite character={character} pose="happy" accessory={state.wearing} /></span>
         </div>
         <div className="garden-next">
           <span className="garden-next-art" aria-hidden="true">{growing ? <PlantArt species={growing.species} stage={stageOf(growing)} scale={2.2} /> : <PlantArt species="daisy" stage="seed" scale={2.2} />}</span>
@@ -74,7 +75,7 @@ export function HomePanel({ state, character, petName, now, initialTab = "garden
       </div>}
 
       {tab === "outfits" && <div className="panel-group" role="tabpanel" id="home-panel-outfits" aria-labelledby="home-tab-outfits" style={{ gap: 14 }}>
-        <div className="wardrobe-preview"><PixelPetSprite character={character} pose={preview ? "happy" : "idle"} displaySize={132} accessory={preview} /></div>
+        <div className="wardrobe-preview"><PixelPetSprite character={character} pose={preview ? "happy" : "idle"} accessory={preview} /></div>
         <div className="wardrobe-grid" role="radiogroup" aria-label="Outfit">
           {ACCESSORY_IDS.map(id => {
             const open = available.includes(id);
@@ -93,6 +94,14 @@ export function HomePanel({ state, character, petName, now, initialTab = "garden
           <p className="panel-label">{level.name}</p>
           <div className="panel-meter" role="progressbar" aria-label="Friendship" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(level.progress * 100)}><span style={{ width: `${level.progress * 100}%` }} /></div>
           <p className="settings-hint">{level.next ? `Next: ${level.next.name}. ` : ""}You grow closer by resting, petting and playing. Screen time never counts, and it never goes down.</p>
+        </div>
+        <div className="panel-group">
+          <p className="panel-label">Mad on your behalf</p>
+          {state.grudges.length > 0 && <ul className="grudges">{state.grudges.map(g => <li key={g.key}>
+            <span>{g.label}<small>Faced {g.faced} {g.faced === 1 ? "time" : "times"}{g.beaten ? `, finished ${g.beaten}` : ""}</small></span>
+            {onForgive && <button type="button" aria-label={`Forgive ${g.label}`} onClick={() => onForgive(g.key)}>Forgive</button>}
+          </li>)}</ul>}
+          <p className="settings-hint">{state.tantrums > 0 ? `${state.tantrums} ${state.tantrums === 1 ? "tantrum" : "tantrums"} thrown for you, ${state.beaten} dreaded ${state.beaten === 1 ? "thing" : "things"} finished together.` : `On something you’d rather not be doing? Open the menu and choose “Expand”. ${petName} will take it from there.`}</p>
         </div>
         <div className="panel-group">
           <p className="panel-label">Moments</p>

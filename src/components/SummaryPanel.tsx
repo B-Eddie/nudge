@@ -579,7 +579,7 @@ export function SummaryPanel({
                 )}
                 <div className="letter-sign">
                   <span>{letter.signature}</span>
-                  <PixelPetSprite character={character} pose="happy" displaySize={64} accessory={accessory} />
+                  <PixelPetSprite character={character} pose="happy" accessory={accessory} />
                 </div>
               </article>
             ) : (

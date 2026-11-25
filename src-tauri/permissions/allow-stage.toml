@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-stage"
+description = "Allows opening the click-through sheet the pet throws things across."
+commands.allow = ["throw_at_front_window"]

@@ -15,8 +15,8 @@ vi.mock("@tauri-apps/api/event", () => ({
     return Promise.resolve(() => bridge.handlers.delete(name));
   }),
 }));
-vi.mock("../src/components/LivingPet", () => ({ LivingPet: (p: { category?: string; sign?: string; drowsy?: number; performing?: string; onPet: () => void }) =>
-  <button data-testid="pet" data-pet-body data-category={p.category} data-sign={p.sign} data-drowsy={p.drowsy} data-performing={p.performing} onClick={p.onPet} /> }));
+vi.mock("../src/components/LivingPet", () => ({ LivingPet: (p: { category?: string; sign?: string; drowsy?: number; tantrum?: number | null; performing?: string; onPet: () => void }) =>
+  <button data-testid="pet" data-pet-body data-category={p.category} data-sign={p.sign} data-drowsy={p.drowsy} data-tantrum={p.tantrum ? "yes" : "no"} data-performing={p.performing} onClick={p.onPet} /> }));
 
 import App from "../src/App";
 
@@ -436,5 +436,82 @@ describe("knowing which tab you're on", () => {
     await wait(2500);
     await click("Allow in macOS…");
     expect(bridge.invoke).toHaveBeenCalledWith("request_window_access");
+  });
+});
+
+describe("mad on your behalf", () => {
+  const mad = () => host.querySelector('[data-testid="pet"]')?.getAttribute("data-tantrum") === "yes";
+  const saved = () => bridge.invoke.mock.calls.filter(c => c[0] === "save_companion").map(c => (c[1] as { companion: Record<string, unknown> }).companion).at(-1)!;
+  const xcode = { name: "Xcode", bundle_id: "com.apple.dt.Xcode", category: "public.app-category.developer-tools", category_label: "Developer Tools" };
+  it("throws a tantrum at what's in front, then offers to face it together", async () => {
+    world.front = xcode;
+    await mount();
+    await emit("tray-action", "ugh");
+    expect(mad()).toBe(true);
+    expect(bridge.invoke).toHaveBeenCalledWith("throw_at_front_window", expect.objectContaining({ character: "crab" }));
+    await wait(7000);
+    expect(mad()).toBe(false);
+    expect(host.textContent).toContain("Expansion complete");
+    expect(host.textContent).toContain("Xcode");
+    await click("10 minutes, together"); await wait(3000);
+    expect(saved().focus).toMatchObject({ text: "Xcode", dreaded: true });
+    // Finishing it counts, and is worth showing off.
+    await wait(10 * 60_000 + 30_000);
+    await click("Done");
+    expect(host.textContent).toContain("Xcode is done");
+    await wait(3000);
+    expect(saved()).toMatchObject({ beaten: 1, focus: null });
+  });
+  it("expands again, straight after and later on", async () => {
+    world.front = xcode;
+    await mount();
+    const opened = () => bridge.invoke.mock.calls.filter(c => c[0] === "throw_at_front_window").length;
+    for (let time = 1; time <= 3; time++) {
+      await emit("tray-action", "ugh");
+      expect(mad()).toBe(true);
+      expect(opened()).toBe(time);
+      await wait(6600);
+      expect(mad()).toBe(false);
+      expect(host.textContent).toContain("Expansion complete");
+      if (time === 2) await click("That helped");
+    }
+  });
+  it("throws nothing when asked not to", async () => {
+    world.settings = { throw_things: false };
+    await mount(); await emit("tray-action", "ugh");
+    expect(mad()).toBe(true);
+    expect(bridge.invoke).not.toHaveBeenCalledWith("throw_at_front_window", expect.anything());
+  });
+  it("comes out of hiding first", async () => {
+    await mount();
+    await emit("tray-action", "toggle-companion");
+    await emit("tray-action", "ugh"); await wait(200);
+    expect(mad()).toBe(true);
+  });
+  it("gives back a nudge it interrupted", async () => {
+    await mount(); await emit("show-reminder");
+    await emit("tray-action", "ugh");
+    expect(reminderPrompt()).toBeNull();
+    await wait(90_000);
+    expect(reminderPrompt()).not.toBeNull();
+  });
+  it("bristles at what it promised to stay mad at, but not in a call", async () => {
+    world.front = xcode;
+    world.companion = { version: 1, metAt: 1, greetedOn: "", grudges: [{ label: "Xcode", key: "xcode", faced: 1, beaten: 0, lastAt: 0 }] };
+    mac.in_call = true;
+    await mount(); await wait(60_000);
+    expect(mad()).toBe(false);
+    mac.in_call = false;
+    await wait(21_000);
+    expect(bridge.invoke).toHaveBeenCalledWith("throw_at_front_window", expect.anything());
+    expect((saved().grudges as { faced: number }[])[0].faced).toBe(2);
+    bridge.invoke.mockClear();
+    await wait(20 * 60_000);
+    expect(bridge.invoke).not.toHaveBeenCalledWith("throw_at_front_window", expect.anything());
+  });
+  it("stops at once for a break", async () => {
+    await mount(); await emit("tray-action", "ugh");
+    await emit("screen-locked");
+    expect(mad()).toBe(false);
   });
 });

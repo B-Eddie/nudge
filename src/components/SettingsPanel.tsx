@@ -459,6 +459,8 @@ export function SettingsPanel({ onClose, onErase }: SettingsPanelProps) {
             )}
             <Toggle label="Sit on the window I’m using" hint="Hops up when you switch apps and there’s room. Drag it away and it stays until the next switch."
               checked={pref("sit_on_windows")} onChange={sit_on_windows => set({ sit_on_windows })} />
+            <Toggle label="Unleash techniques on my windows" hint="Choose “Expand” from the menu and your pet opens its Do-Nothing Expansion inside the window in front. It never touches the window, skips calls, and follows Reduce Motion."
+              checked={pref("throw_things")} onChange={throw_things => set({ throw_things })} />
             <p className="settings-hint">You can also drag your companion anywhere, even onto the top of a window.</p>
           </section>
           </div>
@@ -665,7 +667,7 @@ export function SettingsPanel({ onClose, onErase }: SettingsPanelProps) {
               <li>How long since you typed, clicked or scrolled, never what</li>
               <li>Whether a mic or camera is on, and which apps are playing sound</li>
               <li>Window outlines, so your companion can sit on them</li>
-              <li>What you tell it: focus sessions, notes, moods</li>
+              <li>What you tell it: focus sessions, notes, moods, things to stay mad at</li>
             </ul>
             <p className="settings-hint">All of it stays on this Mac. nudge takes no screenshots, reads no content, and has no account or server.</p>
             <label className="settings-field">

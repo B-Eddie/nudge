@@ -14,7 +14,7 @@ Design dials: variance **6**, motion **6**, density **3**. The centered hero fol
 - Keep the Features and How it works anchors, project identity, source links, and verified universal macOS release. Add direct paths to the companion playground and installer.
 - Show real exported app poses with transparent, isolated boundaries and consistent floors. The browser playground is explicitly a preview, not a screenshot of native macOS controls.
 - Use a generated cloud wallpaper only as atmosphere. Keep all product claims grounded in the application source and release.
-- Give users a draggable pet, keyboard movement, petting, play, five companion choices, and focus/music/break moods. Rhythm sliders update an explanatory preview and never claim to modify the installed app.
+- Give users a draggable pet, keyboard movement, petting, play, four companion choices, and focus/music/break moods. Rhythm sliders update an explanatory preview and never claim to modify the installed app.
 - Explain local activity storage, privacy, and the current build's installation requirements. No invented endorsements, usage metrics, or ratings.
 
 ## Visual system

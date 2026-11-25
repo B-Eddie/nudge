@@ -203,6 +203,9 @@ pub struct Settings {
     /// Let the companion hop onto the window in use.
     #[serde(default)]
     pub sit_on_windows: bool,
+    /// Let a cross companion throw things at the window in front.
+    #[serde(default = "enabled")]
+    pub throw_things: bool,
     /// Days of activity summaries to keep.
     #[serde(default = "default_history_days")]
     pub history_days: u32,
@@ -249,6 +252,7 @@ impl Default for Settings {
             window_titles: false,
             site_rules: Vec::new(),
             sit_on_windows: false,
+            throw_things: true,
             history_days: default_history_days(),
         }
     }
@@ -263,6 +267,12 @@ impl Settings {
 
     /// Brings hand-edited or out-of-range values back to something the app can use.
     pub fn sanitize(&mut self) {
+        // A companion that no longer exists becomes the panda.
+        self.character = one_of(
+            &self.character,
+            &["crab", "panda", "cat", "capybara"],
+            "panda".to_string(),
+        );
         self.character_size = self.character_size.clamp(60, 180);
         self.pet_name = self
             .pet_name
@@ -898,6 +908,7 @@ mod tests {
             "window_titles",
             "site_rules",
             "sit_on_windows",
+            "throw_things",
             "history_days",
         ] {
             assert!(object.remove(added).is_some(), "{added}");
@@ -905,12 +916,25 @@ mod tests {
         let settings = Settings::from_json(&value.to_string()).unwrap();
         assert_eq!(settings.nudge_style, "balanced");
         assert_eq!(settings.history_days, 31);
-        assert!(settings.call_awareness && settings.active_weekends);
+        assert!(settings.call_awareness && settings.active_weekends && settings.throw_things);
         // Anything that speaks, makes sound or adds prompts is opt-in.
         assert!(!settings.sounds && !settings.spoken_breaks && !settings.wind_down_enabled);
         assert!(!settings.rhythm_eyes && !settings.rhythm_water && !settings.rhythm_posture);
         assert!(!settings.active_hours_enabled && !settings.menu_bar_timer);
         assert!(!settings.window_titles && !settings.sit_on_windows);
+    }
+
+    #[test]
+    fn a_retired_companion_becomes_the_panda() {
+        let mut settings = Settings {
+            character: "red_panda".into(),
+            ..Settings::default()
+        };
+        settings.sanitize();
+        assert_eq!(settings.character, "panda");
+        settings.character = "cat".into();
+        settings.sanitize();
+        assert_eq!(settings.character, "cat");
     }
 
     #[test]

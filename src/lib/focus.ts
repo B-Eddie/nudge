@@ -14,6 +14,8 @@ export interface FocusSession {
   /** Categories the person said are part of this task. */
   allowed: string[];
   parked: string[];
+  /** Something the person said they didn't want to do. */
+  dreaded?: boolean;
 }
 
 export interface FocusRecord { text: string; startedAt: number; seconds: number; outcome: FocusOutcome }

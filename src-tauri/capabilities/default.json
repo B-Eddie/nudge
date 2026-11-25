@@ -15,6 +15,7 @@
     "allow-companion",
     "allow-tray",
     "allow-window-context",
+    "allow-stage",
     "allow-reminder",
     "allow-pending-notes",
     "allow-frontmost-app",

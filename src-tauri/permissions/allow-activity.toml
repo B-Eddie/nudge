@@ -1,4 +1,4 @@
 [[permission]]
 identifier = "allow-activity"
 description = "Allows activity load, save, erase and export commands."
-commands.allow = ["get_activity", "save_activity", "erase_activity", "export_activity_csv", "export_postcard"]
+commands.allow = ["get_activity", "save_activity", "erase_activity", "export_activity_csv", "export_postcard", "export_gif"]

@@ -49,13 +49,13 @@ export async function drawPostcard(canvas: HTMLCanvasElement, input: PostcardInp
     drawArt(ctx, plantArt(plant.species, stageOf(plant)), 110 + column * 112 + (back ? 0 : 56), back ? 600 : 740, back ? 6 : 7);
   });
 
-  const { poses, wear } = await loadSprite(input.character, 4);
+  const { poses, wear } = await loadSprite(input.character);
   const pixels = renderSpritePixels(poses.happy, samplePetMotion("happy", 0, input.character, false, true), { x: 0, y: 0 }, false, wear(input.accessory, "happy"));
   const sprite = document.createElement("canvas");
-  sprite.width = sprite.height = 240;
-  sprite.getContext("2d")!.putImageData(new ImageData(new Uint8ClampedArray(pixels), 240, 240), 0, 0);
+  sprite.width = sprite.height = 80;
+  sprite.getContext("2d")!.putImageData(new ImageData(new Uint8ClampedArray(pixels), 80, 80), 0, 0);
   ctx.fillStyle = "rgb(40 30 20 / 22%)"; ctx.fillRect(915, 726, 200, 14);
-  ctx.drawImage(sprite, 830, 410, 360, 360);
+  ctx.drawImage(sprite, 830 - 45, 410 - 79, 450, 450);
 
   await document.fonts?.load?.('700 60px "PPNeueBit-Bold"').catch(() => undefined);
   ctx.fillStyle = night ? "#fdf8ea" : "#3b3128";

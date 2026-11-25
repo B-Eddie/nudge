@@ -24,7 +24,7 @@ export const PET_MOTION_PERIOD_MS: Record<PetPose, number> = {
 export const PHONE_MOTION_PERIOD_MS = 4600;
 
 const CHARACTER_TEMPO: Record<CompanionId, number> = {
-  panda: 1, red_panda: 1.08, cat: 1.04, capybara: .86, crab: 1.12,
+  panda: 1, cat: 1.04, capybara: .86, crab: 1.12,
 };
 const zero = (): PixelOffset => ({ x: 0, y: 0 });
 const neutral = (): PetMotionFrame => ({

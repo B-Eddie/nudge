@@ -1,4 +1,4 @@
-import { PiPause, PiChartBar, PiNotePencil, PiCookie, PiSoccerBall, PiPlay, PiGear, PiTarget, PiPlant } from "react-icons/pi";
+import { PiPause, PiChartBar, PiNotePencil, PiCookie, PiSoccerBall, PiPlay, PiGear, PiTarget, PiPlant, PiSmileyAngry } from "react-icons/pi";
 import { useEffect, useRef } from "react";
 
 interface RadialMenuProps {
@@ -17,12 +17,23 @@ export function RadialMenu({ position, break: resting, open, name = "Your compan
   useEffect(() => {
     if (!open) return;
     menu.current?.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
-    return () => document.querySelector<HTMLButtonElement>("[data-pet-body]")?.focus({ preventScroll: true });
+    // Hand focus back to the pet for keyboard users; a mouse user shouldn't be left with a ring.
+    let keyboard = false;
+    const key = () => { keyboard = true; }, pointer = () => { keyboard = false; };
+    window.addEventListener("keydown", key, true);
+    window.addEventListener("pointerdown", pointer, true);
+    return () => {
+      window.removeEventListener("keydown", key, true);
+      window.removeEventListener("pointerdown", pointer, true);
+      const body = document.querySelector<HTMLButtonElement>("[data-pet-body]");
+      if (keyboard) body?.focus({ preventScroll: true }); else body?.blur();
+    };
   }, [open]);
   if (!open) return null;
   const actions = [
     { action: resting ? "endbreak" : "break", Icon: resting ? PiPlay : PiPause, label: resting ? "End break" : "Take a break", short: resting ? "End break" : "Break" },
     { action: "focus", Icon: PiTarget, label: "Focus session", short: "Focus" },
+    { action: "ugh", Icon: PiSmileyAngry, label: "Do-Nothing Expansion: get mad at this", short: "Expand" },
     { action: "pet-play", Icon: PiSoccerBall, label: "Play with pet", short: "Play" },
     { action: "pet-treat", Icon: PiCookie, label: "Give a treat", short: "Treat" },
     { action: "garden", Icon: PiPlant, label: "Garden and outfits", short: "Garden" },

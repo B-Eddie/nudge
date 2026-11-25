@@ -55,6 +55,8 @@ export interface Settings {
   site_rules?: SiteRule[];
   /** Hop onto the window in use. */
   sit_on_windows?: boolean;
+  /** A cross pet throws things at the window in front. */
+  throw_things?: boolean;
 }
 
 export type Chattiness = "quiet" | "normal" | "chatty";
@@ -82,6 +84,7 @@ export const PREFERENCE_DEFAULTS = {
   window_titles: false,
   site_rules: [] as SiteRule[],
   sit_on_windows: false,
+  throw_things: true,
 };
 export type Preferences = typeof PREFERENCE_DEFAULTS & Pick<Settings, "reminder_interval_mins" | "reminder_snooze_mins">;
 
