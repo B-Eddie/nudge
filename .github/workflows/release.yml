@@ -32,7 +32,7 @@ jobs:
           cat SHA256SUMS.txt
       - name: Release notes from CHANGELOG.md
         run: node scripts/release-notes.mjs ${{ github.ref_name }} > release-notes.md
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           name: Nudge ${{ github.ref_name }}
           body_path: release-notes.md
