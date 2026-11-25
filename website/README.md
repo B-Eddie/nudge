@@ -26,7 +26,7 @@ After deployment, verify `/`, `/privacy.html`, `/robots.txt`, `/sitemap.xml`, `/
 
 ## Content and privacy
 
-- Product facts come from the repository README and app source. Current release: `v0.4.0`, with a universal Apple silicon and Intel DMG. The verified release installer is 24,354,776 bytes; avoid the old “~10 MB” claim.
+- Product facts come from the repository README and app source. Current release: `v0.5.0`, with a universal Apple silicon and Intel DMG. The verified release installer is 7,511,594 bytes.
 - Nudge has four companions: crab, panda, tuxedo cat, and capybara. It reads the active app/category, input idle time, pointer state, and window geometry; summaries and settings are saved locally.
 - `src-tauri/src/activity.rs` stores activity data in `activity.json`; `src-tauri/src/settings.rs` stores preferences, app-category metadata, and pending notes in `settings.json`. `src/App.tsx` retains up to 31 daily activity records. `src-tauri/src/pet_desktop.rs` uses window bounds without screenshots.
 - Keep the privacy page accurate when adding browser storage, analytics, external resources, accounts, or new desktop data handling. The current site uses local assets and has no analytics scripts or advertising trackers. Vercel still handles normal request metadata as the host.
