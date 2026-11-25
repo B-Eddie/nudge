@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.5.0 (unreleased)
+## 0.5.0 (unsigned beta)
 
 ### Pets you can tell the time by
 - **No numbers needed.** The panda eats down a bamboo stalk, the capybara drops yuzu from a tower, the cat's pupils open to full moons, and the crab's claw gets out of hand. A break puts it right, and you can watch it happen.
