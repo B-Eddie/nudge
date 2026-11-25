@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.0 (unsigned beta)
 
 ### Meet the cast
 - **Four characters, not four species.** Mika (the strongest, allegedly), Goro (monk of the second lunch), Yuzu (grandmaster, retired) and Hasami (everyone's self-appointed rival). Each has their own voice for nudges, snoozes, rests and passing thoughts, and their own signature gear: a sleep mask, prayer beads, a bath towel and a rival's headband.

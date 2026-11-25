@@ -13,4 +13,9 @@ if (tag && tag !== `v${pkg.version}`) {
   console.error(`Tag ${tag} does not match app version v${pkg.version}`);
   process.exit(1);
 }
+const changelog = readFileSync(new URL("../CHANGELOG.md", import.meta.url), "utf8");
+if (!new RegExp(`^## ${pkg.version.replace(/\./g, "\\.")}\\b`, "m").test(changelog)) {
+  console.error(`CHANGELOG.md needs a "## ${pkg.version}" section for the release notes`);
+  process.exit(1);
+}
 console.log(`Release versions agree: v${pkg.version}`);

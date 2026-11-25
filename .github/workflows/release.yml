@@ -1,6 +1,7 @@
 name: Release
-# Pushing a tag like v0.3.0 builds a universal (Apple silicon + Intel) unsigned DMG
-# and attaches it, with checksums, to a GitHub Release.
+# Pushing a tag like v0.6.0 builds a universal (Apple silicon + Intel) unsigned DMG and
+# attaches it, with checksums, to a GitHub Release whose notes are that version's
+# CHANGELOG.md section. Bump package.json, tauri.conf.json and Cargo.toml first.
 on:
   push:
     tags: ["v*"]
@@ -29,11 +30,13 @@ jobs:
           cd src-tauri/target/universal-apple-darwin/release/bundle/dmg
           shasum -a 256 *.dmg > SHA256SUMS.txt
           cat SHA256SUMS.txt
+      - name: Release notes from CHANGELOG.md
+        run: node scripts/release-notes.mjs ${{ github.ref_name }} > release-notes.md
       - uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
-          body: |
-            **Unsigned beta.** This build is not signed or notarized by Apple, so macOS will warn the first time you open it. Open nudge from Applications, then go to System Settings > Privacy & Security and choose **Open Anyway** for nudge. Compare the download with `SHA256SUMS.txt`. Universal build for Apple silicon and Intel; only the Apple silicon slice has been run in automated tests.
+          name: Nudge ${{ github.ref_name }}
+          body_path: release-notes.md
+          make_latest: true
           files: |
             src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
             src-tauri/target/universal-apple-darwin/release/bundle/dmg/SHA256SUMS.txt
